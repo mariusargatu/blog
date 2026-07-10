@@ -71,10 +71,10 @@ import CacheKeyIsolation from '../../../components/article/CacheKeyIsolation.ast
 import IdentitySource from '../../../components/article/IdentitySource.astro'
 
 <Callout variant="info" title="tl;dr">
-Every article in this series tests the same system, so it is worth drawing it once, with care. Atlas is an authenticated support agent for a broadband provider, built on LangGraph and MCP. It answers plan and policy questions from help documents, it reads the account of the customer who is signed in, and it makes changes to that account. This page is the map. It names every part by how it fails in an LLM application and what that forces you to test, not by how it is wired, and it sets the four invariants the rest of the series depends on. Read it once, then keep it open.
+Every article in this series tests the same system, so it is worth drawing it once, with care. Atlas is an authenticated support agent for a broadband provider, built on LangGraph and MCP. It answers plan and policy questions from help documents, it reads the account of the customer who is signed in, and it makes changes to that account. This page is the map. It names every part by how it fails in an LLM application and what that forces you to test, not by how it is wired, and it sets the four invariants the rest of the series depends on. The same lesson the first article opened with runs underneath: nearly every way this system can break is a classical testing problem the AI era forgot, and the map below is an inventory of them. Read it once, then keep it open.
 </Callout>
 
-## Two conversations
+## The same agent, right once and wrong once
 
 The same agent, fluent and grounded in a real document both times, can be right on one turn and wrong on the next, and nothing in the pipeline notices the difference. Two conversations show how.
 
@@ -129,7 +129,7 @@ The documents are also an attack surface. A help article, or worse, a document a
 
 <GroundedVsTrue />
 
-**Account and catalog, the oracle.** Two MCP servers, read only, that together hold the structured truth every claim is checked against. The catalog server has the plans, prices, speeds, caps, and terms, what the provider sells; it is also where a price or an eligibility decision is computed in code rather than left to the model, a thread a later article pulls on hard. The account server has this customer's reality: the plan they are actually on, usage, bill, equipment, tickets. This is the oracle in the testing sense, the source of ground truth a test consults to decide whether an answer was correct. Daniel's contract was knowable; it was sitting in the account server the whole time. Two risks define the surface.
+**Account and catalog, the oracle.** Two MCP servers, read only, that together hold the structured truth every claim is checked against. The catalog server has the plans, prices, speeds, caps, and terms, what the provider sells; it is also where a price or an eligibility decision is computed in code rather than left to the model, a thread a later article pulls on hard. The account server has this customer's reality: the plan they are actually on, usage, bill, equipment, tickets. This is the oracle in the testing sense, the source of ground truth a test consults to decide whether an answer was correct, the same word the first article promised would come back. There it was a policy PDF. Here it is a server. Daniel's contract was knowable; it was sitting in the account server the whole time. Two risks define the surface.
 
 Scope: every read must be bound to this customer and reach no other, and the `customer_id` that binds it must come from the session context, never from a field the model filled in. The protocol is on your side here. An MCP server is an OAuth 2.1 resource server; the identity arrives in the bearer token on the connection, out of band of any tool schema, and the June 2025 specification explicitly forbids a server from passing that token through to upstream APIs, precisely to close the confused deputy hole ([Model Context Protocol, *Authorization (2025-06-18)*](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization); [Auth0](https://auth0.com/blog/mcp-specs-update-all-about-auth/)). Get this wrong and you get the Asana incident: in June 2025 a flaw in Asana's MCP caching layer let one organization's AI request receive another organization's cached result, project names, financials, M&A notes, for roughly a thousand customers ([Adversa AI](https://adversa.ai/blog/asana-ai-incident-comprehensive-lessons-learned-for-enterprise-security-and-ciso/)). OWASP files scope failures under LLM02 (sensitive information disclosure) and ASI03 (identity and privilege abuse). Freshness is the second risk: the answer must reflect current state, not yesterday's cached copy. When a later article checks whether an answer is true, this is what it checks against, which is why the oracle is a core part of the system and not a database footnote.
 
@@ -179,7 +179,7 @@ The list is a vocabulary, not a test plan. Each entry becomes one or more concre
 Each part is named by its failure, not its wiring, because the failure is what you test. The retrieval surface is graded on grounded versus true, the oracle on scope and freshness, the write surface on authorization, confirmation, idempotency, and fidelity. The budget follows the consequence, and the consequence pools on the write surface.
 </Callout>
 
-## One turn across every part
+## Follow one turn across every part
 
 The map is easier to trust once you watch a single turn cross it. Take Sarah's upgrade, the success from the top of the page that took forty seconds, and follow it through every part. Nothing here is improvised; each arrow is a node, an edge, or a guard verdict that the trace will later record.
 
@@ -226,6 +226,8 @@ This article does not live in one corner of the Atlas map. It is the map. Every 
 
 Atlas is one agent. A LangGraph graph for the logic, four MCP servers for knowledge, the account and catalog reads, and the actions, a guard around both, and a harness that makes the whole thing safe to break a thousand times before a customer sees it. Every part on this page is backed by a runnable reference system, not a thought experiment: [clone it](https://github.com/mariusargatu/Atlas), run `task test`, and watch the grounded but false answer get held at the render guard, checked against the account oracle, the moment it would have shipped. That is the system under test. The rest of the series is the work of testing it without fooling yourself, and the first way you fool yourself is forgetting that grounded was never the same as true.
 
+Next in the series: [The Harness Is the Product](/blog/the-harness/) builds the test rig the whole map stands on, the part you own when the model is the part you rent.
+
 ## Frequently asked questions
 
 ### What does "grounded is not the same as true" mean for a support agent?
@@ -242,7 +244,7 @@ Every read against the account and catalog servers is scoped to a `customer_id` 
 
 ### Where does the customer identity come from, and why does it matter?
 
-From the authenticated session, never from the model and never from the chat message. It rides out of band of every tool schema — in the OAuth 2.1 bearer token on the HTTP transport in dev and production, and in the call context on the transport the harness runs in the same process in tests. The moment whose account this is becomes something the model decides, you have handed an attacker a steering wheel, which is the confused deputy failure behind the Asana cross tenant incident.
+From the authenticated session, never from the model and never from the chat message. It rides out of band of every tool schema, in the OAuth 2.1 bearer token on the HTTP transport in dev and production, and in the call context on the transport the harness runs in the same process in tests. The moment whose account this is becomes something the model decides, you have handed an attacker a steering wheel, which is the confused deputy failure behind the Asana cross tenant incident.
 
 ### Why fake every external system in CI?
 

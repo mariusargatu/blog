@@ -1,0 +1,193 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+
+// The eval harness in one figure, replacing four code snippets. Three things, stacked:
+//   1. The three roles kept apart: planner designs, generator (the graph) runs, evaluator grades.
+//      The separation is the control: an agent that plans, does, and grades its own work is a student
+//      marking their own exam, and scores it predictably well.
+//   2. The evaluator IS a grader stack: cheapest-first, short-circuit at the first hard fail, so an
+//      expensive judge never runs once a rule already failed the run.
+//   3. The runner confronts stochasticity head-on: repeat each case k times, report a RATE not a
+//      verdict. On REPLAY the rate is 0/1 (it proves the wiring); on LIVE it is a real fraction, and
+//      FLAKY is the coin-flip a single run would hide. Static, top-down.
+
+const roles = [
+  { key: 'planner', sub: 'designs the task', icon: 'material-symbols:draft-outline' },
+  { key: 'generator', sub: 'the Atlas graph runs it', icon: 'material-symbols:play-circle-outline' },
+  { key: 'evaluator', sub: 'the grader stack scores it', icon: 'material-symbols:rule', accent: true },
+]
+
+const stack = [
+  { name: 'predicate', cost: 'cheapest', icon: 'material-symbols:function' },
+  { name: 'oracle', cost: 'derives truth', icon: 'material-symbols:balance' },
+  { name: 'judge', cost: 'most expensive', icon: 'material-symbols:gavel' },
+]
+
+const verdicts = [
+  { label: 'PASS', sub: 'every trial held', tone: 'safe' as const },
+  { label: 'FLAKY', sub: 'some did, some did not', tone: 'warn' as const },
+  { label: 'FAIL', sub: 'every trial broke', tone: 'alert' as const },
+]
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-eh>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:experiment-outline" label="The eval harness · three roles, a rate not a verdict" />
+    <span class="eh-note">the same runner serves REPLAY and LIVE; only the gateway mode differs</span>
+  </div>
+
+  <div class="p-5 flex flex-col gap-0">
+    {/* 1. three roles, kept apart */}
+    <span class="eh-cap">1 · three roles, kept apart</span>
+    <div class="eh-roles">
+      {
+        roles.map((r, i) => (
+          <>
+            <div class:list={['eh-role', r.accent && 'eh-role-accent']}>
+              <span class="eh-role-h"><Icon name={r.icon} class="text-[14px] text-primary" />{r.key}</span>
+              <span class="eh-role-sub">{r.sub}</span>
+            </div>
+            {i < roles.length - 1 && <Icon name="material-symbols:arrow-right-alt" class="eh-flow text-[18px]" />}
+          </>
+        ))
+      }
+    </div>
+    <span class="eh-aside"><Icon name="material-symbols:info-outline" class="text-[12px]" />separate by design: a student grading their own exam scores it well (self-preference bias)</span>
+
+    {/* 2. the grader stack */}
+    <span class="eh-cap">2 · the evaluator is a grader stack: cheapest-first, stop at the first hard fail</span>
+    <div class="eh-stack">
+      {
+        stack.map((g, i) => (
+          <>
+            <div class="eh-grader">
+              <span class="eh-grader-h"><Icon name={g.icon} class="text-[13px] text-primary" />{g.name}</span>
+              <span class="eh-grader-c">{g.cost}</span>
+            </div>
+            {i < stack.length - 1 && <span class="eh-chain" aria-hidden="true">→</span>}
+          </>
+        ))
+      }
+      <span class="eh-shortcircuit"><Icon name="material-symbols:block" class="text-[13px]" />short-circuit</span>
+    </div>
+
+    {/* 3. the runner: k trials -> rate */}
+    <span class="eh-cap">3 · the runner repeats each case k times, and reports a rate</span>
+    <div class="eh-runner">
+      <div class="eh-trials" aria-hidden="true">
+        {Array.from({ length: 5 }).map(() => <span class="eh-trial" />)}
+        <span class="eh-k">k trials</span>
+      </div>
+      <Icon name="material-symbols:arrow-right-alt" class="eh-flow text-[18px]" />
+      <div class="eh-rate">
+        <span class="eh-rate-h">RATE</span>
+        <span class="eh-rate-modes">
+          <span><b>REPLAY</b> → 0 / 1 · proves the wiring</span>
+          <span><b>LIVE</b> → a real fraction</span>
+        </span>
+      </div>
+    </div>
+    <div class="eh-verdicts">
+      {
+        verdicts.map((v) => (
+          <span class:list={['eh-verdict', `eh-v-${v.tone}`]}>
+            <b>{v.label}</b>{v.sub}
+          </span>
+        ))
+      }
+    </div>
+
+    <p class="eh-legend">
+      Seven out of ten is not ten out of ten, and one pass cannot tell those two agents apart. A case that
+      passes seven times in ten is a known coin-flip you can choose to fix or accept; the same case run once,
+      and passing, is a landmine you have labelled safe. Reading the <b>rate</b> instead of the verdict is the
+      whole reason the eval lane is its own machine.
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-eh] .eh-note { font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-muted); }
+  [data-eh] .eh-cap {
+    display: block; font-family: var(--font-mono); font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--color-text-muted); margin: 0 0 0.5rem;
+  }
+  [data-eh] .eh-cap:not(:first-of-type) { margin-top: 1.1rem; }
+
+  /* 1. roles */
+  [data-eh] .eh-roles { display: flex; align-items: stretch; gap: 0.5rem; }
+  @media (max-width: 640px) { [data-eh] .eh-roles { flex-direction: column; } }
+  [data-eh] .eh-role {
+    flex: 1; display: flex; flex-direction: column; gap: 0.15rem;
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.6rem 0.8rem;
+  }
+  [data-eh] .eh-role-accent {
+    border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-eh] .eh-role-h { display: inline-flex; align-items: center; gap: 0.35rem; font-family: var(--font-mono); font-size: 0.76rem; color: var(--color-text-primary); }
+  [data-eh] .eh-role-sub { font-family: var(--font-mono); font-size: 0.62rem; color: var(--color-text-muted); }
+  [data-eh] .eh-flow { color: var(--color-text-muted); align-self: center; flex-shrink: 0; }
+  @media (max-width: 640px) { [data-eh] .eh-flow { transform: rotate(90deg); } }
+  [data-eh] .eh-aside {
+    display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.5rem;
+    font-family: var(--font-mono); font-size: 0.62rem; color: var(--color-text-muted);
+  }
+
+  /* 2. grader stack */
+  [data-eh] .eh-stack { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+  [data-eh] .eh-grader {
+    display: flex; flex-direction: column; gap: 0.1rem;
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.45rem 0.7rem;
+  }
+  [data-eh] .eh-grader-h { display: inline-flex; align-items: center; gap: 0.3rem; font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-text-primary); }
+  [data-eh] .eh-grader-c { font-family: var(--font-mono); font-size: 0.58rem; color: var(--color-text-muted); }
+  [data-eh] .eh-chain { color: var(--color-text-muted); font-family: var(--font-mono); }
+  [data-eh] .eh-shortcircuit {
+    display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto;
+    font-family: var(--font-mono); font-size: 0.62rem; color: var(--color-text-muted);
+    border: 1px dashed var(--color-border-dark); border-radius: 999px; padding: 0.15rem 0.55rem;
+  }
+  @media (max-width: 640px) { [data-eh] .eh-shortcircuit { margin-left: 0; } }
+
+  /* 3. runner */
+  [data-eh] .eh-runner { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+  [data-eh] .eh-trials {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.5rem 0.7rem;
+  }
+  [data-eh] .eh-trial { width: 0.55rem; height: 1.1rem; border-radius: 1px; background: color-mix(in srgb, var(--color-primary) 30%, transparent); }
+  [data-eh] .eh-k { font-family: var(--font-mono); font-size: 0.64rem; color: var(--color-text-muted); margin-left: 0.2rem; }
+  [data-eh] .eh-rate {
+    flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.25rem;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+    border-radius: var(--radius); padding: 0.5rem 0.8rem;
+  }
+  [data-eh] .eh-rate-h { font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.06em; color: var(--color-primary); }
+  [data-eh] .eh-rate-modes { display: flex; flex-direction: column; gap: 0.1rem; font-family: var(--font-mono); font-size: 0.62rem; color: var(--color-text-muted); }
+  [data-eh] .eh-rate-modes b { color: var(--color-text-primary); font-weight: 500; }
+
+  [data-eh] .eh-verdicts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+  [data-eh] .eh-verdict {
+    display: inline-flex; align-items: baseline; gap: 0.4rem;
+    font-family: var(--font-mono); font-size: 0.62rem; color: var(--color-text-muted);
+    border-radius: var(--radius); padding: 0.25rem 0.6rem; border: 1px solid var(--color-border-dark);
+  }
+  [data-eh] .eh-verdict b { font-size: 0.66rem; letter-spacing: 0.04em; }
+  [data-eh] .eh-v-safe { border-color: color-mix(in srgb, var(--color-primary) 40%, transparent); }
+  [data-eh] .eh-v-safe b { color: var(--color-primary); }
+  [data-eh] .eh-v-warn { border-color: color-mix(in srgb, var(--color-tertiary, var(--color-text-primary)) 35%, transparent); }
+  [data-eh] .eh-v-warn b { color: var(--color-text-primary); }
+  [data-eh] .eh-v-alert { border-color: color-mix(in srgb, var(--color-error) 40%, transparent); }
+  [data-eh] .eh-v-alert b { color: var(--color-error); }
+
+  [data-eh] .eh-legend {
+    margin: 1rem 0 0; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.6; color: var(--color-text-muted);
+  }
+  [data-eh] .eh-legend b { color: var(--color-text-primary); font-weight: 500; }
+</style>

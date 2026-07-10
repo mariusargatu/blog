@@ -1,0 +1,209 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+
+// The harness map, drawn so a non-LLM engineer can read the repo in one look. The point is the
+// TWO MACHINES and the ONE-WAY SEAM between them, expressed as the actual folders:
+//   the rig (determinism · replay · tracing) makes the agent reproducible + observable;
+//   evals grades it. The dependency points one way: evals drives the agent through its ports,
+//   the agent never imports evals, and that ban is enforced by test_import_lint. Recording and
+//   cassettes are the supporting data flow. Static, top-down, no state.
+
+const rig = [
+  {
+    icon: 'material-symbols:lock-clock-outline',
+    name: 'determinism/',
+    job: 'pin the clock, RNG, ids, span order',
+    sub: '+ the canonical digest everything keys on',
+  },
+  {
+    icon: 'material-symbols:cable',
+    name: 'replay/',
+    job: 'record the model once, replay forever',
+    sub: 'cassette only · zero egress · miss = hard fail',
+  },
+  {
+    icon: 'material-symbols:account-tree-outline',
+    name: 'tracing/',
+    job: 'the span tree each turn emits',
+    sub: 'the thing the graders read',
+  },
+]
+
+const lanes = ['stats', 'evalkit', 'drift', 'inference_oracle']
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-hmap>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:account-tree-outline" label="Harness map · two machines, one seam" />
+    <span class="hm-note">read it top to bottom: the rig makes the agent reproducible, evals grades it</span>
+  </div>
+
+  <div class="p-5 flex flex-col gap-0">
+    {/* the rig */}
+    <div class="hm-band">
+      <span class="hm-band-h"><Icon name="material-symbols:precision-manufacturing-outline" class="text-[14px] text-primary" />The rig · make the agent reproducible + observable</span>
+      <div class="hm-pillars">
+        {
+          rig.map((p) => (
+            <div class="hm-pillar">
+              <span class="hm-pillar-h">
+                <Icon name={p.icon} class="text-[14px] text-primary" />
+                {p.name}
+              </span>
+              <span class="hm-pillar-job">{p.job}</span>
+              <span class="hm-pillar-sub">{p.sub}</span>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="hm-arrow">
+      <Icon name="material-symbols:arrow-downward" class="text-[15px]" />
+      <span>pins the agent at its ports (the model, the clock, the tools, the checkpointer)</span>
+    </div>
+
+    {/* the agent under test */}
+    <div class="hm-agent">
+      <span class="hm-agent-h"><Icon name="material-symbols:hub-outline" class="text-[15px]" />backend/atlas · the agent</span>
+      <span class="hm-agent-sub">LangGraph StateGraph + MCP tools: the product, ships to production</span>
+    </div>
+
+    {/* the one-way seam */}
+    <div class="hm-seam">
+      <span class="hm-seam-leg hm-seam-ok">
+        <Icon name="material-symbols:arrow-downward" class="text-[14px]" />
+        evals drives the agent through its ports
+        <b>one way</b>
+      </span>
+      <span class="hm-seam-leg hm-seam-no">
+        <Icon name="material-symbols:block" class="text-[14px]" />
+        the agent never imports evals
+        <b>enforced · test_import_lint</b>
+      </span>
+    </div>
+
+    {/* evals */}
+    <div class="hm-band hm-band-evals">
+      <span class="hm-band-h"><Icon name="material-symbols:experiment-outline" class="text-[14px] text-primary" />evals/ · grade the agent, the second machine</span>
+      <div class="hm-lanes">
+        {lanes.map((l) => <span class="hm-lane">{l}</span>)}
+      </div>
+    </div>
+
+    {/* supporting data flow */}
+    <div class="hm-rail">
+      <span class="hm-rail-item">
+        <Icon name="material-symbols:radio-button-checked-outline" class="text-[13px]" />
+        recording/ <em>capture vs a live model · needs keys · off the PR lane</em>
+      </span>
+      <Icon name="material-symbols:arrow-right-alt" class="hm-rail-arr text-[15px]" />
+      <span class="hm-rail-item">
+        <Icon name="material-symbols:data-array" class="text-[13px]" />
+        cassettes/ <em>committed recordings the lanes replay · data, not code</em>
+      </span>
+    </div>
+
+    <p class="hm-legend">
+      Two machines, one seam. The <b>rig</b> pins the one nondeterministic step and records the trace;
+      <b>evals</b> reads the agent through its ports and scores it. The arrow runs one way, so a green
+      suite is never the test rig grading itself. That is the line the whole series rests on, and here it
+      is a folder boundary a build will fail to cross.
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-hmap] .hm-note { font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-muted); }
+  [data-hmap] .hm-band {
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.85rem 1rem;
+  }
+  [data-hmap] .hm-band-evals {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  }
+  [data-hmap] .hm-band-h {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-text-primary); font-weight: 500;
+  }
+  [data-hmap] .hm-pillars {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; margin-top: 0.7rem;
+  }
+  @media (max-width: 640px) { [data-hmap] .hm-pillars { grid-template-columns: 1fr; } }
+  [data-hmap] .hm-pillar {
+    display: flex; flex-direction: column; gap: 0.2rem;
+    border: 1px solid var(--color-border-dark); background: var(--color-surface);
+    border-radius: var(--radius); padding: 0.55rem 0.7rem;
+  }
+  [data-hmap] .hm-pillar-h {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    font-family: var(--font-mono); font-size: 0.74rem; color: var(--color-text-primary);
+  }
+  [data-hmap] .hm-pillar-job { font-size: 0.74rem; color: var(--color-text-primary); line-height: 1.35; }
+  [data-hmap] .hm-pillar-sub { font-family: var(--font-mono); font-size: 0.62rem; color: var(--color-text-muted); line-height: 1.4; }
+
+  [data-hmap] .hm-arrow {
+    display: flex; align-items: center; justify-content: center; gap: 0.45rem; padding: 0.55rem 0;
+    font-family: var(--font-mono); font-size: 0.66rem; color: var(--color-text-muted); text-align: center;
+  }
+
+  [data-hmap] .hm-agent {
+    display: flex; flex-direction: column; gap: 0.15rem;
+    border: 1px solid var(--color-text-primary); background: var(--color-surface-container-high);
+    border-radius: var(--radius); padding: 0.7rem 1rem;
+  }
+  [data-hmap] .hm-agent-h {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.86rem; font-weight: 600; color: var(--color-text-primary);
+  }
+  [data-hmap] .hm-agent-sub { font-family: var(--font-mono); font-size: 0.66rem; color: var(--color-text-muted); }
+
+  [data-hmap] .hm-seam {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; padding: 0.7rem 0;
+  }
+  @media (max-width: 640px) { [data-hmap] .hm-seam { grid-template-columns: 1fr; } }
+  [data-hmap] .hm-seam-leg {
+    display: inline-flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
+    font-family: var(--font-mono); font-size: 0.66rem; line-height: 1.4;
+    border-radius: var(--radius); padding: 0.45rem 0.7rem;
+  }
+  [data-hmap] .hm-seam-leg b { font-weight: 500; }
+  [data-hmap] .hm-seam-ok {
+    color: var(--color-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-hmap] .hm-seam-ok b { color: var(--color-primary); }
+  [data-hmap] .hm-seam-no {
+    color: var(--color-error);
+    border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
+    background: color-mix(in srgb, var(--color-error) 6%, transparent);
+  }
+  [data-hmap] .hm-seam-no b { color: var(--color-error); }
+
+  [data-hmap] .hm-lanes { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+  [data-hmap] .hm-lane {
+    font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    background: var(--color-surface); border-radius: 999px; padding: 0.18rem 0.6rem;
+  }
+
+  [data-hmap] .hm-rail {
+    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.85rem;
+    border-top: 1px dashed var(--color-border-dark); padding-top: 0.75rem;
+  }
+  [data-hmap] .hm-rail-item {
+    display: inline-flex; align-items: center; gap: 0.4rem; flex: 1; min-width: 220px;
+    font-family: var(--font-mono); font-size: 0.66rem; color: var(--color-text-primary);
+  }
+  [data-hmap] .hm-rail-item em { font-style: normal; color: var(--color-text-muted); font-size: 0.62rem; }
+  [data-hmap] .hm-rail-arr { color: var(--color-text-muted); }
+  @media (max-width: 640px) { [data-hmap] .hm-rail-arr { transform: rotate(90deg); } }
+
+  [data-hmap] .hm-legend {
+    margin: 0.9rem 0 0; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.6; color: var(--color-text-muted);
+  }
+  [data-hmap] .hm-legend b { color: var(--color-text-primary); font-weight: 500; }
+</style>

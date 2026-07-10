@@ -56,7 +56,7 @@ import CapabilityRanker from '../../../components/article/CapabilityRanker.astro
 import Foldable from '../../../components/article/Foldable.astro'
 
 <Callout variant="info" title="tl;dr">
-Evals score consistency with retrieved context, not truth. Five classical testing patterns, re-pointed at LLM failure modes, catch what the dashboard cannot: an independent source of truth, output validation, adversarial regression, trajectory tests, and reading real production transcripts.
+Evals score consistency with retrieved context, not truth, and that gap is what Air Canada lost in court. Here is the uncomfortable part, and the thread this whole series pulls: testing an LLM system is mostly classical software testing the industry forgot it had already solved. Five disciplines, re-pointed at LLM failure modes, catch what the eval dashboard cannot: an independent source of truth, output validation, adversarial regression, trajectory tests, and reading real production transcripts. Learn to apply them and a green suite starts meaning the system is right, not just fluent.
 </Callout>
 
 ## Air Canada's $812 Lesson
@@ -93,9 +93,9 @@ The bug lived in the gap between "consistent with retrieved context" and "consis
 
 <RagGap />
 
-The discipline that does see it is older than most engineers' careers. You have an independent source of truth, separate from the system you're testing, and you check the system's output against it. The independent source answers the question "what should the system have said here?" In Air Canada's case, that independent source is the canonical bereavement policy document. The system under test is the chatbot. The missing check is whether the chatbot's answer, on every customer-facing policy question, agrees with the canonical policy, independent of what the retriever happened to surface that turn.
+The discipline that does see it is older than most engineers' careers, and it has a name testers have used for decades: the oracle. An oracle is an independent source of truth, separate from the system you're testing, that answers the question "what should the system have said here?" In Air Canada's case, the oracle is the canonical bereavement policy document. The system under test is the chatbot. The missing check is whether the chatbot's answer, on every customer-facing policy question, agrees with that oracle, independent of what the retriever happened to surface that turn. Hold on to the word. It is the hero of this whole series: checks have no oracle, tests have one, and every system worth trusting is built around one.
 
-This is the same shape as a classical consistency bug: the price on the product page disagreeing with the price in the cart. Neither value is wrong in isolation. The bug is the disagreement between two artifacts that are both supposed to represent the same underlying truth. [An SDET who has shipped multi-currency e-commerce](/about) catches this in the first sprint of any new contract. The pattern is thirty years old. The chatbot context made the industry forget it applies.
+This is the same shape as a classical consistency bug: the price on the product page disagreeing with the price in the cart. Neither value is wrong in isolation. The bug is the disagreement between two artifacts that are both supposed to represent the same underlying truth. [An SDET who has shipped multi-currency e-commerce](/about) catches this in the first sprint of any new contract. The pattern is thirty years old. The chatbot context made the industry forget it applies, and that forgetting is the subject of everything that follows: almost every discipline you need to test an LLM system already exists, and evals are merely the half the industry rebuilt well.
 
 ## Three Cases, Three Failures
 
@@ -129,7 +129,7 @@ The mechanism is instructive. The researchers crafted a prompt that asked Lena a
 
 The Cybernews team summarized the lesson in one line: people-pleasing is still the issue that haunts large language models. The model follows the instructions in the prompt because that is what it does. The interface rendering the model's output trusts the model because that is what it does. Without a validator that sits between the LLM and the rendering layer, treats the model's output as untrusted, and sanitizes anything that could execute, the chatbot becomes an arbitrary code execution endpoint that the company is paying OpenAI to host.
 
-### Other recent incidents
+### The same gap, three more times
 
 The pattern shows up beyond these three. In April 2026, an [AI coding agent at PocketOS](https://www.tomshardware.com/tech-industry/artificial-intelligence/claude-powered-ai-coding-agent-deletes-entire-company-database-in-9-seconds-backups-zapped-after-cursor-tool-powered-by-anthropics-claude-goes-rogue), a car rental SaaS company, deleted the production database and all volume-level backups in nine seconds, leaving customers without records of their bookings when they arrived at rental counters that Saturday morning. The most recent recoverable backup was three months old. In December 2025, [Amazon's Kiro AI coding assistant](https://incidentdatabase.ai/cite/1442/), given a minor task in AWS Cost Explorer, decided the optimal solution was to delete the production environment and recreate it from scratch, producing a thirteen-hour outage in one of the China regions. New York City's [MyCity chatbot](https://themarkup.org/artificial-intelligence/2024/03/29/nycs-ai-chatbot-tells-businesses-to-break-the-law), launched on real source documents about city regulations, advised small business owners that they could pocket workers' tips and refuse Section 8 tenants, both illegal under New York law.
 
@@ -175,11 +175,11 @@ These three limits are not flaws in any particular eval framework. They are prop
 
 What follows are five patterns to add. Each is well-understood in classical software testing. Each requires re-pointing at LLM-specific failure modes. None requires new research or new tooling. All are implementable with what you already have.
 
-1. **Independent source-of-truth testing** — check the system's answer against a canonical artifact outside the LLM, not against the chunks it retrieved.
-2. **Output validation before delivery** — treat the model's output as untrusted and verify it after generation, before it reaches the customer.
-3. **Adversarial regression suite** — maintain every known attack as a gated test that blocks deploy on regression.
-4. **Multi-turn trajectory tests** — assert on the path a conversation takes, not just on single responses.
-5. **Reading real production transcripts** — read what actually happened, to generate the questions the other four patterns should be asking.
+1. **Independent source-of-truth testing**: check the system's answer against a canonical artifact outside the LLM, not against the chunks it retrieved.
+2. **Output validation before delivery**: treat the model's output as untrusted and verify it after generation, before it reaches the customer.
+3. **Adversarial regression suite**: maintain every known attack as a gated test that blocks deploy on regression.
+4. **Multi-turn trajectory tests**: assert on the path a conversation takes, not just on single responses.
+5. **Reading real production transcripts**: read what actually happened, to generate the questions the other four patterns should be asking.
 
 To make the patterns concrete, examples throughout use a single capability you can imagine in any LLM customer support agent: answering customer questions about a refund policy. The capability has a canonical policy document, retrieval over that document, and an LLM that generates the response. The patterns transfer to any other capability your system has.
 
@@ -321,7 +321,7 @@ The third is Pattern 2, validating output before it ships, on every capability w
 
 Patterns 3 and 4, adversarial regression and trajectory testing, are not optional but they are second order. Adversarial regression is necessary, well-understood, and largely a question of discipline rather than design: build the suite, gate it to deploy, treat regressions as non-negotiable. Trajectory testing is necessary, less well-tooled, and requires more sustained engineering investment. Both pay off, but neither is where a team starting from a typical eval-only setup should put its first quarter of investment.
 
-The architectural lever is a continuous, not a discrete, choice. It is exercised every time the team decides where the LLM sits in a new capability, what tools it can call, what verification surrounds its output, and which paths it is allowed into at all. Teams that take it seriously end up with systems where the high-consequence paths are mostly deterministic, the LLM is a presentation layer over canonical sources, and the testing investment concentrates where the LLM actually has authority. Teams that don't end up with systems where the LLM is in every path and every path needs the maximum testing rigor, which is a budget no team can actually afford.
+The architectural lever sits underneath all five patterns: every decision about where the LLM sits and what it can reach changes how much testing the rest of the system needs. Teams that take it seriously concentrate their test budget where the LLM actually has authority. Teams that don't pay maximum rigor on every path, a budget no team can afford.
 
 The eval suite is still there. It still runs in CI, still scores faithfulness, still grades helpfulness, still catches regressions on known behaviors. None of that goes away. What changes is that the dashboard is one layer in a program, and the layers around it do the testing work the dashboard cannot do.
 
@@ -343,7 +343,7 @@ Build the canonical facts. Run the validators. Read the transcripts. Test the tr
 
 Your evals are checks. The testing job is what surrounds them.
 
-Next in the series: [The System Under Test](/blog/the-system-under-test/) builds the authenticated broadband support agent that the rest of these patterns are tested against, named part by part by how each one breaks.
+Next in the series: [The System Under Test](/blog/the-system-under-test/) builds the authenticated broadband support agent that the rest of these patterns are tested against, named part by part by how each one breaks. Watch for the oracle. In a real system it stops being a policy PDF and becomes a server, the one place the truth actually lives.
 
 ## Frequently Asked Questions
 
@@ -365,16 +365,16 @@ Start by reading real production transcripts (Pattern 5), then build an independ
 
 ## Sources
 
-- *Moffatt v. Air Canada*, 2024 BCCRT 149 — [CanLII](https://www.canlii.org/en/bc/bccrt/doc/2024/2024bccrt149/2024bccrt149.html) (retrieved 2026-06-08)
-- Russinovich, Salem, Eldan, "Great, Now Write an Article About That: The Crescendo Multi-Turn LLM Jailbreak Attack," USENIX Security 2025 — [USENIX](https://www.usenix.org/conference/usenixsecurity25/presentation/russinovich), [arXiv:2404.01833](https://arxiv.org/abs/2404.01833) (retrieved 2026-06-08)
-- "Measuring what Matters: Construct Validity in Large Language Model Benchmarks," NeurIPS 2025 — [arXiv:2511.04703](https://arxiv.org/abs/2511.04703) (retrieved 2026-06-08)
-- Zheng et al., "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena," NeurIPS 2023 — [arXiv:2306.05685](https://arxiv.org/abs/2306.05685) (retrieved 2026-06-08)
-- Panickssery, Bowman, Feng, "LLM Evaluators Recognize and Favor Their Own Generations," NeurIPS 2024 — [arXiv:2404.13076](https://arxiv.org/abs/2404.13076) (retrieved 2026-06-08)
-- Noma Security, "ForcedLeak: AI Agent Risks Exposed in Salesforce Agentforce" — [Noma Security](https://noma.security/blog/forcedleak-agent-risks-exposed-in-salesforce-agentforce/) (retrieved 2026-06-08)
-- Cybernews, "Critical flaws plague Lenovo's chatbot Lena" — [Cybernews](https://cybernews.com/security/lenovo-chatbot-lena-plagued-by-critical-vulnerabilities/) (retrieved 2026-06-08)
-- Adversa AI, "Asana AI Incident: Comprehensive Lessons for CISOs" — [Adversa AI](https://adversa.ai/blog/asana-ai-incident-comprehensive-lessons-learned-for-enterprise-security-and-ciso/) (retrieved 2026-06-08)
-- OWASP, "Top 10 for LLM Applications" — [OWASP GenAI Security Project](https://genai.owasp.org/llm-top-10/) (retrieved 2026-06-08)
-- The Markup, "NYC's AI Chatbot Tells Businesses to Break the Law" — [The Markup](https://themarkup.org/artificial-intelligence/2024/03/29/nycs-ai-chatbot-tells-businesses-to-break-the-law) (retrieved 2026-06-09)
-- "Incident 1442: Kiro AI Coding Tool Implicated in 13-Hour AWS Cost Explorer Outage" — [AI Incident Database](https://incidentdatabase.ai/cite/1442/) (retrieved 2026-06-09)
-- Tom's Hardware, "AI coding agent deletes entire company database in 9 seconds" (PocketOS) — [Tom's Hardware](https://www.tomshardware.com/tech-industry/artificial-intelligence/claude-powered-ai-coding-agent-deletes-entire-company-database-in-9-seconds-backups-zapped-after-cursor-tool-powered-by-anthropics-claude-goes-rogue) (retrieved 2026-06-09)
-- Callison-Burch, Osborne, Koehn, "Re-evaluating the Role of Bleu in Machine Translation Research," EACL 2006 — [ACL Anthology](https://aclanthology.org/E06-1032/) (retrieved 2026-06-12)
+- *Moffatt v. Air Canada*, 2024 BCCRT 149, [CanLII](https://www.canlii.org/en/bc/bccrt/doc/2024/2024bccrt149/2024bccrt149.html) (retrieved 2026-06-08)
+- Russinovich, Salem, Eldan, "Great, Now Write an Article About That: The Crescendo Multi-Turn LLM Jailbreak Attack," USENIX Security 2025, [USENIX](https://www.usenix.org/conference/usenixsecurity25/presentation/russinovich), [arXiv:2404.01833](https://arxiv.org/abs/2404.01833) (retrieved 2026-06-08)
+- "Measuring what Matters: Construct Validity in Large Language Model Benchmarks," NeurIPS 2025, [arXiv:2511.04703](https://arxiv.org/abs/2511.04703) (retrieved 2026-06-08)
+- Zheng et al., "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena," NeurIPS 2023, [arXiv:2306.05685](https://arxiv.org/abs/2306.05685) (retrieved 2026-06-08)
+- Panickssery, Bowman, Feng, "LLM Evaluators Recognize and Favor Their Own Generations," NeurIPS 2024, [arXiv:2404.13076](https://arxiv.org/abs/2404.13076) (retrieved 2026-06-08)
+- Noma Security, "ForcedLeak: AI Agent Risks Exposed in Salesforce Agentforce", [Noma Security](https://noma.security/blog/forcedleak-agent-risks-exposed-in-salesforce-agentforce/) (retrieved 2026-06-08)
+- Cybernews, "Critical flaws plague Lenovo's chatbot Lena", [Cybernews](https://cybernews.com/security/lenovo-chatbot-lena-plagued-by-critical-vulnerabilities/) (retrieved 2026-06-08)
+- Adversa AI, "Asana AI Incident: Comprehensive Lessons for CISOs", [Adversa AI](https://adversa.ai/blog/asana-ai-incident-comprehensive-lessons-learned-for-enterprise-security-and-ciso/) (retrieved 2026-06-08)
+- OWASP, "Top 10 for LLM Applications", [OWASP GenAI Security Project](https://genai.owasp.org/llm-top-10/) (retrieved 2026-06-08)
+- The Markup, "NYC's AI Chatbot Tells Businesses to Break the Law", [The Markup](https://themarkup.org/artificial-intelligence/2024/03/29/nycs-ai-chatbot-tells-businesses-to-break-the-law) (retrieved 2026-06-09)
+- "Incident 1442: Kiro AI Coding Tool Implicated in 13-Hour AWS Cost Explorer Outage", [AI Incident Database](https://incidentdatabase.ai/cite/1442/) (retrieved 2026-06-09)
+- Tom's Hardware, "AI coding agent deletes entire company database in 9 seconds" (PocketOS), [Tom's Hardware](https://www.tomshardware.com/tech-industry/artificial-intelligence/claude-powered-ai-coding-agent-deletes-entire-company-database-in-9-seconds-backups-zapped-after-cursor-tool-powered-by-anthropics-claude-goes-rogue) (retrieved 2026-06-09)
+- Callison-Burch, Osborne, Koehn, "Re-evaluating the Role of Bleu in Machine Translation Research," EACL 2006, [ACL Anthology](https://aclanthology.org/E06-1032/) (retrieved 2026-06-12)

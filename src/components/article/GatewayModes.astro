@@ -1,0 +1,133 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+
+// The model gateway, drawn as the one seam in front of the only nondeterministic node. Implemented
+// as the chat model the LangGraph graph already calls, so nothing upstream knows it is recorded.
+// Three modes, and the mode is the whole story: where the response comes from, whether a socket
+// opens, whether a cassette is written, and which lane it serves. REPLAY is the one that gates a
+// merge; the other two need keys and never run in the PR lane. Static, one node into three modes.
+
+const modes = [
+  {
+    key: 'REPLAY',
+    tone: 'primary' as const,
+    source: 'cassette',
+    network: 'no socket',
+    persist: 'nothing',
+    lane: 'the PR lane · gates the merge',
+    note: 'same input, same decision, every run. A miss is a hard fail, never a live call.',
+  },
+  {
+    key: 'RECORD',
+    tone: 'muted' as const,
+    source: 'live provider',
+    network: 'one call',
+    persist: 'writes the cassette',
+    lane: 'capture once · needs keys',
+    note: 'call the model AND persist, so REPLAY has something to serve. Run deliberately.',
+  },
+  {
+    key: 'LIVE',
+    tone: 'muted' as const,
+    source: 'live provider',
+    network: 'every call',
+    persist: 'nothing',
+    lane: 'the eval lane · nightly',
+    note: 'measure the real model’s variance; a cassette would freeze the thing being measured.',
+  },
+]
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-gw>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:cable" label="The model gateway · one seam, three modes" />
+    <span class="gw-note">the model is the only moving part; the mode decides how you read it</span>
+  </div>
+
+  <div class="p-5 flex flex-col gap-0">
+    <div class="gw-node">
+      <Icon name="material-symbols:cable" class="text-[15px] text-primary" />
+      <span>the chat model the graph already calls<b>GatewayChatModel</b></span>
+    </div>
+
+    <div class="gw-fork" aria-hidden="true"><span></span><span></span><span></span></div>
+
+    <div class="gw-cols">
+      {
+        modes.map((m) => (
+          <div class:list={['gw-col', `gw-${m.tone}`]}>
+            <span class:list={['gw-key', `gw-key-${m.tone}`]}>{m.key}</span>
+            <dl class="gw-rows">
+              <div><dt><Icon name="material-symbols:input-circle" class="text-[13px]" />source</dt><dd>{m.source}</dd></div>
+              <div><dt><Icon name="material-symbols:lan-outline" class="text-[13px]" />network</dt><dd>{m.network}</dd></div>
+              <div><dt><Icon name="material-symbols:save-outline" class="text-[13px]" />persist</dt><dd>{m.persist}</dd></div>
+            </dl>
+            <span class="gw-lane">{m.lane}</span>
+            <span class="gw-col-note">{m.note}</span>
+          </div>
+        ))
+      }
+    </div>
+
+    <p class="gw-legend">
+      In <b>REPLAY</b> the gateway returns the recorded response and never opens a socket, so the run is
+      deterministic and a red is a real regression, not a dice roll. The cassette lineage is borrowed from
+      HTTP record-and-replay (VCR): capture a live interaction once, replay it forever. Point the same idea
+      at the model and the loudest source of nondeterminism stops moving.
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-gw] .gw-note { font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-muted); }
+  [data-gw] .gw-node {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; align-self: center;
+    border: 1px solid var(--color-text-primary); background: var(--color-surface-container-high);
+    border-radius: var(--radius); padding: 0.55rem 0.9rem;
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-text-primary);
+  }
+  [data-gw] .gw-node b { font-weight: 600; margin-left: 0.4rem; }
+
+  [data-gw] .gw-fork { display: grid; grid-template-columns: repeat(3, 1fr); height: 1.1rem; }
+  [data-gw] .gw-fork span { border-left: 1px solid var(--color-border-dark); margin: 0 auto; width: 1px; height: 100%; }
+  @media (max-width: 640px) { [data-gw] .gw-fork { display: none; } }
+
+  [data-gw] .gw-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.7rem; }
+  @media (max-width: 640px) { [data-gw] .gw-cols { grid-template-columns: 1fr; } }
+  [data-gw] .gw-col {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.75rem 0.85rem;
+  }
+  [data-gw] .gw-primary {
+    border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-gw] .gw-key {
+    align-self: flex-start; font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.06em;
+    border-radius: 999px; padding: 0.15rem 0.6rem;
+    color: var(--color-text-muted); border: 1px solid var(--color-border-dark); background: var(--color-surface);
+  }
+  [data-gw] .gw-key-primary {
+    color: var(--color-on-primary); background: var(--color-primary); border-color: var(--color-primary);
+  }
+  [data-gw] .gw-rows { margin: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+  [data-gw] .gw-rows > div { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+  [data-gw] .gw-rows dt {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    font-family: var(--font-mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+  [data-gw] .gw-rows dd { margin: 0; font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-primary); text-align: right; }
+  [data-gw] .gw-lane {
+    font-family: var(--font-mono); font-size: 0.64rem; color: var(--color-text-primary);
+    border-top: 1px dashed var(--color-border-dark); padding-top: 0.4rem;
+  }
+  [data-gw] .gw-col-note { font-family: var(--font-mono); font-size: 0.62rem; color: var(--color-text-muted); line-height: 1.45; }
+
+  [data-gw] .gw-legend {
+    margin: 0.9rem 0 0; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.6; color: var(--color-text-muted);
+  }
+  [data-gw] .gw-legend b { color: var(--color-text-primary); font-weight: 500; }
+</style>

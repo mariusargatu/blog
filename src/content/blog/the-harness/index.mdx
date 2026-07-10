@@ -1,0 +1,214 @@
+---
+title: 'The Harness Is the Product: Models Are a Commodity'
+description: >-
+  The teams shipping agents don't have a better model; they have a better
+  harness. Five properties that make one trustworthy around a LangGraph and
+  MCP agent.
+kicker: GENAI_TESTING
+topic: GenAI
+ctaNote: >-
+  Shipping an LLM, RAG, or agentic system you cannot test reproducibly? This is
+  the harness I build so a red means a real regression, not a dice roll.
+series:
+  name: Evals Are Checks, Not Tests
+  order: 3
+author: Marius Argatu
+pubDate: 2026-06-21
+tags: [llm, langgraph, mcp, agentic, testing, evals, determinism]
+featured: true
+ogImage: ./og.jpg
+faq:
+  - q: What is "harness engineering"?
+    a: >-
+      The recognition that the durable work of building with LLMs is not prompt
+      tuning or model selection but the infrastructure that turns "the model said
+      something" into "we measured whether it was right, reproducibly, on every
+      commit." The model is rented and changes under you; the harness is the part
+      you own and the part that decides whether you have a product or a demo.
+  - q: Why does a deterministic LLM suite need more than a recorded model?
+    a: >-
+      Pinning the model removes the loudest source of noise, not the rest. The
+      clock, the RNG, id and reference generation, result ordering, and the
+      framework's checkpointer all leak nondeterminism into saved state and
+      traces. With LangGraph each checkpoint carries a time-ordered UUID and a
+      wall-clock timestamp by default. You pin the agent by pinning the ports it
+      calls.
+  - q: What is the difference between a regression suite and an eval?
+    a: >-
+      They have opposite relationships with nondeterminism. The regression suite
+      runs on the replayed model, must eliminate variance, gates the merge, and
+      flickers never. The eval runs on the live model, must embrace variance
+      because measuring it is the job, and is read as a trend on a cadence. Build
+      one machine to answer both questions and it will lie about both.
+  - q: Why keep the planner, generator, and evaluator separate?
+    a: >-
+      An agent that plans its own work, does it, and grades it is a student
+      marking their own exam, and scoring it predictably well. Research on
+      LLM judges has measured this self-preference bias directly. The harness
+      keeps the roles apart: a planner designs the task, a generator drives the
+      agent under test, and a separate, calibrated evaluator grades the result.
+      The separation is the control, not bureaucracy.
+---
+
+import HarnessMap from '../../../components/article/HarnessMap.astro'
+import HarnessDiagram from '../../../components/article/HarnessDiagram.astro'
+import GatewayModes from '../../../components/article/GatewayModes.astro'
+import DeterminismKit from '../../../components/article/DeterminismKit.astro'
+import EvalHarness from '../../../components/article/EvalHarness.astro'
+import DriftDecision from '../../../components/article/DriftDecision.astro'
+
+<Callout variant="info" title="tl;dr">
+The teams shipping agents are not the ones with the best model. Models are a commodity; the harness around them is not, and the engineering blogs have started saying so out loud. This article splits the two machines the word "harness" hides, the agent harness that lets the model act and the eval harness that measures whether it works. It names the five properties that make a harness trustworthy, shows that determinism means pinning more than the model (the clock, the ids, the ordering, and the framework's checkpointer too), and draws the line [the whole series](/blog/series/evals-are-checks-not-tests/) rests on, between a regression suite that must never flicker and an eval that must measure variance. The flaky LLM suite is not a model problem. It is an engineering problem you already know how to solve.
+</Callout>
+
+## It wasn't the model. It was the clock.
+
+The suite is red. Someone reruns it. Now it is green. Same commit, same code, nothing changed but the dice. By Thursday everyone has the same explanation, delivered with a shrug: it's the model, it's nondeterministic, what do you expect from an LLM. The team starts rerunning the pipeline until it passes. A red stops meaning anything, which is the same as having no tests at all, except now you are paying for tests and getting nothing. And the red someone just reran away is the one case that catches a fluent, false answer about a customer's bill before it reaches the customer. A flaky suite does not only waste money. It quietly switches off the only thing standing between a wrong answer and a real person.
+
+An engineer who has shipped test suites before refuses the shrug and opens the trace. Two things are moving, and neither is mysterious. The first is a model call nobody recorded, so every run re-asks the live model and gets a slightly different decision. The second is smaller and dumber: the agent stamps today's date into a query, the assertion compares it against a value computed a second later, and the LangGraph checkpointer writes a fresh UUID into the saved state on every run. The "flaky model" is an unrecorded dependency and a clock that moves. That is the whole bug.
+
+Here is the part that should reassure anyone who came up through classical QA. The playbook is older than the model. In 2011, Martin Fowler's essay *Eradicating Non-Determinism in Tests* warned that a non-deterministic test "can completely destroy the value of an automated regression suite," and named the causes by hand: lack of isolation, asynchrony, remote services, time, resource leaks ([martinfowler.com](https://martinfowler.com/articles/nonDeterminism.html)). Every one of those predates transformers by a decade. You already own the fix: record the dependency, freeze the clock, seed the randomness, sort before you assert. The model is not a new kind of chaos. It is one more nondeterministic dependency, and you have been pinning those your entire career. That is the claim this series keeps making, now for the third time: the hard parts of testing an LLM are classical testing problems wearing new names. Determinism is the oldest of them.
+
+## Which part do you rent, and which do you own?
+
+Models are a commodity, and they behave like one. A frontier model is a few lines and an API key away, for you and for everyone you compete with. It changes under you without asking, sometimes without changing the version string you pinned against. You do not own it, you do not control it, and you cannot make it sit still. The market has priced this in: in its *Big Ideas in Tech for 2025*, Andreessen Horowitz forecast that winning systems would "blend together multiple large models and self-trained small models," the model as an interchangeable layer rather than a moat ([a16z](https://a16z.com/big-ideas-in-tech-2025/)). Anything you build that depends on the model being special is built on rented land.
+
+What is not a commodity is the apparatus that tells you whether the model is doing its job. The dataset that says what correct means. The gateway that makes a decision reproducible. The fakes that let you attempt a thousand account changes without touching a real account. The traces you assert against. The gate that stops a regression at the pull request instead of at a customer. None of that comes in the box with the model. All of it is yours, and it is the difference between a team that demos and a team that ships.
+
+The shift has a vocabulary now. In January 2026, Anthropic's engineering team, in *Demystifying evals for AI agents*, put the infrastructure first: "Build evals to define planned capabilities before agents can fulfill them, then iterate until the agent performs well" ([Anthropic](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). Read that twice. The eval is not the thing you bolt on after the feature works. The eval is how you decide what the feature even is. That is the recognition, arrived at after a few years of everyone learning the same lesson the expensive way: the hard and durable work of building with LLMs is not prompt-whispering and not model selection. It is the infrastructure that turns "the model said something" into "we measured whether the model was right, reproducibly, on every commit, before anyone outside the building saw it."
+
+The model is rented. The harness is yours. Build the part you own.
+
+## Why two harnesses, not one?
+
+There is a confusion baked into the word, and it is worth clearing before it costs you an argument in a design review. "Harness" names two different machines.
+
+The first is the **agent harness**: the scaffolding that lets the model act. For [Atlas](/blog/the-system-under-test/) this is concrete and has parts you can point at. A LangGraph `StateGraph` holds the conversation state and routes each turn between nodes, deciding whether to answer, read, or act. A set of MCP tools give the model its hands. A checkpointer persists the graph's state between turns. A runtime executes the whole thing. This harness is the application. It runs in production. It is what serves a signed-in customer at two in the morning.
+
+The second is the **eval harness**: the machinery that measures whether the first one works. It runs tasks at scale, drives the agent through seeded conversations, captures the trace of each, grades the outputs against the oracle, and aggregates the results into numbers a human can act on. This harness is the test infrastructure. It runs in CI. It never serves a customer and never will.
+
+The cleanest way to hold the two apart is an analogy every engineer already has. The agent harness is the application runtime. The eval harness is the CI/CD pipeline. You would never confuse your production servers with your build system. The same discipline applies here. They share a language, the trace, because the eval harness asserts on exactly the records the agent harness emits. But sharing a format is not being the same machine.
+
+In the Atlas repo the seam is physical, and you can read it as a folder tree. The test rig lives under `testing/harness/`, grouped by role: `determinism/`, `replay/`, and `tracing/` are the rig that makes the agent reproducible, `evals/` is the second machine that grades it, and `recording/` captures the cassettes the lanes replay. The agent under `backend/atlas` may use the rig, but an import-lint test fails the build if it ever imports `evals`. The dependency points one way, and here it is a boundary a build refuses to cross.
+
+<HarnessMap />
+
+## What makes a harness you can trust?
+
+A harness you can trust has five properties. Miss one and you will discover which one on the day you most needed the suite to be honest.
+
+**Recorded and replayed model calls.** The model is the only nondeterministic part of the whole system. So you put a gateway in front of it, and the clever move is to implement that gateway as the chat model the LangGraph graph already calls. The pattern is borrowed, not invented: classical test suites have recorded and replayed their HTTP dependencies for years through libraries like VCR, which captures a live interaction once into a "cassette" and replays it forever after ([VCR](https://github.com/vcr/vcr)). Point the same idea at the model. The gateway has three modes, and the mode is the whole story:
+
+<GatewayModes />
+
+A test you have to rerun to believe is not a test. In `REPLAY` the run is deterministic, so a red is a real regression and not a dice roll, which is the entire point.
+
+**Seeded fakes for every external dependency.** In CI, nothing is real. The account backend, the catalog, the action backend are all fakes, seeded with multi-customer data so you can prove that one customer never sees another's. A test can attempt a plan change ten thousand times, with every adversarial variation, and never move a cent or touch a real record. The dangerous surface only gets safe to test by being faked.
+
+**Tracing from the first commit.** You cannot assert on a path you did not record. Tracing is not instrumentation you add at the end; it is the substrate the eval harness reads. Add it after the fact and you will be adding it after the incident you needed it for.
+
+**Eval-gated CI with release gates.** A number you only read is decoration. The suite has to have teeth: a regression gate that runs on every pull request and blocks the merge when a pinned behaviour changes, and a release gate that will not let a build ship unless the eval suite is green. A metric that cannot stop a bad change is a dashboard, and a dashboard is what a team watches turn red in production while congratulating itself on its observability. In the Atlas repo the regression gate is the one wired into CI today; the eval and red-team gates are staged, marked P5+ and P8+ in the lanes. A gate is only honest once the lane behind it measures something real.
+
+**A clean separation between the two harnesses.** Conflate them and you get an eval that is really testing the test rig, or an agent that ships with evaluation scaffolding wired into its runtime. Keep the seam visible and keep it clean.
+
+## Why is determinism more than the model?
+
+Pinning the model removes the loudest source of noise. It does not remove the rest, and the rest is where a suite stays subtly flaky long after the team is sure it solved flakiness. Determinism is a property of the whole run. Every unpinned source of variation is a red that comes and goes and teaches people to stop believing reds.
+
+In Atlas, every nondeterministic source is pinned behind an injectable fixture, and the CI lane wires the frozen ones while dev and prod inject real ones at the same call sites.
+
+<DeterminismKit />
+
+The framework-specific trap is the one a toy agent would never teach you. LangGraph persists graph state through a checkpointer, and out of the box each checkpoint carries a time-ordered UUID and an ISO-8601 wall-clock timestamp; the `Checkpoint` type stamps `id` from a UUIDv6 and `ts` from the system clock ([LangGraph checkpoint source](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint/langgraph/checkpoint/base/__init__.py)). Those leak straight into your saved state and your traces. So you make the checkpointer deterministic in CI. You do not control LangGraph's internals, so you control the ports it calls.
+
+That last sentence is the whole philosophy of building a harness around a real framework agent. When you write a toy agent loop yourself, you control every line. When you build on LangGraph and MCP, you do not control the framework's insides, so the visible seams move to the port boundary: the chat model the graph calls, the MCP tools it invokes, the checkpointer it writes through, the clock it reads. You pin the agent by pinning its ports. This is more work than a toy loop and far more credible, because real teams ship on frameworks, and a harness that wraps a real framework agent at its real ports is testing what you actually deploy.
+
+One port deserves its own line. MCP is transport-agnostic: the November 2025 specification defines stdio and Streamable HTTP and lets implementers add their own channel ([Model Context Protocol](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)). In production the tools may run as separate servers over HTTP. In CI you connect client and server in-process through the SDK's in-memory transport, so the hermetic lane has zero egress: no sockets, no network, the MCP boundary collapsed to a function call into a seeded fake. A test lane with a network cable is a test lane that will eventually fail for reasons in someone else's data center.
+
+## Why are regression and evaluation two machines?
+
+Underneath the five properties is one distinction the whole series rests on, and it is the one teams collapse most often and most expensively. Regression testing and evaluation are two different machineries, and they answer two different questions.
+
+**Regression testing** asks: did this change break a behaviour we had pinned. It runs on the replayed model, so it is deterministic and fast. A red means a regression, full stop. It is binary, it gates the merge, and it flickers never. In Atlas it is one command, and it makes no live call: the gateway runs in `REPLAY` and the provider SDK is not even installed, so a cassette miss hard-fails instead of going to the network.
+
+<HarnessDiagram />
+
+**Evaluation** asks: how good is the agent, and is it getting better or worse. It runs on the real, un-replayed model, with graded metrics, because quality is not binary. It is statistical. It tolerates variance because measuring variance is part of its job. You read it as a trend and an aggregate, not as a single pass or fail, and you run it on a schedule, not on every keystroke.
+
+These need different machines because they have opposite relationships with nondeterminism. The regression suite must eliminate variance to do its job. The eval must embrace variance to do its job. Try to build one machine that does both and you get the worst of each: an "eval" you try to gate on that flickers, so the team learns to ignore its reds; or a "regression suite" you try to read as a quality signal when all it can ever tell you is yes or no against a frozen snapshot.
+
+So you keep them apart, deliberately. Same dataset, same traces, two readings. One asks did it change. The other asks is it good. Ask a single machine both questions and it will lie to you about both.
+
+## The eval harness, drawn
+
+The eval harness is the second machine, built from the same parts as the first but read differently. It lives in its own package, `testing/harness/evals/evalkit`, that the agent harness may never import. The shape is small on purpose: three roles, one grader stack, one rate.
+
+<EvalHarness />
+
+A **case** is one seeded task, a thread of user turns for one signed-in customer, with identity riding in the session channel and never a tool argument, the invariant the whole system turns on. The **evaluator** is a grader stack that grades with the cheapest, strictest tool that can do the job: it runs graders cheapest-first and short-circuits at the first hard fail, so an expensive judge never runs once a rule has already failed the run. The concrete graders, rules over the oracle, programmatic value checks, an LLM judge, each embed a later article's domain and arrive with those articles.
+
+The **runner** is where the live model's stochasticity is confronted head-on: it repeats each case `k` times and reports the pass rate, not the verdict. On `REPLAY` the model is pinned, all `k` trials are identical, and the rate is 0 or 1, which is exactly what lets the PR lane prove the runner's wiring deterministically; the variance only appears on `LIVE`. The same runner serves both lanes because the gateway mode lives in the caller's `build` hook, not in the runner. Flip `build` to a `LIVE` gateway and the identical runner becomes the nightly eval; the rate stops being 0 or 1 and becomes a real distribution. (Turning that rate into a confidence interval, and gating on its lower bound, is the statistics article's job; the honest-numbers module it will use, Wilson intervals and judge-versus-human Cohen's kappa, already lives at `testing/harness/evals/stats.py`.)
+
+## A fourth reading: catching the model that moved
+
+The gateway has three modes, but `REPLAY` carries a blind spot it cannot see on its own. A cassette is a *proxy* of the model, and nothing re-checks whether that proxy still matches the live model. When a provider updates the model behind a stable version string, the request bytes stay identical, `REPLAY` returns last quarter's response forever, and the suite stays green on a frozen snapshot while production has already moved. The green is real; the behaviour it certifies is stale.
+
+The drift lane is a fourth *reading* of the gateway, not a fourth mode: it re-runs the pinned agent against a new snapshot and compares what the turn *decided* against the committed one. The comparison is the whole point. A decision record separates the decisions, the intent the turn bound, the tools it called and in what order, the guard verdicts it produced, and the terminal outcome, from the prose, which is kept apart as a digest. A reworded but equivalent answer registers as prose drift, low signal; a changed tool call, a flipped guard, or a different outcome registers as behavioural drift, the silent move a green suite would never show you. The decisions are read structurally from the trace, never parsed back out of the English, so a benign answer that happens to mention a reference number is never mistaken for a write.
+
+<DriftDecision />
+
+In the Atlas repo this is a spike, runnable as `task drift` and tested hermetically by mutating a cassette; the live shadow re-record that catches a real provider move on a cadence needs keys and is deferred, exactly like the LIVE eval lane. Beside it sits a differential oracle (`task oracle`) that grades an answer whose truth was never stored by deriving it two independent ways, a rules engine against the model's claim, and flags the disagreement. That one is a preview of the metrics article and lands there; it is in the repo now so the harness you clone is whole, not so this article owns it.
+
+## What did 2026 name?
+
+The fundamentals above are old. What the last couple of years added is not new physics but a set of names and habits, and a few are worth stating because they change how a team spends its first month.
+
+**Eval-driven development, and the argument about it.** Test-driven development, pointed at agents: you write the evaluator before or alongside the feature, not after it ships and breaks. Anthropic puts this first, build the evals that define a capability before the agent can fulfill it. But there is a live disagreement worth holding, because it decides what you do on day one. In July 2025, Hamel Husain pushed back in his eval FAQ: "Write evaluators for errors you discover, not errors you imagine" ([hamel.dev](https://hamel.dev/blog/posts/evals-faq/should-i-practice-eval-driven-development.html)). The synthesis is not a compromise. Write the structural evals up front, the ones any version of the feature must pass, and let error analysis on real traces write the rest.
+
+**Start small, and spend the early effect sizes.** You do not need ten thousand cases to find the first hundred bugs. Husain's foundational essay *Your AI Product Needs Evals* makes the case for looking at a few dozen real traces by hand before automating anything ([hamel.dev](https://hamel.dev/blog/posts/evals/)). The reason it works is statistical, not motivational: early on the agent is broken in big, obvious, structural ways, the effect sizes are enormous, and a large effect is exactly what a small sample can see. A few dozen well-chosen cases find more in week one than a thousand auto-generated ones will find in month six.
+
+**Multi-trial sampling.** The eval runs against the real model, and a single run is a single sample, and a single sample lies. So you run each case several times and report the rate. The arithmetic is unforgiving: as Philipp Schmid laid out in March 2025, an agent that handles one request correctly 70 percent of the time handles three in a row only 34.3 percent of the time, the gap between `pass@k`, can it ever, and `pass^k`, does it every time ([philschmid.de](https://www.philschmid.de/agents-pass-at-k-pass-power-k)). A case that passes seven times in ten is a known coin-flip you can decide to fix or accept; the same case run once, and passing, is a landmine you have labeled safe.
+
+**The three-agent harness.** Generating and grading at scale keeps three roles apart: a planner that designs the task, a generator that drives the agent under test, and a separate, calibrated evaluator that grades the result. The separation is not tidiness, it is a control against a measured failure. At NeurIPS 2024, Panickssery and coauthors showed that an LLM evaluator scores its own generations higher than human annotators do, and traced a causal link between a model recognizing its own output and preferring it ([arXiv:2404.13076](https://arxiv.org/abs/2404.13076)); Zheng and coauthors had already named self-enhancement bias a year earlier ([arXiv:2306.05685](https://arxiv.org/abs/2306.05685)). An agent that plans its own work, does it, and grades it is a student marking their own exam. In Atlas the generator is the graph, the evaluator is the grader stack, and the planner is its own role, kept apart even when it is trivial, the three separated roles drawn in the eval-harness figure above.
+
+The tools got names in 2026. The discipline did not change. Measure honestly, against an oracle you trust, with the variance shown rather than hidden, or do not claim to be measuring at all.
+
+## Where does this live in the series?
+
+On the Atlas map, this article is the unglamorous block at the bottom of the diagram, the test harness and the tracing the whole system stands on. It is the layer every other article runs on. The dataset article's cases need this harness to execute in. The metrics article's judge runs through this gateway, recorded and replayed, so even the grading is reproducible. The retrieval and agent articles assert on these traces. The production article is this same harness moved to where the customers are.
+
+And the failure that [opened this series](/blog/your-evals-are-checks-not-tests/), the legacy-plan customer given a fluent, grounded, false answer about his plan, the one faithfulness waved through green and the account oracle caught, is only catchable reproducibly because the harness pins the model that produced it. Without the harness, that failure is a story someone tells about a bad afternoon. With it, that failure is a committed test that can never ship again. Every part of this is backed by a runnable reference system: [clone it](https://github.com/mariusargatu/Atlas), run `task test`, and watch the model get pinned, the backends faked, and the clock stop.
+
+The model is the part of the system you rent. The harness is the part you build. Teams that confuse the two ship the rented part and call it a product. The best model in the world, measured by a harness you cannot trust, is a guess with excellent production values. The harness is the product.
+
+## Frequently asked questions
+
+### What is "harness engineering"?
+
+The recognition that the durable work of building with LLMs is not prompt tuning or model selection but the infrastructure that turns "the model said something" into "we measured whether it was right, reproducibly, on every commit." The model is rented and changes under you; the harness is the part you own and the part that decides whether you have a product or a demo.
+
+### Why does a deterministic LLM suite need more than a recorded model?
+
+Pinning the model removes the loudest source of noise, not the rest. The clock, the RNG, id and reference generation, result ordering, and the framework's checkpointer all leak nondeterminism into saved state and traces. With LangGraph each checkpoint carries a time-ordered UUID and a wall-clock timestamp by default. You pin the agent by pinning the ports it calls.
+
+### What is the difference between a regression suite and an eval?
+
+They have opposite relationships with nondeterminism. The regression suite runs on the replayed model, must eliminate variance, gates the merge, and flickers never. The eval runs on the live model, must embrace variance because measuring it is the job, and is read as a trend on a cadence. Build one machine to answer both questions and it will lie about both.
+
+### Why keep the planner, generator, and evaluator separate?
+
+An agent that plans its own work, does it, and grades it is a student marking their own exam, and scoring it predictably well. Research on LLM judges has measured this self-preference bias directly. The harness keeps the roles apart: a planner designs the task, a generator drives the agent under test, and a separate, calibrated evaluator grades the result. The separation is the control, not bureaucracy.
+
+## Sources
+
+- Martin Fowler, "Eradicating Non-Determinism in Tests", [martinfowler.com](https://martinfowler.com/articles/nonDeterminism.html) (retrieved 2026-06-18)
+- Andreessen Horowitz, "Big Ideas in Tech for 2025", [a16z.com](https://a16z.com/big-ideas-in-tech-2025/) (retrieved 2026-06-18)
+- Anthropic, "Demystifying evals for AI agents", [anthropic.com](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) (retrieved 2026-06-18)
+- Hamel Husain, "Q: Should I practice eval-driven development?", [hamel.dev](https://hamel.dev/blog/posts/evals-faq/should-i-practice-eval-driven-development.html) (retrieved 2026-06-18)
+- Hamel Husain, "Your AI Product Needs Evals", [hamel.dev](https://hamel.dev/blog/posts/evals/) (retrieved 2026-06-18)
+- Philipp Schmid, "Pass@k vs Pass^k: Understanding Agent Reliability", [philschmid.de](https://www.philschmid.de/agents-pass-at-k-pass-power-k) (retrieved 2026-06-18)
+- Panickssery, Bowman, Feng, "LLM Evaluators Recognize and Favor Their Own Generations", NeurIPS 2024, [arXiv:2404.13076](https://arxiv.org/abs/2404.13076) (retrieved 2026-06-18)
+- Zheng et al., "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena", NeurIPS 2023, [arXiv:2306.05685](https://arxiv.org/abs/2306.05685) (retrieved 2026-06-18)
+- LangGraph, `Checkpoint` base implementation (UUIDv6 `id`, ISO-8601 `ts`), [github.com/langchain-ai/langgraph](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint/langgraph/checkpoint/base/__init__.py) (retrieved 2026-06-18)
+- Model Context Protocol, "Transports" (2025-11-25 revision), [modelcontextprotocol.io](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) (retrieved 2026-06-18)
+- VCR, HTTP record-and-replay library (the cassette lineage), [github.com/vcr/vcr](https://github.com/vcr/vcr) (retrieved 2026-06-18)

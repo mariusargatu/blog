@@ -1,0 +1,130 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+import Tag from './Tag.astro'
+
+// The two readings of one agent, drawn for a Staff SDET or a CTO deciding whether the suite can be
+// trusted. Same agent, same pinned ports, same traces; only the model's mode differs. Read one way it
+// is the regression lane (REPLAY): deterministic, byte-stable, gates the pull request, a red is a real
+// regression. Read the other it is the eval lane (LIVE): the model runs live, each case runs k times,
+// the result is a RATE per business risk, trended nightly. Conflate them and both lie. The structure
+// of the harness itself lives in HarnessMap; this figure is only the two readings. Static, no state.
+
+const risks = ['fee-claim-safety', 'data-isolation', 'unauthorized-write', 'customer-scope']
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-harness>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:vertical-split-outline" label="Two machines · one agent, two readings" />
+    <span class="hs-note">same agent · same pinned ports · same traces; only the model's mode differs</span>
+  </div>
+
+  <div class="p-5 flex flex-col gap-0">
+    <div class="hs-lanes">
+      {/* regression lane */}
+      <div class="hs-lane">
+        <div class="hs-lane-head">
+          <span class="hs-box-h"><Icon name="material-symbols:check-circle-outline" class="text-[15px]" />Regression lane</span>
+          <Tag label="REPLAY" variant="neutral" />
+        </div>
+        <p class="hs-q">“did a pinned behaviour change?”</p>
+        <ul class="hs-list">
+          <li>model <b>replayed</b> from cassette · zero egress</li>
+          <li>binary · gates the pull request</li>
+          <li>flickers never: a red is a real regression</li>
+        </ul>
+        <div class="hs-runs">
+          <span class="hs-run"><Icon name="material-symbols:terminal" class="text-[12px]" />task test<b>200 passed</b></span>
+          <span class="hs-run"><Icon name="material-symbols:replay" class="text-[12px]" />re-run<b>200 passed</b></span>
+          <span class="hs-bytes"><Icon name="material-symbols:check" class="text-[12px]" />byte-identical · no keys, no network</span>
+        </div>
+        <span class="hs-out"><Icon name="material-symbols:block" class="text-[13px]" />must eliminate variance</span>
+      </div>
+
+      {/* eval lane */}
+      <div class="hs-lane hs-lane-accent">
+        <div class="hs-lane-head">
+          <span class="hs-box-h"><Icon name="material-symbols:insights" class="text-[15px]" />Eval lane</span>
+          <Tag label="LIVE" variant="solid" />
+        </div>
+        <p class="hs-q">“how good is it, and is it trending up or down?”</p>
+        <ul class="hs-list">
+          <li><b>planner → generator → evaluator</b>, kept separate</li>
+          <li>model <b>live</b> · each case run k times</li>
+          <li>reports a <b>rate</b>; FLAKY catches the coin-flip</li>
+          <li>statistical · read as a trend, nightly</li>
+        </ul>
+        <div class="hs-risks" aria-label="Business-risk outcomes">
+          {risks.map((r) => <span class="hs-risk">{r}</span>)}
+        </div>
+        <span class="hs-out"><Icon name="material-symbols:check" class="text-[13px]" />must embrace variance</span>
+      </div>
+    </div>
+
+    <p class="hs-legend">
+      Two machines, on purpose. The regression suite kills variance so a red means a regression; the eval
+      measures variance because that is the question. Re-run the PR lane and the count is identical to the
+      byte: a flake there is broken determinism, not a moody model. Build one machine to answer both and it
+      lies about both.
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-harness] .hs-note { font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-muted); }
+  [data-harness] .hs-box-h {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    color: var(--color-text-primary); font-weight: 500; font-size: 0.9rem;
+  }
+
+  [data-harness] .hs-lanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; }
+  @media (max-width: 640px) { [data-harness] .hs-lanes { grid-template-columns: 1fr; } }
+  [data-harness] .hs-lane {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.85rem 1rem;
+  }
+  [data-harness] .hs-lane-accent {
+    border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-harness] .hs-lane-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  [data-harness] .hs-q { margin: 0; font-family: var(--font-mono); font-size: 0.74rem; color: var(--color-text-primary); }
+  [data-harness] .hs-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.25rem; }
+  [data-harness] .hs-list li {
+    position: relative; padding-left: 0.95rem;
+    font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-muted); line-height: 1.5;
+  }
+  [data-harness] .hs-list li::before { content: '–'; position: absolute; left: 0; color: var(--color-text-muted); }
+  [data-harness] .hs-list b { color: var(--color-text-primary); font-weight: 500; }
+
+  /* byte-stable proof (replaces the old terminal block) */
+  [data-harness] .hs-runs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-top: 0.1rem; }
+  [data-harness] .hs-run {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    font-family: var(--font-mono); font-size: 0.64rem; color: var(--color-text-muted);
+    border: 1px solid var(--color-border-dark); background: var(--color-surface);
+    border-radius: var(--radius); padding: 0.15rem 0.45rem;
+  }
+  [data-harness] .hs-run b { color: var(--color-primary); font-weight: 500; }
+  [data-harness] .hs-bytes {
+    display: inline-flex; align-items: center; gap: 0.25rem; flex-basis: 100%;
+    font-family: var(--font-mono); font-size: 0.6rem; color: var(--color-primary);
+  }
+
+  [data-harness] .hs-risks { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.1rem; }
+  [data-harness] .hs-risk {
+    font-family: var(--font-mono); font-size: 0.62rem; color: var(--color-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+    border-radius: 999px; padding: 0.1rem 0.45rem;
+  }
+  [data-harness] .hs-out {
+    display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.2rem;
+    font-family: var(--font-mono); font-size: 0.64rem; color: var(--color-text-muted);
+    border-top: 1px dashed var(--color-border-dark); padding-top: 0.4rem;
+  }
+  [data-harness] .hs-legend {
+    margin: 0.9rem 0 0; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.6; color: var(--color-text-muted);
+  }
+  [data-harness] .hs-legend b { color: var(--color-text-primary); font-weight: 500; }
+</style>

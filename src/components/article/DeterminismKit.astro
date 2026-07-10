@@ -1,0 +1,104 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+
+// The determinism kit, drawn for the engineer who pinned the model and is still chasing a flake.
+// Determinism is a property of the WHOLE run: every nondeterministic source is pinned behind an
+// injected port, the CI lane wires the frozen ones, dev and prod inject real ones at the same call
+// site. The board lists each source and what pins it; the model is flagged as the loud one everyone
+// stops at, and the LangGraph checkpointer as the framework trap a toy agent would never teach you.
+// Static board, no state.
+
+const sources = [
+  { src: 'the model', pin: 'GatewayChatModel · REPLAY', icon: 'material-symbols:smart-toy-outline', loud: true },
+  { src: 'the clock', pin: 'FrozenClock · now never moves', icon: 'material-symbols:schedule-outline' },
+  { src: 'the RNG', pin: 'SeededRng · seed 0', icon: 'material-symbols:casino-outline' },
+  { src: 'ids + refs', pin: 'IdFactory · derived, not UUIDs', icon: 'material-symbols:tag' },
+  { src: 'result order', pin: 'SpanSequence · never the clock', icon: 'material-symbols:sort' },
+  { src: 'MCP egress', pin: 'in-process · no socket opens', icon: 'material-symbols:lan-outline' },
+]
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-dk>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:lock-clock-outline" label="The determinism kit · pin more than the model" />
+    <span class="dk-note">every unpinned source is a red that comes and goes</span>
+  </div>
+
+  <div class="p-5 flex flex-col gap-0">
+    <div class="dk-grid">
+      {
+        sources.map((s) => (
+          <div class:list={['dk-cell', s.loud && 'dk-loud']}>
+            <span class="dk-src"><Icon name={s.icon} class="text-[14px] text-primary" />{s.src}</span>
+            <span class="dk-arrow" aria-hidden="true"><Icon name="material-symbols:lock-outline" class="text-[12px]" /></span>
+            <span class="dk-pin">{s.pin}</span>
+            {s.loud && <span class="dk-flag">loudest · pinned first, last responsible</span>}
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="dk-trap">
+      <span class="dk-trap-h"><Icon name="material-symbols:warning-outline" class="text-[14px]" />the framework trap</span>
+      <span class="dk-trap-b">
+        LangGraph stamps every checkpoint with a time-ordered <b>UUIDv6</b> and a wall-clock <b>ts</b>, which
+        leak straight into saved state and traces. You do not control the framework's insides, so you pin the
+        <b>checkpointer</b> it writes through, a deterministic in-memory saver fed the frozen factories.
+      </span>
+    </div>
+
+    <p class="dk-legend">
+      Pin the agent by pinning its <b>ports</b>: the chat model the graph calls, the MCP tools it invokes, the
+      checkpointer it writes through, the clock it reads. More work than a toy loop, and far more credible,
+      because real teams ship on frameworks and this tests what you actually deploy.
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-dk] .dk-note { font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-muted); }
+  [data-dk] .dk-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem;
+  }
+  @media (max-width: 640px) { [data-dk] .dk-grid { grid-template-columns: 1fr; } }
+  [data-dk] .dk-cell {
+    display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 0.5rem;
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.55rem 0.75rem;
+  }
+  [data-dk] .dk-loud {
+    grid-template-columns: auto auto 1fr;
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  }
+  [data-dk] .dk-src {
+    display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+    font-size: 0.78rem; color: var(--color-text-primary);
+  }
+  [data-dk] .dk-arrow { color: var(--color-text-muted); display: inline-flex; }
+  [data-dk] .dk-pin { font-family: var(--font-mono); font-size: 0.66rem; color: var(--color-text-muted); text-align: right; }
+  [data-dk] .dk-flag {
+    grid-column: 1 / -1; font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.03em;
+    color: var(--color-primary); margin-top: 0.1rem;
+  }
+
+  [data-dk] .dk-trap {
+    margin-top: 0.85rem; display: flex; flex-direction: column; gap: 0.3rem;
+    border: 1px solid color-mix(in srgb, var(--color-error) 35%, transparent);
+    background: color-mix(in srgb, var(--color-error) 5%, transparent);
+    border-radius: var(--radius); padding: 0.7rem 0.9rem;
+  }
+  [data-dk] .dk-trap-h {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    font-family: var(--font-mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--color-error);
+  }
+  [data-dk] .dk-trap-b { font-size: 0.76rem; color: var(--color-text-primary); line-height: 1.5; }
+  [data-dk] .dk-trap-b b { font-weight: 600; }
+
+  [data-dk] .dk-legend {
+    margin: 0.9rem 0 0; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.6; color: var(--color-text-muted);
+  }
+  [data-dk] .dk-legend b { color: var(--color-text-primary); font-weight: 500; }
+</style>

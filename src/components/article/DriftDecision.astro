@@ -1,0 +1,179 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+
+// Drift, drawn as the fourth reading of the gateway. REPLAY pins a proxy of the model and never
+// re-checks it; drift re-runs the pinned agent on a new snapshot and diffs what the turn DECIDED
+// against the committed one. The figure makes the load-bearing split visible: a turn is DECISIONS
+// (intent, tools, guards, outcome, read from the trace) plus PROSE (the shipped text, kept apart as
+// a digest), so a reworded answer can never masquerade as a changed decision. Then the three
+// severities the comparison can return, laddered by how much they should alarm you. Static, no state.
+
+const decisions = ['intent', 'tools', 'guards', 'outcome']
+
+const severities = [
+  {
+    key: 'none',
+    cond: 'decisions equal, prose equal',
+    signal: 'the green that is actually green',
+    tone: 'safe' as const,
+    icon: 'material-symbols:check-circle-outline',
+  },
+  {
+    key: 'prose',
+    cond: 'only the claim digest moved',
+    signal: 'wording moved, decisions held · low signal',
+    tone: 'warn' as const,
+    icon: 'material-symbols:draft-outline',
+  },
+  {
+    key: 'behavioural',
+    cond: 'a tool, a guard, or the outcome moved',
+    signal: 'the silent move a green suite hides',
+    tone: 'alert' as const,
+    icon: 'material-symbols:warning-outline',
+  },
+]
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-drift>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:vertical-split-outline" label="Drift · diff the decisions, not the prose" />
+    <span class="dr-note">same request key, a new model snapshot; what actually moved?</span>
+  </div>
+
+  <div class="p-5 flex flex-col gap-0">
+    {/* the seam: one request key, the committed cassette vs a new snapshot */}
+    <div class="dr-seam">
+      <span class="dr-pin"><Icon name="material-symbols:lock-outline" class="text-[13px] text-primary" />one request key</span>
+      <Icon name="material-symbols:arrow-right-alt" class="dr-arr text-[16px]" />
+      <span class="dr-snap">committed cassette</span>
+      <span class="dr-vs">vs</span>
+      <span class="dr-snap">new snapshot</span>
+      <Icon name="material-symbols:arrow-right-alt" class="dr-arr text-[16px]" />
+      <span class="dr-cmp"><Icon name="material-symbols:rule" class="text-[13px]" />compare()</span>
+    </div>
+
+    {/* 1. one turn splits in two */}
+    <span class="dr-cap">1 · one turn splits in two</span>
+    <div class="dr-split">
+      <div class="dr-side dr-side-accent">
+        <span class="dr-side-h"><Icon name="material-symbols:account-tree-outline" class="text-[13px] text-primary" />decisions</span>
+        <div class="dr-fields">
+          {decisions.map((f) => <span class="dr-field">{f}</span>)}
+        </div>
+        <span class="dr-side-sub">what the turn DID, read structurally from the trace</span>
+      </div>
+      <div class="dr-side">
+        <span class="dr-side-h"><Icon name="material-symbols:draft-outline" class="text-[13px] text-primary" />prose</span>
+        <div class="dr-fields"><span class="dr-field dr-field-muted">claim_digest</span></div>
+        <span class="dr-side-sub">what it SAID, kept apart as a digest, never field-compared</span>
+      </div>
+    </div>
+
+    {/* 2. the three severities, laddered */}
+    <span class="dr-cap">2 · re-run the snapshot, compare, read the severity</span>
+    <div class="dr-ladder">
+      {
+        severities.map((s) => (
+          <div class:list={['dr-row', `dr-${s.tone}`]}>
+            <span class="dr-sev"><Icon name={s.icon} class="text-[13px]" />{s.key}</span>
+            <span class="dr-cond">{s.cond}</span>
+            <span class="dr-signal">{s.signal}</span>
+          </div>
+        ))
+      }
+    </div>
+
+    <p class="dr-legend">
+      REPLAY pins a <b>proxy</b> of the model and never re-checks it, so a provider that moves the model
+      behind a stable version string leaves the suite green on a stale snapshot. Diffing the
+      <b>decisions</b> and keeping the prose apart is what separates a reworded answer (harmless) from a
+      flipped guard or a changed outcome (the regression). The decision diff is the only thing that would
+      have told you the model moved.
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-drift] .dr-note { font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-muted); }
+
+  /* the seam line */
+  [data-drift] .dr-seam {
+    display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; justify-content: center;
+    font-family: var(--font-mono); font-size: 0.66rem; color: var(--color-text-primary);
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.55rem 0.8rem;
+  }
+  [data-drift] .dr-pin { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--color-primary); }
+  [data-drift] .dr-snap {
+    border: 1px solid var(--color-border-dark); background: var(--color-surface);
+    border-radius: var(--radius); padding: 0.1rem 0.5rem;
+  }
+  [data-drift] .dr-vs { color: var(--color-text-muted); }
+  [data-drift] .dr-arr { color: var(--color-text-muted); }
+  [data-drift] .dr-cmp {
+    display: inline-flex; align-items: center; gap: 0.3rem; color: var(--color-text-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+    border-radius: var(--radius); padding: 0.1rem 0.5rem;
+  }
+
+  [data-drift] .dr-cap {
+    display: block; font-family: var(--font-mono); font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--color-text-muted); margin: 1.1rem 0 0.5rem;
+  }
+
+  /* 1. the split */
+  [data-drift] .dr-split { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  @media (max-width: 640px) { [data-drift] .dr-split { grid-template-columns: 1fr; } }
+  [data-drift] .dr-side {
+    display: flex; flex-direction: column; gap: 0.4rem;
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.65rem 0.8rem;
+  }
+  [data-drift] .dr-side-accent {
+    border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-drift] .dr-side-h { display: inline-flex; align-items: center; gap: 0.35rem; font-family: var(--font-mono); font-size: 0.74rem; color: var(--color-text-primary); }
+  [data-drift] .dr-fields { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  [data-drift] .dr-field {
+    font-family: var(--font-mono); font-size: 0.66rem; color: var(--color-text-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    background: var(--color-surface); border-radius: 999px; padding: 0.12rem 0.5rem;
+  }
+  [data-drift] .dr-field-muted { color: var(--color-text-muted); border-color: var(--color-border-dark); }
+  [data-drift] .dr-side-sub { font-family: var(--font-mono); font-size: 0.6rem; color: var(--color-text-muted); line-height: 1.4; }
+
+  /* 2. the severity ladder */
+  [data-drift] .dr-ladder { display: flex; flex-direction: column; gap: 0.4rem; }
+  [data-drift] .dr-row {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.6rem;
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.5rem 0.75rem;
+  }
+  @media (max-width: 640px) { [data-drift] .dr-row { grid-template-columns: 1fr; gap: 0.2rem; } }
+  [data-drift] .dr-sev {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.03em;
+  }
+  [data-drift] .dr-cond { font-family: var(--font-mono); font-size: 0.66rem; color: var(--color-text-primary); }
+  [data-drift] .dr-signal { font-family: var(--font-mono); font-size: 0.62rem; color: var(--color-text-muted); text-align: right; }
+  @media (max-width: 640px) { [data-drift] .dr-signal { text-align: left; } }
+
+  [data-drift] .dr-safe { border-color: color-mix(in srgb, var(--color-primary) 40%, transparent); }
+  [data-drift] .dr-safe .dr-sev { color: var(--color-primary); }
+  [data-drift] .dr-warn { border-color: color-mix(in srgb, var(--color-tertiary, var(--color-text-primary)) 35%, transparent); }
+  [data-drift] .dr-warn .dr-sev { color: var(--color-text-primary); }
+  [data-drift] .dr-alert {
+    border-color: color-mix(in srgb, var(--color-error) 45%, transparent);
+    background: color-mix(in srgb, var(--color-error) 5%, transparent);
+  }
+  [data-drift] .dr-alert .dr-sev { color: var(--color-error); }
+
+  [data-drift] .dr-legend {
+    margin: 1rem 0 0; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.6; color: var(--color-text-muted);
+  }
+  [data-drift] .dr-legend b { color: var(--color-text-primary); font-weight: 500; }
+</style>
