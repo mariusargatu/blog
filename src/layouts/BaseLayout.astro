@@ -22,7 +22,9 @@ interface Props {
 const { title, description, image, article = false } = Astro.props
 
 const canonical = new URL(Astro.url.pathname, Astro.site)
-const ogImage = image ? new URL(image, Astro.site).href : undefined
+// Fall back to the site default OG card when a page supplies no image, so
+// home/about/etc. still get a social preview.
+const ogImage = new URL(image ?? withBase('og-default.png'), Astro.site).href
 const rss = new URL(rssUrl(), Astro.site).href
 
 // Cloudflare Web Analytics beacon. Production-only, token read from the

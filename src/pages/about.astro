@@ -6,6 +6,32 @@ const linkedin = 'https://www.linkedin.com/in/mariusargatu'
 const github = 'https://github.com/mariusargatu'
 const email = 'mailto:contact@mariusargatu.com'
 
+// ProfilePage + Person JSON-LD. Defines the canonical Person entity that the
+// article schema references by @id (.../about/#person), so author E-E-A-T
+// resolves to one entity across the site.
+const aboutUrl = new URL('about/', Astro.site).href
+const personId = `${aboutUrl}#person`
+const profileJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': ['ProfilePage', 'WebPage'],
+      '@id': aboutUrl,
+      url: aboutUrl,
+      name: 'About, Marius Argatu',
+      mainEntity: { '@id': personId },
+    },
+    {
+      '@type': 'Person',
+      '@id': personId,
+      name: 'Marius Argatu',
+      url: aboutUrl,
+      jobTitle: 'Senior SDET, AI Quality Engineer',
+      sameAs: [linkedin, github],
+    },
+  ],
+}
+
 const competencies = [
   {
     title: 'AI / LLM Testing',
@@ -190,6 +216,13 @@ const ctaGhost =
   title="About, Marius Argatu"
   description="Senior SDET and AI Quality Engineer: 10 years of test infrastructure across airline payments, healthcare SaaS, and fintech, now focused on LLM, RAG, and agentic system testing. Contractor, Remote · EU Timezone."
 >
+  <script
+    type="application/ld+json"
+    slot="head"
+    is:inline
+    set:html={JSON.stringify(profileJsonLd)}
+  />
+
   <main
     class="max-w-container-max mx-auto px-margin-mobile md:px-gutter pt-32 pb-section-gap"
     data-pagefind-body
