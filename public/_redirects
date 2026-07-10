@@ -10,3 +10,7 @@
 
 # Category renamed: LLM Apps -> GenAI.
 /blog/category/llm-apps/ /blog/category/genai/ 301
+
+# /work was never a real page; LLMs/crawlers still guess it. Send to /about/.
+/work /about/ 301
+/work/ /about/ 301

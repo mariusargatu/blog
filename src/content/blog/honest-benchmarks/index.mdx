@@ -1,0 +1,224 @@
+---
+title: 'Honest Benchmarks: Eval Numbers That Hold Up'
+description: >-
+  An 84% that beats 81% can be pure noise: p=0.55 on a 3-point gap. Put a bar on
+  every number, run the paired test, gate on the lower bound, never the point.
+kicker: GENAI_TESTING
+ogImage: ./og.jpg
+topic: GenAI
+draft: false
+ctaNote: >-
+  Reporting eval numbers off live, sampled, stochastic runs and not sure which
+  gaps are real? This is the statistics pass I run before a release turns on any
+  tracked metric, intervals, paired tests, and a gate on the lower bound.
+series:
+  name: Evals Are Checks, Not Tests
+  order: 6
+  code: v6-honest-benchmarks
+author: Marius Argatu
+pubDate: 2026-06-29
+updatedDate: 2026-07-10
+tags: [llm, evals, statistics, confidence-intervals, bootstrap, ab-testing, testing, agentic]
+featured: true
+faq:
+  - q: Why does an eval score need a confidence interval?
+    a: >-
+      Because a number off a sample is a random variable, not a fact. The same
+      suite run twice returns two different scores from an unchanged system, so a
+      bare point estimate hides whether a gap is signal or noise. A 95% interval
+      states the uncertainty around the number, and reporting it is what
+      separates an eval from a vibe. A benchmark whose intervals overlap, said so
+      plainly, is the honest result, not the weak one.
+  - q: What is a paired test and why does it matter for A/B model comparison?
+    a: >-
+      When version A and version B run on the same items, the comparison is
+      paired, and a paired test reads the per item difference instead of two
+      independent piles of scores. Item difficulty, the largest source of spread
+      in most evals, cancels because the hard item was hard for both versions.
+      That subtracts out the noise hiding the signal, and on a close call it can
+      turn "we cannot tell" into a clean verdict the marginal intervals could
+      never reach. Use a paired bootstrap or permutation test for continuous
+      scores and McNemar for pass/fail.
+  - q: Should you gate a release on the point estimate or the confidence interval?
+    a: >-
+      Gate on the lower bound of the interval, never the point. A score of 0.84
+      with a lower bound of 0.78 has not cleared a threshold of 0.80; it has a
+      best guess above the line and an honest floor below it, and shipping on the
+      best guess is shipping on optimism. Gating on the floor makes "we cannot
+      tell yet" fail closed, which is the only safe direction for a number that
+      might be noise.
+  - q: What is the difference between benchmark accuracy and generalized accuracy?
+    a: >-
+      Benchmark accuracy is the score on your fixed set, exact and real and a
+      statement about exactly those items. Generalized accuracy is the claim a
+      team actually wants, that the system performs this well on the live
+      distribution of what customers send tomorrow. The first is a measurement;
+      the second is an inference. The confidence interval covers sampling error
+      but says nothing about distribution shift, so a tight interval on a stale
+      set is a precise answer about the wrong distribution.
+---
+
+import BenchmarkVerdict from '../../../components/article/BenchmarkVerdict.astro'
+import TrialSpread from '../../../components/article/TrialSpread.astro'
+import GatingRule from '../../../components/article/GatingRule.astro'
+
+<Callout variant="info" title="tl;dr">
+A score without a confidence interval is an anecdote, and the eval lane produces anecdotes by default, because a number off a sample is a random variable wearing the costume of a fact. This article is the statistics that make the probabilistic machinery honest: a 95% interval on every headline metric, the bootstrap for the scores with no clean formula, a paired test when two systems saw the same items, a set sized to the effect you actually care about, and the variance you only see once you stop pretending an agent is deterministic. The confidence intervals the [metrics article](/blog/the-lying-judge/) deferred land here. It closes on the rule that ties the whole series together: gate on the lower bound of the interval, never the point, so "we cannot tell yet" fails closed instead of shipping on optimism.
+</Callout>
+
+## The regression that wasn't
+
+The overnight eval finishes and the release candidate row comes back looking like a regression. Version A, the model in production, scored 84% on the answer golden set. Version B, the candidate, scored 81% on the same hundred items. A teammate reads the three point drop, calls it a regression, and asks to hold the release until someone finds the cause. The instinct is reasonable. The conclusion is wrong, because the honest answer to "is B worse" is "you cannot tell yet." Being the person who says that out loud, in a room that wants a verdict, is most of the job this article is about.
+
+Both numbers are real. The set was identical, the grading was identical, and 84 beat 81 fair and square. None of that makes the gap a finding. Eighty four percent on a hundred items is one draw from a noisy process, and so is eighty one, and the question is not which draw came out higher but whether the processes behind them differ at all.
+
+<BenchmarkVerdict />
+
+Put a 95% confidence interval on each score and they overlap, 75.6 to 89.9 against 72.2 to 87.5. Run the test that belongs on paired data and the gap this size comes back at p = 0.55, more than ten times the usual 0.05 line, with a difference interval of negative three to plus ten points that contains zero comfortably. The three points sit well inside the noise. There is no regression here to find, only a smaller sample than the question deserved. Those numbers are not asserted on a slide. They are the output of a seeded, committed run in the Atlas repo, reproducible to the byte with `task benchmark`, and the rest of this article is how each one is earned.
+
+This is the line that separates an eval from a vibe. The regression lane never meets this problem, because it is deterministic, replayed, and gated on a hard pass or fail; the same input returns the same verdict forever. The eval lane lives on the opposite ground, on live, sampled, stochastic runs, and a number off a sample is a random variable wearing the costume of a fact. So the eval lane needs a discipline the regression lane does not: every headline metric ships with the uncertainty around it, or it does not ship. A benchmark table whose intervals overlap, with a sentence underneath that says so plainly, is not a weaker result than a confident one. It is the honest one, and the honesty is the signal.
+
+## Put a bar on every number
+
+**Pick the interval by the metric's shape: a Wilson score interval for pass rates and any proportion, a symmetric Wald or t interval only for the mean of a bounded score at large n, and the bootstrap for anything with no clean formula.**
+
+Once the rule is "no bare point estimates," the question turns mechanical: which interval for which number. The shape of the metric decides it, and getting the shape wrong is its own quiet failure.
+
+A pass rate is a proportion, and the honest interval for a proportion is the [Wilson score interval](https://doi.org/10.2307/2276774), not the textbook one. The textbook interval, plus or minus 1.96 standard errors slapped symmetrically around the point, is fine in the fat middle and a lie at the edges. Quote a 98% pass rate on fifty cases with the symmetric formula and it will hand you an upper bound above 100%, which is not a number a pass rate can hold. [Brown, Cai, and DasGupta](https://doi.org/10.1214/ss/1009213286) called the standard interval's coverage "erratic" even at large n and recommended Wilson's interval in its place (*Statistical Science*, 2001). The Wilson interval keeps its feet inside zero and one where the data actually lives, and it stays honest at small n, where you spend most of your testing life.
+
+For the mean of a bounded score, faithfulness averaged over a batch, helpfulness over a panel, the symmetric interval is allowed back in, but only when the sample is large enough and tame enough for its assumptions to hold. Default to it where it fits, and reach for resampling the moment it does not.
+
+<DataTable
+  columns={['Metric type', 'Interval', 'Why']}
+  rows={[
+    ['pass rate, any proportion', 'Wilson score', 'correct near 0 and 1 and at small n, where the symmetric formula spills out of bounds'],
+    ['mean of a bounded score', 'Wald / t', 'closed form and cheap, but only where n is large and the score is not pinned to a boundary'],
+    ['NDCG, clustered success, no clean SE', 'bootstrap', 'no analytic standard error to trust, so resample instead'],
+  ]}
+/>
+
+The 1.96 is just the width that brackets the middle 95% of a normal curve, and 95% is the convention worth holding across every dashboard tile, every report row, every release slide. But state what the interval means correctly, because the common gloss is wrong in a way that bites on a release call. A 95% interval is not "a 95% chance the truth sits inside these two numbers." It is a procedure that, run over and over, brackets the truth 95% of the time. The truth is fixed; the interval is the random thing. That distinction sounds pedantic right up until someone bets a release on it. At that point the difference between a claim about the world and a claim about your procedure is the difference between rigor and superstition. Report the interval, and report it as what it is.
+
+## Bootstrap the numbers that have no formula
+
+**When a metric has no closed-form standard error, bootstrap it: resample the per-item results with replacement a thousand times, take the middle 95% of the spread, and always resample at the unit the data is independent on.**
+
+Plenty of the numbers that matter have no clean formula behind them. NDCG over a ranked retrieval, a clustered task success rate, a faithfulness mean whose distribution is nobody's idea of normal: there is no tidy standard error to trust, and forcing one onto them is how you get a confident interval around a number that did not earn it. For everything in that bucket, the bootstrap is the answer, and it is close to magic in how little it assumes.
+
+The move is humble. Take your set of per item results, draw a new set of the same size by sampling from it with replacement, recompute the metric on the resample, and repeat. A thousand resamples for anything high stakes, more when you can afford it, fewer only for a smoke check. Each resample yields one plausible value of the metric, and the spread of those thousand values is an empirical picture of the metric's uncertainty that never once assumed a bell curve ([Efron and Tibshirani, *An Introduction to the Bootstrap*, 1993](https://doi.org/10.1201/9780429246593)). The middle 95% of that spread is your interval. When the statistic crowds a ceiling, NDCG pinned near one, reach for the bias corrected and accelerated variant rather than the plain percentile, because a metric pressed against its own boundary needs the correction to keep the interval honest ([Efron, "Better Bootstrap Confidence Intervals," *JASA*, 1987](https://doi.org/10.2307/2289144)). In Atlas both are functions in `evals/stats.py`, `bootstrap_ci` and `bootstrap_ci_bca`, pure stdlib and seeded, and the BCa test is blunt about the difference: on a sample pinned near its ceiling, the two variants must disagree, because if they coincide no correction happened and the variant is not earning its name.
+
+One detail carries more weight than all the rest: resample at the unit your data is independent on. For one shot cases that means per item. For a conversation with multiple turns it means per conversation, the whole transcript as the unit, because turns inside one conversation are correlated, and resampling them individually invents precision you do not have. Get the unit wrong and the bootstrap will cheerfully hand you a tight, reproducible, completely fake interval. Atlas ships the honest unit as `cluster_bootstrap_ci`, and its test is the whole argument in miniature: five conversations whose turns agree perfectly within each transcript, and the per conversation interval comes back wider than the per turn one, because the per turn one was quoting twenty items' worth of confidence on five conversations' worth of information.
+
+And reproducible it must be, in the literal sense: the resampling draws its randomness from a seeded source, the seed stamped into the run's provenance, so the same eval replays to the same interval byte for byte in CI. The Atlas bootstrap takes its seed through the same determinism kit that pins the [clock and the model gateway](/blog/the-harness/), and the seed rides in the committed artifact next to the number. An interval that shifts every time you compute it is not a measurement. It is weather.
+
+## Two systems, the same items, one paired test
+
+**Two systems tested on the same items call for a paired test: it reads the per-item difference, so item difficulty, the biggest source of variance, cancels and the real signal survives. Bootstrap or permute for continuous scores, McNemar for pass or fail.**
+
+Back to the cold open, because the most common comparison is the one that started it: A against B, two models or a feature on and off, and the question of whether the gap is real. The paired test is the single most useful fact in applied eval statistics, and the reason it works is worth seeing in full.
+
+The reason is variance, and where it hides. Some items are simply harder than others, and that item to item difficulty is the largest source of spread in most evals. An unpaired test, comparing two independent piles of scores, leaves that difficulty variance sitting in the denominator, drowning the very signal you are hunting. A paired test looks at the per item difference instead, A minus B on each case, and the difficulty cancels, because the hard item was hard for both. What is left is the thing you wanted to measure: did B actually move, item by item. For continuous scores like NDCG or faithfulness, bootstrap or permute that per item difference; for a straight pass or fail per item, [McNemar's test](https://doi.org/10.1007/BF02295996) reads only the cases where the two disagreed, which is the only place the answer can come from anyway (Psychometrika, 1947). This is the comparison [Dietterich](https://doi.org/10.1162/089976698300017197) recommended for exactly this job, choosing between two learners on shared data, decades before the agents arrived (*Neural Computation*, 1998).
+
+In the cold open the two versions disagreed on eleven of the hundred items: seven that A passed and B failed, four the other way. McNemar reads only those eleven, splits them against a coin, and returns p = 0.55. The seventy seven both passed and the twelve both failed carry no information about which version is better, and the test correctly ignores them. A net of three discordant items out of a hundred is not a regression. It is the sound a hundred items make.
+
+Two warnings travel with this. First, overlapping per system intervals do not prove there is no difference; the paired test can still find one the marginals concealed, which is exactly why you run it rather than eyeball the bars. Second, report the difference interval and an effect size, not a lone p value, because significance without magnitude is its own kind of dishonesty: a gap can be real and far too small to care about, and a p value alone will never tell you which. This is precisely how the retrieval article settles whether the reranker earns its keep. Not with two point estimates that look far apart, but with a paired test on one shared query set, reporting the size of the lift and the interval around it. "Earns its keep" is a measured claim or it is marketing.
+
+## Size the test for the effect, not the calendar
+
+**Size the suite to the smallest effect that would change a decision, not to the calendar. An underpowered eval returns "no difference detectable," not "no difference," and that blind spot ships real regressions behind a green dashboard.**
+
+There is a failure mode upstream of all of this, and it is the quietest one in the discipline: the test that was never big enough to find what you were looking for. Statistical power is the probability that your eval detects an effect that is genuinely there, and it falls out of four things in tension: the size of the effect you care about, the variance in your scores, the number of items, and your tolerance for a false alarm ([Cohen, *Statistical Power Analysis for the Behavioral Sciences*, 1988](https://doi.org/10.4324/9780203771587)). Fix the first two as facts about the world and power becomes a statement about n. An eval with too few items does not return "no difference." It returns "no difference detectable here," which is a different sentence, and the whole craft is in not confusing the two.
+
+That confusion is absence of evidence misread as evidence of absence, and it is how a team ships a real regression behind a green dashboard: the gap was there, the suite was too small to see it, and silence got recorded as a pass. [Card and colleagues](https://arxiv.org/abs/2010.06595) found a large share of published NLP comparisons were underpowered to detect the very improvements they claimed, which means the field has shipped this exact mistake at scale ("With Little Power Comes Great Responsibility," EMNLP 2020). An underpowered suite fails by finding nothing, then reads its own blindness as good news. So size the set to the smallest effect that would change a decision. If a two point drop in faithfulness is worth blocking a release, the suite has to be large enough to resolve two points out of the noise, and that is a power calculation, not a round number someone liked the look of.
+
+Atlas makes the calculation a function rather than a sermon: `required_n` and `detectable_effect` in `evals/stats.py` are the two directions of the same formula. Point them at the cold open and the case closes itself. With the per item spread the hundred items actually showed, the suite could resolve about a nine point gap at the standard 80% power. Resolving the three point question it was asked would have taken 962 items. The hundred item suite was never going to answer it, and knowing that before the eval runs, rather than reading the silence afterward as a pass, is the entire value of the exercise.
+
+And the sizing scales with stakes, because uniform rigor is just waste pointed in one direction. A high stakes surface, anything touching money or safety or the [account on last year's plan](/blog/the-system-under-test/) the whole series is built around, wants something like five hundred items, a thousand bootstrap resamples, and a human reading the borderline cases on top. Even that figure is a calculation wearing a round number's clothes: resolving a five point delta against a per item spread of 0.4 prices out at `required_n(effect=0.05, sd=0.4)` = 503. A weekend chatbot wants twenty cases and a careful read; a thousand resamples on a toy is rigor as theater. Most systems live between those poles, and the skill is placing each surface honestly on the line rather than spending the whole testing budget proving the cheap part works. Rigor is a resource. Spend it where a failure costs something.
+
+## An agent is stochastic, so measure the spread
+
+**A stochastic agent returns a different output each run, so one pass or fail is a single sample. Run k trials per item and report both bars: pass-all-k for anything irreversible, pass-any-k for raw capability.**
+
+Everything so far assumed one score per item. An agent at any temperature above zero breaks that assumption on contact, because the same input yields different outputs on different runs, and a single pass or fail is one sample from a distribution you have not looked at. So the eval lane runs several trials per item and stops pretending the first one was the whole story.
+
+<TrialSpread />
+
+Running the trials surfaces two different variances that a naive average smears together. Within item variance is the model's own stochasticity on a fixed input, the same question answered well on Tuesday and badly on Wednesday. Between item variance is genuine difficulty, some questions harder than others for everyone. Atlas splits them with a single call, `variance_components`, whose tests read like the two failure stories: items that are all coin flips with the same mean put every drop of variance within, and items that are deterministic but unequal put every drop between. They answer different questions and a release call needs both, so report both reliability shapes. `pass_all_k` asks whether every one of the k trials passed, the strict bar you want on anything irreversible. `pass_any_k` asks whether at least one did, the optimistic bar that measures capability rather than reliability. A task that passes seven times in ten is not the same risk as one that passes ten in ten, and a single run cannot tell those apart; it will hand you either face of the coin and call it the system. Money shaped behavior is judged on `pass_all_k`, because "usually fires correctly" is a sentence that should frighten anyone who reads it slowly.
+
+This is where the two lanes split most cleanly. The regression lane kills trial variance on purpose, by replaying recorded model calls and pinning temperature to zero, so the deterministic suite is stable byte for byte and a flake is a bug rather than a fact of life. The eval lane cannot kill the variance, because the variance is part of what it is measuring; production runs warm, and the spread is the risk. So the eval lane measures what the regression lane suppresses. One lane removes the randomness to gate a merge; the other quantifies the randomness to tell the truth. Confusing their jobs is how you end up either gating on noise or shipping on a single lucky draw.
+
+## Benchmark accuracy is not generalized accuracy
+
+**Benchmark accuracy is the exact score on your fixed set; generalized accuracy is the inference that it holds on live traffic. The confidence interval covers sampling error only, never distribution shift, so a tight interval on a stale set is precise about the wrong world.**
+
+There is a sleight of hand buried in the phrase "the model scored 85%," and it is one of the most common statistical sins in the field. Two different accuracies hide in that sentence. Benchmark accuracy is the score on your fixed set: exact, real, and a statement about exactly those items and no others. Generalized accuracy is the claim a team actually wants to make, that the system performs this well on the live distribution of things customers will send tomorrow. The first is a measurement. The second is an inference, and reporting the first as if it were the second is the sin.
+
+The confidence interval helps here, but only halfway, and the half it does not cover is the half that bites. The interval quantifies sampling error, the noise from having tested a hundred items instead of all of them. It says nothing about distribution shift, the gap between your set and the real world. [Recht and colleagues](https://arxiv.org/abs/1902.10811) rebuilt the ImageNet and CIFAR test sets by the original protocol and watched accuracy drop by up to fifteen points on data that was supposed to be identically distributed, a gap no confidence interval on the old set would ever have warned about (ICML 2019). A tight interval on a benchmark drawn from last year's tickets is a precise answer about last year, and precision about the wrong distribution is just a confident way to be wrong.
+
+So when you report a generalized claim, carry the caveat out loud: this is the score on this set, and the extension to production assumes the set looks like production. Name the assumption rather than let the decimal point imply a coverage it does not have.
+
+And one specific contaminant inflates benchmark accuracy for free. If the model saw your test items during training, and public benchmark questions are the usual culprit, it scores high by memory rather than by skill, and the number is a flattering fiction. [Magar and Schwartz](https://arxiv.org/abs/2203.08242) showed models exploit exactly this, scoring measurably higher on contaminated examples than on clean ones drawn from the same distribution (ACL 2022). Decontamination, checking your set against the training data for overlap and pulling the leaks, is what keeps benchmark accuracy from quietly borrowing credit it never earned. It is the same overlap check the [dataset article](/blog/the-golden-dataset/) ran for a different reason, doing double duty here. A high score on contaminated data is the most expensive anecdote of all, because it is the one a team trusts most and should trust least.
+
+## The frontier: difficulty, skill, and cheaper truth
+
+**Two frontier techniques: a generalized linear mixed model separates item difficulty from system skill as random effects, and prediction-powered inference fuses a small human-labeled set with a large judge-labeled one into an estimate both unbiased and tighter than the human labels alone.**
+
+Two techniques sit at the edge of what most teams do, and they are where this discipline is heading, so they are worth knowing by name before you need them.
+
+The first comes out of the NIST work on evaluating generative AI, which proposes modeling an eval the way a statistician would model any messy experiment, with a generalized linear mixed model ([NIST AI 800-3](https://www.nist.gov/itl/ai-risk-management-framework), 2026). The plain version: a raw average over a matrix of models by judges tangles two questions that deserve to be separated, did the system get better, or did these particular items happen to be easier. A mixed model pulls them apart by treating item difficulty and system skill as separate random effects, leaving the effect of swapping the system as a clean estimate of improvement, net of which items the sample happened to draw. It is heavier than a bootstrap, so you reserve it for the release grade matrix rather than every dashboard tile. And when the matrix runs many comparisons at once, correct for multiplicity before calling any single cell significant, because run enough comparisons and noise will hand you a winner by chance alone.
+
+The second is the bridge from the [metrics article](/blog/the-lying-judge/), and it is the one that pays for itself fastest. Human labels are scarce and expensive; a calibrated judge is cheap and slightly biased. Prediction powered inference combines a small set of human labels with a large set of judge labels into a single estimate that is both provably unbiased, because the human labels correct the judge's systematic tilt, and tighter than the human labels alone could buy ([Angelopoulos et al., *Science*, 2023](https://www.science.org/doi/10.1126/science.adi6000); the tuned [PPI++](https://arxiv.org/abs/2311.01453) variant when the judge tracks the human closely). The relationship to calibration is exact and worth stating: calibration measures how far the judge can be trusted, and prediction powered inference is how you spend that trust, converting it into precision without letting the judge's bias leak back into the headline number. Calibration tells you the judge is good enough; this is how you cash it in. The frontier is not more confident numbers. It is more honest ones, with the reasons for the confidence made explicit.
+
+## Where this lives
+
+On the Atlas map, all of this lives in the eval lane, the probabilistic machinery that scores each surface and tracks the result over time, deliberately apart from the regression lane that gates merges on deterministic pass or fail. The eval lane does not hard gate a merge the way regression does, but releases still turn on its numbers, and that is where the single most important rule in this article lands.
+
+<GatingRule />
+
+When a release depends on a tracked metric clearing a bar, gate on the lower bound of the confidence interval, never the point. The cold open makes its own case, and the numbers above are the exhibit: the candidate's point, 0.81, clears a 0.80 release bar; its Wilson floor, 0.722, does not. A best guess above the line and an honest floor below it, and shipping on the best guess is shipping on optimism. Gating on the floor makes "we cannot tell yet" fail closed, which is the only safe direction for a number that might be noise. In the Atlas repo this is not advice, it is a function: `gate_on_lower_bound` in `evals/gate.py` returns one of three verdicts, pass when the floor clears, fail closed when it does not, and quarantine when the interval is wider than the decision can tolerate. That third verdict is the variance budget made executable: an interval wider than the budget is an unproven claim whichever side of the bar it sits on, and a result too wide to call gets rerun with more items or more trials instead of shipped as a coin flip. The candidate's verdict is part of the committed artifact now, a `release_gate` block that reads, verbatim, "lower bound 0.722 is below the 0.800 bar: the floor has not cleared, so the gate fails closed." Its interval was 0.153 wide against a 0.20 budget, narrow enough to judge; the judgment was still no. And the law runs end to end: the eval lane's own report carries a Wilson interval on every rate it serializes, a reporter lint fails any row that quotes a rate without one, and the report gates its tracked rate on the floor. Run `task eval` and the header states the whole discipline in one line: twenty trials out of twenty, with a floor of 0.510, because that interval is taken at the case level — the trials within a case are correlated, so four safe cases, not twenty pooled trials, is the honest sample — and a perfect score on a sample that small is not certainty, it is a small sample behaving.
+
+The machinery underneath is built to make all of this cheap and reproducible. The bootstrap is seeded through the same port that records and replays model calls, the seed stamped into provenance, so an interval recomputes identically when CI replays the run; the result tables, intervals and all, are committed outputs in the repository, not numbers asserted on a slide. The pieces hand off cleanly to the rest of the series. The [metrics article](/blog/the-lying-judge/) chose what to measure and named this article as the one that puts a bar on each number, including its own headline, Cohen's kappa: a kappa on a tiny set is an anecdote like any other, and the same bootstrap built here is what puts an honest interval under it. The retrieval article settles the reranker with the paired test built here, and the production article runs these intervals over live, sampled traffic, where the distribution shift caveat stops being theoretical and becomes the daily weather.
+
+There is one last number worth pointing at. [Daniel](/blog/the-system-under-test/), the customer on last year's plan, was handed a fluent, grounded, and false answer, caught only by correctness against the account and catalog rather than faithfulness to a page. That correctness metric is the one the entire project exists to defend, and it too is a number off a sample, an estimate with a distribution and an interval like every other.
+
+<Callout variant="takeaway" title="Key takeaway">
+Put a bar on every headline number, and pick the bar by the shape of the metric: Wilson for a rate, the bootstrap for anything with no clean formula, resampled at the unit the data is independent on and seeded so it reproduces. When two systems saw the same items, run the paired test, because it subtracts out the item difficulty that hides the signal, and report the difference interval, not a lone p value. Size the set to the smallest effect that would change a decision. And when a release turns on a tracked metric, gate on the lower bound of its interval, never the point, so "we cannot tell yet" fails closed.
+</Callout>
+
+The point is the marketing. The interval is the honesty. A benchmark that reports both, and gates on the cautious one, is a benchmark that holds up.
+
+Next in the series: retrieval. The numbers are honest now; the next question is how to apply them layer by layer to a RAG pipeline, from a plain query set through reranking to graph RAG, and where the first real attack lives, in the poisoned document.
+
+## Frequently asked questions
+
+### Why does an eval score need a confidence interval?
+
+Because a number off a sample is a random variable, not a fact. The same suite run twice returns two different scores from an unchanged system, so a bare point estimate hides whether a gap is signal or noise. A 95% interval states the uncertainty around the number, and reporting it is what separates an eval from a vibe. A benchmark whose intervals overlap, said so plainly, is the honest result, not the weak one.
+
+### What is a paired test and why does it matter for A/B model comparison?
+
+When version A and version B run on the same items, the comparison is paired, and a paired test reads the per item difference instead of two independent piles of scores. Item difficulty, the largest source of spread in most evals, cancels because the hard item was hard for both versions. That subtracts out the noise hiding the signal, and on a close call it can turn "we cannot tell" into a clean verdict the marginal intervals could never reach. Use a paired bootstrap or permutation test for continuous scores and McNemar for pass/fail.
+
+### Should you gate a release on the point estimate or the confidence interval?
+
+Gate on the lower bound of the interval, never the point. A score of 0.84 with a lower bound of 0.78 has not cleared a threshold of 0.80; it has a best guess above the line and an honest floor below it, and shipping on the best guess is shipping on optimism. Gating on the floor makes "we cannot tell yet" fail closed, which is the only safe direction for a number that might be noise.
+
+### What is the difference between benchmark accuracy and generalized accuracy?
+
+Benchmark accuracy is the score on your fixed set, exact and real and a statement about exactly those items. Generalized accuracy is the claim a team actually wants, that the system performs this well on the live distribution of what customers send tomorrow. The first is a measurement; the second is an inference. The confidence interval covers sampling error but says nothing about distribution shift, so a tight interval on a stale set is a precise answer about the wrong distribution.
+
+## Sources
+
+- Brown, Cai, DasGupta, "Interval Estimation for a Binomial Proportion," *Statistical Science* 16(2), 2001, [doi:10.1214/ss/1009213286](https://doi.org/10.1214/ss/1009213286) (retrieved 2026-06-29)
+- Efron, Tibshirani, *An Introduction to the Bootstrap*, Chapman & Hall, 1993, [doi:10.1201/9780429246593](https://doi.org/10.1201/9780429246593) (retrieved 2026-06-29)
+- Efron, "Better Bootstrap Confidence Intervals," *Journal of the American Statistical Association* 82(397), 1987, [doi:10.2307/2289144](https://doi.org/10.2307/2289144) (retrieved 2026-06-29)
+- McNemar, "Note on the sampling error of the difference between correlated proportions or percentages," *Psychometrika* 12(2), 1947, [doi:10.1007/BF02295996](https://doi.org/10.1007/BF02295996) (retrieved 2026-06-29)
+- Dietterich, "Approximate Statistical Tests for Comparing Supervised Classification Learning Algorithms," *Neural Computation* 10(7), 1998, [doi:10.1162/089976698300017197](https://doi.org/10.1162/089976698300017197) (retrieved 2026-06-29)
+- Cohen, *Statistical Power Analysis for the Behavioral Sciences*, 2nd ed., Routledge, 1988, [doi:10.4324/9780203771587](https://doi.org/10.4324/9780203771587) (retrieved 2026-06-29)
+- Card, Henderson, Khandelwal, Jia, Mahowald, Jurafsky, "With Little Power Comes Great Responsibility," EMNLP 2020, [arXiv:2010.06595](https://arxiv.org/abs/2010.06595) (retrieved 2026-06-29)
+- Recht, Roelofs, Schmidt, Shankar, "Do ImageNet Classifiers Generalize to ImageNet?," ICML 2019, [arXiv:1902.10811](https://arxiv.org/abs/1902.10811) (retrieved 2026-06-29)
+- Magar, Schwartz, "Data Contamination: From Memorization to Exploitation," ACL 2022, [arXiv:2203.08242](https://arxiv.org/abs/2203.08242) (retrieved 2026-06-29)
+- Angelopoulos, Bates, Fannjiang, Jordan, Zrnic, "Prediction-Powered Inference," *Science* 382, 2023, [science.org](https://www.science.org/doi/10.1126/science.adi6000) (retrieved 2026-06-29)
+- Angelopoulos, Duchi, Zrnic, "PPI++: Efficient Prediction-Powered Inference," 2023, [arXiv:2311.01453](https://arxiv.org/abs/2311.01453) (retrieved 2026-06-29)
+- NIST, "Artificial Intelligence Risk Management Framework" program (AI 800-3, generative AI evaluation), 2026, [nist.gov](https://www.nist.gov/itl/ai-risk-management-framework) (retrieved 2026-06-29)
+- Wilson, "Probable Inference, the Law of Succession, and Statistical Inference," *Journal of the American Statistical Association* 22(158), 1927, [doi:10.2307/2276774](https://doi.org/10.2307/2276774) (retrieved 2026-06-29)
