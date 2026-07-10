@@ -1,0 +1,60 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// The four load-bearing parts of a golden case, shown on a real Atlas case, the
+// planted cold-open trap, lifted verbatim from the seed set
+// (testing/harness/evals/datasets/seed.py, id: cap-legacy-trap). Each part is
+// labelled by its role: input + session, expected behaviour, risk label, oracle
+// reference. The oracle is a pointer to the source of truth, never a frozen value.
+
+const parts = [
+  {
+    role: 'Input + session',
+    why: 'identity rides in the session, never the chat, half the test',
+    body: '“is there a cap on my data?”  ·  session: customer_id = cust_legacy_term',
+  },
+  {
+    role: 'Expected behaviour',
+    why: 'written as the thing you check, not a vibe',
+    body: 'reflects that THIS plan is capped (legacy); must NOT serve “uncapped / term-free”',
+  },
+  {
+    role: 'Risk label',
+    why: 'lets you weight and slice by consequence later',
+    body: 'high  ·  grounded-but-false',
+  },
+  {
+    role: 'Oracle reference',
+    why: 'a reference, not a number typed in March',
+    body: "truth_for('cust_legacy_term').has_data_cap is True   (account ⋈ catalog)",
+  },
+]
+
+const ariaLabel =
+  'One golden case broken into its four load-bearing parts. Input plus session: the question “is there a cap on my data?” with the session identity customer_id equals cust_legacy_term. Expected behaviour: the answer reflects that this legacy plan is capped and must not serve the uncapped, term-free line. Risk label: high, grounded-but-false. Oracle reference: an assertion that truth_for of cust_legacy_term has_data_cap is True, drawn from the account joined to the catalog, not a frozen value.'
+---
+
+<DiagramFigure label="Anatomy of a case · cap-legacy-trap" ariaLabel={ariaLabel} data-ca>
+  <div class="flex flex-col gap-2">
+    {
+      parts.map((p, i) => (
+        <div class="grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-x-4 gap-y-1 rounded border border-border-dark bg-surface-container-low px-4 py-3">
+          <div class="flex items-baseline gap-2">
+            <span class="font-mono text-mono-xs text-primary">{String(i + 1).padStart(2, '0')}</span>
+            <span class="font-mono text-mono-xs uppercase tracking-wider text-text-primary">{p.role}</span>
+          </div>
+          <div>
+            <p class="m-0 font-mono text-mono-xs text-text-primary leading-relaxed break-words">{p.body}</p>
+            <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed">{p.why}</p>
+          </div>
+        </div>
+      ))
+    }
+  </div>
+
+  <Fragment slot="note">
+    Lifted from the seed set, <code>datasets/seed.py</code>. Same sentence under
+    <code>cust_current</code> is a different case with the opposite answer. The
+    session decides, not the words.
+  </Fragment>
+</DiagramFigure>

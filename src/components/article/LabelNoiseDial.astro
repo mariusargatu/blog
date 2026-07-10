@@ -1,0 +1,56 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// The measured cost of a big auto-labeled set. Northcutt et al. (NeurIPS 2021)
+// audited the test sets of ten of the most-cited ML benchmarks and found an
+// average of at least 3.3% label errors, and once corrected, the rankings flip.
+// One in thirty labels wrong, in the gold-standard sets, under years of scrutiny.
+// The five hundred rows a model wrote you on Tuesday carry more.
+
+const stats = [
+  { value: '3.3%', label: 'avg label errors across 10 canonical benchmarks' },
+  { value: '6%', label: 'of the ImageNet validation set' },
+  { value: '1 in 30', label: 'gold-standard labels wrong' },
+]
+const pct = 3.3
+
+const ariaLabel =
+  'A measurement of label noise. Across the test sets of ten of the most-cited machine-learning benchmarks, an average of at least 3.3 percent of labels are wrong; ImageNet’s validation set is at least 6 percent wrong; roughly one in thirty gold-standard labels is incorrect. The bar shows 3.3 percent. The consequence: once enough mislabeled examples are corrected, model rankings flip, a model that looked better was only better at matching the errors.'
+---
+
+<DiagramFigure label="The cost of a big auto-labeled set" ariaLabel={ariaLabel} data-ln>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    {
+      stats.map((s) => (
+        <div class="rounded border border-border-dark bg-surface-container-low px-4 py-4 text-center">
+          <span class="block font-mono text-2xl text-error leading-none">{s.value}</span>
+          <span class="block mt-2 font-mono text-mono-xs text-text-muted leading-relaxed">{s.label}</span>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="mt-4">
+    <div class="flex justify-between font-mono text-mono-xs text-text-muted">
+      <span>clean</span>
+      <span>3.3% wrong, and it flips the rankings</span>
+    </div>
+    <div class="h-3 mt-1 rounded bg-surface-container-low overflow-hidden" role="presentation">
+      <div class="ln-bar h-full" style={`width:${pct}%`}></div>
+    </div>
+  </div>
+
+  <Fragment slot="note">
+    These are the gold-standard sets the whole field ranks against, under years of
+    scrutiny. The five hundred rows a model wrote for you on Tuesday carry more,
+    and confident green over noisy labels is worse than honest red.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-ln] .ln-bar {
+    min-width: 3px;
+    background: color-mix(in srgb, var(--color-error) 70%, transparent);
+    border-radius: 9999px;
+  }
+</style>

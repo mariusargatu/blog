@@ -33,7 +33,7 @@ faq:
       Independent source-of-truth testing, output validation before delivery, an
       adversarial regression suite, multi-turn trajectory tests, and reading real
       production transcripts. Each is a classical software-testing discipline
-      re-pointed at LLM-specific failure modes, and none requires new research or
+      repointed at LLM-specific failure modes, and none requires new research or
       tooling.
   - q: Where should a team start if it only has evals today?
     a: >-
@@ -56,7 +56,7 @@ import CapabilityRanker from '../../../components/article/CapabilityRanker.astro
 import Foldable from '../../../components/article/Foldable.astro'
 
 <Callout variant="info" title="tl;dr">
-Evals score consistency with retrieved context, not truth, and that gap is what Air Canada lost in court. Here is the uncomfortable part, and the thread this whole series pulls: testing an LLM system is mostly classical software testing the industry forgot it had already solved. Five disciplines, re-pointed at LLM failure modes, catch what the eval dashboard cannot: an independent source of truth, output validation, adversarial regression, trajectory tests, and reading real production transcripts. Learn to apply them and a green suite starts meaning the system is right, not just fluent.
+Evals score consistency with retrieved context, not truth, and that gap is what Air Canada lost in court. Here is the uncomfortable part, and the thread this whole series pulls: testing an LLM system is mostly classical software testing the industry forgot it had already solved. Five disciplines, repointed at LLM failure modes, catch what the eval dashboard cannot: an independent source of truth, output validation, adversarial regression, trajectory tests, and reading real production transcripts. Learn to apply them and a green suite starts meaning the system is right, not just fluent.
 </Callout>
 
 ## Air Canada's $812 Lesson
@@ -133,7 +133,7 @@ The Cybernews team summarized the lesson in one line: people-pleasing is still t
 
 The pattern shows up beyond these three. In April 2026, an [AI coding agent at PocketOS](https://www.tomshardware.com/tech-industry/artificial-intelligence/claude-powered-ai-coding-agent-deletes-entire-company-database-in-9-seconds-backups-zapped-after-cursor-tool-powered-by-anthropics-claude-goes-rogue), a car rental SaaS company, deleted the production database and all volume-level backups in nine seconds, leaving customers without records of their bookings when they arrived at rental counters that Saturday morning. The most recent recoverable backup was three months old. In December 2025, [Amazon's Kiro AI coding assistant](https://incidentdatabase.ai/cite/1442/), given a minor task in AWS Cost Explorer, decided the optimal solution was to delete the production environment and recreate it from scratch, producing a thirteen-hour outage in one of the China regions. New York City's [MyCity chatbot](https://themarkup.org/artificial-intelligence/2024/03/29/nycs-ai-chatbot-tells-businesses-to-break-the-law), launched on real source documents about city regulations, advised small business owners that they could pocket workers' tips and refuse Section 8 tenants, both illegal under New York law.
 
-What these incidents share is not that the models are bad. The models are fine. What they share is that the deployment pipelines around the models were missing tests that classical software testing would have considered mandatory before shipping anything non-trivial.
+What these incidents share is not that the models are bad. The models are fine. What they share is that the deployment pipelines around the models were missing tests that classical software testing would have considered mandatory before shipping anything nontrivial.
 
 <IncidentLedger />
 
@@ -159,7 +159,7 @@ In practice this means RAGAS faithfulness measures whether claims are entailed b
 
 The question for any metric in your eval suite: does this actually measure the thing we will be held accountable for if it goes wrong in production? "Approximately, in most cases" means the metric does useful work but cannot be the only test that gates deploy. "We have not really thought about that" means the metric is a dashboard ornament.
 
-**LLM-as-judge biases.** [Zheng and coauthors at NeurIPS 2023](https://arxiv.org/abs/2306.05685) enumerated four biases in the LLM-as-judge approach. Position bias: when a judge compares two responses, the order affects which is preferred. Verbosity bias: judges prefer longer responses even when the longer response is not more correct. Self-enhancement bias: judges prefer responses that look stylistically similar to their own. Reduced accuracy on math and reasoning. A [follow-up paper by Panickssery and coauthors at NeurIPS 2024](https://arxiv.org/abs/2404.13076) showed that LLMs can recognize their own outputs at non-trivial accuracy, and that this recognition correlates linearly with self-preference bias.
+**LLM-as-judge biases.** [Zheng and coauthors at NeurIPS 2023](https://arxiv.org/abs/2306.05685) enumerated four biases in the LLM-as-judge approach. Position bias: when a judge compares two responses, the order affects which is preferred. Verbosity bias: judges prefer longer responses even when the longer response is not more correct. Self-enhancement bias: judges prefer responses that look stylistically similar to their own. Reduced accuracy on math and reasoning. A [follow-up paper by Panickssery and coauthors at NeurIPS 2024](https://arxiv.org/abs/2404.13076) showed that LLMs can recognize their own outputs at nontrivial accuracy, and that this recognition correlates linearly with self-preference bias.
 
 Any LLM-as-judge pipeline shipping today needs three protections most do not have: order randomization in any pairwise comparison, length normalization or judge prompting that de-weights length, and judge diversity, which means a different model family for judging than for generation, ideally rotating across multiple judges. The reason most production pipelines do not correct for these is that the pipeline was built to get a number on a dashboard and refining it has not been prioritized.
 
@@ -241,7 +241,7 @@ The suite then grows by accretion. Every customer-discovered break goes in. Ever
 
 The implementation is straightforward. Each adversarial input runs through the same pipeline a real customer query would run through. The test passes if the validators from Pattern 2 catch the attack, or if the response is a safe fallback, or if the output otherwise stays within policy. The test fails if the attack succeeds. A failure blocks deploy.
 
-The discipline that makes this work is the same one that makes regression testing work for non-LLM systems: the suite is gated to deploy and treated as non-negotiable. The pattern fails the moment a regression is found and the team decides to ship anyway, just this once, because the deploy is needed for another reason. Once the suite stops being a hard gate, it stops being a regression suite and becomes a dashboard, which is to say it stops doing its job. The lesson is older than most LLM applications: hard gates work, soft gates do not.
+The discipline that makes this work is the same one that makes regression testing work for non-LLM systems: the suite is gated to deploy and treated as nonnegotiable. The pattern fails the moment a regression is found and the team decides to ship anyway, just this once, because the deploy is needed for another reason. Once the suite stops being a hard gate, it stops being a regression suite and becomes a dashboard, which is to say it stops doing its job. The lesson is older than most LLM applications: hard gates work, soft gates do not.
 
 Initial suite: two to three weeks for an engineer who is paying attention to the security research community. CI runtime: single-digit minutes for two to five hundred adversarial inputs running in parallel. The cost is low. The reason teams do not ship this is not cost.
 
@@ -319,7 +319,7 @@ The second is Pattern 1, testing against an independent source of truth, applied
 
 The third is Pattern 2, validating output before it ships, on every capability where the LLM's claim might be wrong or its output might be rendered. This is the production safety net that catches what Pattern 1's CI gate cannot catch: the inputs that nobody anticipated, the model behavior that emerged after deploy, the edge cases that only show up in real traffic. The Lenovo case is the simplest illustration. The Salesforce case is the most consequential. Both would have been caught by an output validation layer that treated the LLM as untrusted.
 
-Patterns 3 and 4, adversarial regression and trajectory testing, are not optional but they are second order. Adversarial regression is necessary, well-understood, and largely a question of discipline rather than design: build the suite, gate it to deploy, treat regressions as non-negotiable. Trajectory testing is necessary, less well-tooled, and requires more sustained engineering investment. Both pay off, but neither is where a team starting from a typical eval-only setup should put its first quarter of investment.
+Patterns 3 and 4, adversarial regression and trajectory testing, are not optional but they are second order. Adversarial regression is necessary, well-understood, and largely a question of discipline rather than design: build the suite, gate it to deploy, treat regressions as nonnegotiable. Trajectory testing is necessary, less well-tooled, and requires more sustained engineering investment. Both pay off, but neither is where a team starting from a typical eval-only setup should put its first quarter of investment.
 
 The architectural lever sits underneath all five patterns: every decision about where the LLM sits and what it can reach changes how much testing the rest of the system needs. Teams that take it seriously concentrate their test budget where the LLM actually has authority. Teams that don't pay maximum rigor on every path, a budget no team can afford.
 
@@ -337,7 +337,7 @@ The top three on the sorted list are where your testing program needs to start. 
 
 For each capability at the top of the list, ask three questions. What is the canonical source of truth for the claims this capability makes? If the answer is "the LLM, in the moment, from retrieved chunks," you need Pattern 1. Who verifies the LLM's output before it reaches the customer? If the answer is "nobody," you need Pattern 2. What happens on turn seven of a frustrated customer conversation in this capability? If you cannot answer with confidence, you need Pattern 4.
 
-The LLM industry has built one half of software testing well: the half that runs in CI, scores outputs, and gates deploys on a number. The other half, the half that asks what could go wrong and designs the questions that would expose the failures, has been quietly under-funded for two years. The gap is where Air Canada, Asana, Salesforce, Lenovo, PocketOS, Amazon, and the next twenty incidents not yet on the public record actually live. None of it requires new research. All of it is mature classical software testing, re-pointed at LLM-specific failure modes.
+The LLM industry has built one half of software testing well: the half that runs in CI, scores outputs, and gates deploys on a number. The other half, the half that asks what could go wrong and designs the questions that would expose the failures, has been quietly under-funded for two years. The gap is where Air Canada, Asana, Salesforce, Lenovo, PocketOS, Amazon, and the next twenty incidents not yet on the public record actually live. None of it requires new research. All of it is mature classical software testing, repointed at LLM-specific failure modes.
 
 Build the canonical facts. Run the validators. Read the transcripts. Test the trajectories. Move the LLM out of the high-consequence paths where you can.
 
@@ -357,7 +357,7 @@ The chatbot's answer was faithful to the chunks the retriever surfaced, and thos
 
 ### What are the five testing patterns for LLM systems?
 
-Independent source-of-truth testing, output validation before delivery, an adversarial regression suite, multi-turn trajectory tests, and reading real production transcripts. Each is a classical software-testing discipline re-pointed at LLM-specific failure modes, and none requires new research or tooling.
+Independent source-of-truth testing, output validation before delivery, an adversarial regression suite, multi-turn trajectory tests, and reading real production transcripts. Each is a classical software-testing discipline repointed at LLM-specific failure modes, and none requires new research or tooling.
 
 ### Where should a team start if it only has evals today?
 

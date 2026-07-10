@@ -121,7 +121,7 @@ const levels = [
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
 
     const recompute = (announce = false) => {
-      // FLIP — First: record each row's current position before reordering.
+      // FLIP, First: record each row's current position before reordering.
       const first = new Map(rows.map((r) => [r, r.getBoundingClientRect().top]))
 
       const ranked = rows

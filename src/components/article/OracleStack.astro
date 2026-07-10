@@ -1,0 +1,53 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// Nothing downstream beats the oracle. The metric, the judge, and the regression
+// gate are each a function of the same answer key; they all rest on the
+// human-verified golden set, checked against the account + catalog source of
+// truth. Wire the base to a bad key and every layer above it inherits the lie.
+
+const layers = [
+  { name: 'Regression gate', sub: 'blocks the merge, or waves it through' },
+  { name: 'LLM judge', sub: 'scores the subjective “how well”' },
+  { name: 'Metric', sub: 'faithfulness, correctness, task success' },
+]
+
+const ariaLabel =
+  'A stack. Three downstream layers sit in a row at the top, the metric, the LLM judge, and the regression gate, each labelled a function of the oracle. They all rest on a single wide base block: the oracle, the human-verified golden set checked against the account and catalog source of truth. The base carries the whole stack; a bad answer key at the base makes every layer above it confidently wrong.'
+---
+
+<DiagramFigure label="Nothing downstream beats the oracle" ariaLabel={ariaLabel} data-os>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+    {
+      layers.map((l) => (
+        <div class="os-layer rounded border border-border-dark bg-surface-container-low px-4 py-3 text-center">
+          <span class="block text-sm text-text-primary font-medium">{l.name}</span>
+          <span class="block mt-1 font-mono text-mono-xs text-text-muted leading-tight">{l.sub}</span>
+        </div>
+      ))
+    }
+  </div>
+
+  <p class="m-0 my-3 text-center font-mono text-mono-xs uppercase tracking-wider text-text-muted">
+    each one is f(oracle), rests on ↓
+  </p>
+
+  <div class="os-base rounded border px-4 py-4 text-center">
+    <span class="block font-mono text-mono-xs uppercase tracking-wider text-primary">The oracle</span>
+    <span class="block mt-1 text-sm text-text-primary">
+      the small human-verified golden set, checked against the account&nbsp;+&nbsp;catalog source of truth
+    </span>
+  </div>
+
+  <Fragment slot="note">
+    Buy the best eval framework on the market, wire it to a bad answer key, and
+    all you bought is a faster, more confident way to be wrong.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-os] .os-base {
+    border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  }
+</style>

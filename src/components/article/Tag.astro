@@ -4,9 +4,9 @@ import { Icon } from 'astro-icon/components'
 // The pill chip used for status and access labels inside diagrams: READ / WRITE
 // on the system map, PASS / REF on the turn trace. Three variants on the one
 // commitment axis the design system already uses:
-//   neutral — hairline on paper (a plain label, no emphasis)
-//   safe    — green text on a faint green wash (the guard cleared it)
-//   solid   — filled green (the one committed, high-signal state: a write, a ref)
+//   neutral: hairline on paper (a plain label, no emphasis)
+//   safe:    green text on a faint green wash (the guard cleared it)
+//   solid:   filled green (the one committed, high-signal state: a write, a ref)
 // Green is reserved for genuinely-safe states, per DESIGN.md; never use `solid`
 // or `safe` for a danger or error label.
 type Variant = 'neutral' | 'safe' | 'solid'

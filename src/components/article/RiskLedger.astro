@@ -1,0 +1,89 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+
+// The five dataset decisions as a scannable ledger: each choice buys something
+// and charges for it, and the charge is usually invisible until it ships. Open a
+// row to read both sides. Mirrors the article's "decisions, and what each costs".
+interface Decision {
+  choice: string
+  buys: string
+  costs: string
+  move: string
+}
+
+const decisions: Decision[] = [
+  {
+    choice: 'Synthetic vs real',
+    buys: 'Fast, cheap, privacy-safe volume.',
+    costs: 'Inherits the generator’s blind spots; goes green on phrasings no real customer sends.',
+    move: 'Seed hand-written; a little synthetic on low-risk paths; replace with sampled production.',
+  },
+  {
+    choice: 'Size vs quality',
+    buys: 'A big number on the coverage slide.',
+    costs: 'Confident green over ~3.3% label noise, worse than honest red.',
+    move: 'Grow by promoting verified cases, not by generating unverified ones.',
+  },
+  {
+    choice: 'Who writes the gold',
+    buys: 'An engineer is fast and on-hand.',
+    costs: 'Encodes what was built, not what is true, and confirms the bug.',
+    move: 'The SME holds the pen; they write down what is correct.',
+  },
+  {
+    choice: 'Freeze value vs check oracle',
+    buys: 'A literal number, typed in once.',
+    costs: 'Every case goes red the day the catalog moves, the team learns to ignore reds.',
+    move: 'Assert against the oracle; when the catalog moves, the assertion moves with it.',
+  },
+  {
+    choice: 'Coverage bias',
+    buys: 'Nothing, it is structural, not a choice.',
+    costs: 'The set only ever covers the failures you imagined.',
+    move: 'Name it; close it in production, with the living loop. A check, not a proof.',
+  },
+]
+
+const ariaLabel =
+  'A ledger of the five dataset decisions. Each names what the choice buys and what it costs: synthetic versus real, size versus quality, who writes the gold answer, freezing a value versus checking the oracle, and coverage bias.'
+---
+
+<div class="not-prose my-10" data-inview aria-label={ariaLabel}>
+  <DiagramLabel
+    icon="material-symbols:balance"
+    label="The ledger: what each choice buys and costs"
+    class="mb-4"
+  />
+
+  <div class="flex flex-col gap-2">
+    {
+      decisions.map((d) => (
+        <details class="accordion border border-border-dark bg-surface group">
+          <summary class="flex items-center justify-between gap-4 p-4">
+            <div class="flex items-center gap-3 min-w-0">
+              <Icon name="material-symbols:swap-horiz" class="text-primary text-[18px] shrink-0" />
+              <span class="text-text-primary font-medium truncate">{d.choice}</span>
+            </div>
+            <Icon name="material-symbols:expand-more" class="acc-chevron text-primary text-[20px] shrink-0" />
+          </summary>
+
+          <div class="grid md:grid-cols-2 gap-px bg-border-dark border-t border-border-dark">
+            <div class="bg-surface p-4">
+              <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider">Buys</span>
+              <p class="m-0 mt-1 text-sm text-text-primary">{d.buys}</p>
+            </div>
+            <div class="bg-surface p-4">
+              <span class="font-mono text-mono-xs text-error uppercase tracking-wider">Costs</span>
+              <p class="m-0 mt-1 text-sm text-text-primary">{d.costs}</p>
+            </div>
+            <div class="bg-surface p-4 md:col-span-2">
+              <span class="font-mono text-mono-xs text-primary uppercase tracking-wider">The move</span>
+              <p class="m-0 mt-1 text-sm text-primary">{d.move}</p>
+            </div>
+          </div>
+        </details>
+      ))
+    }
+  </div>
+</div>

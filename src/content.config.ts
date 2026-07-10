@@ -45,6 +45,9 @@ const blog = defineCollection({
         .object({
           name: z.string(),
           order: z.number().int().positive(),
+          // Optional git tag in the series' companion repo that freezes this
+          // part's code. Builds the per-part "GitHub Code" link to /tree/<code>.
+          code: z.string().optional(),
         })
         .optional(),
       // Optional FAQ pairs: rendered visibly in-article and emitted as FAQPage

@@ -4,7 +4,7 @@ import DiagramLabel from './DiagramLabel.astro'
 
 // Pattern 2 made tangible: an LLM output runs through deterministic validators
 // before it ships. Toggle a benign answer vs a malicious (Lenovo-style XSS)
-// output — the malicious one is blocked at the content-safety gate.
+// output: the malicious one is blocked at the content-safety gate.
 const gates = [
   { key: 'claims', label: 'Claims vs facts', icon: 'material-symbols:fact-check' },
   { key: 'commit', label: 'Commitment', icon: 'material-symbols:gavel' },

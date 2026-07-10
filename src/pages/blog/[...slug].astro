@@ -25,12 +25,17 @@ export async function getStaticPaths() {
     const seriesName = post.data.series?.name
     const members = seriesName ? postsInSeries(posts, seriesName) : []
     const idx = members.findIndex((p) => p.id === post.id)
+    // Per-part code link: point GitHub Code at this part's frozen tag when the
+    // post declares one, else fall back to the series' repo root.
+    const repoBase = seriesName ? seriesRepoUrl(seriesName) : undefined
+    const code = post.data.series?.code
+    const repoUrl = repoBase && code ? `${repoBase}/tree/${code}` : repoBase
     const series =
       seriesName && idx !== -1
         ? {
             name: seriesName,
             href: seriesUrl(seriesName),
-            repoUrl: seriesRepoUrl(seriesName),
+            repoUrl,
             current: idx + 1,
             total: members.length,
             parts: members.map((p) => ({

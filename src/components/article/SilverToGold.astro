@@ -1,0 +1,61 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// Silver-to-gold promotion. Synthetic and sampled cases enter as silver:
+// provisional, never permitted to gate a release. A case becomes gold only after
+// a human verifies the label AND an evaluator agrees (chance-corrected, kappa
+// >= 0.61). Gold gates; silver explores. The promotion step is where trust is
+// manufactured deliberately instead of assumed. In Atlas this pipeline lands
+// with the production living loop; the seed set ships all-gold, by hand.
+
+const ariaLabel =
+  'A promotion pipeline in three stages. Stage one, silver: synthetic or sampled cases, provisional and untrusted, used for coverage and never allowed to gate a release. Stage two, the review gate: a human verifies the label and an evaluator agrees, with chance-corrected agreement of kappa at least 0.61. Stage three, gold: trusted cases that gate the release. An arrow loops from gold back to the gate, labelled keep the tiers visibly separate.'
+---
+
+<DiagramFigure label="Silver → gold promotion" ariaLabel={ariaLabel} data-sg>
+  <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch gap-2 sm:gap-1">
+    <div class="sg-silver rounded border px-4 py-3 text-center">
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-text-muted">Silver</span>
+      <span class="block mt-1 text-sm text-text-primary">synthetic / sampled</span>
+      <span class="block mt-1 font-mono text-mono-xs text-text-muted leading-tight">provisional · never gates</span>
+    </div>
+
+    <div class="hidden sm:flex items-center justify-center font-mono text-text-muted">→</div>
+
+    <div class="sg-gate rounded border px-4 py-3 text-center">
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-primary">Review gate</span>
+      <span class="block mt-1 text-sm text-text-primary">human verifies + evaluator agrees</span>
+      <span class="block mt-1 font-mono text-mono-xs text-text-muted leading-tight">κ ≥ 0.61</span>
+    </div>
+
+    <div class="hidden sm:flex items-center justify-center font-mono text-text-muted">→</div>
+
+    <div class="sg-gold rounded border px-4 py-3 text-center">
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-success">Gold</span>
+      <span class="block mt-1 text-sm text-text-primary">trusted</span>
+      <span class="block mt-1 font-mono text-mono-xs text-text-muted leading-tight">gates the release</span>
+    </div>
+  </div>
+
+  <Fragment slot="note">
+    Gold gates; silver explores coverage. Keeping the tiers visibly separate is
+    what stops a thousand half-trusted cases from leaking into the set that
+    decides whether you ship. In Atlas the pipeline lands with the living loop;
+    the seed set ships all-gold.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-sg] .sg-silver {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-sg] .sg-gate {
+    border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+  }
+  [data-sg] .sg-gold {
+    border-color: color-mix(in srgb, var(--color-success) 55%, transparent);
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
+  }
+</style>

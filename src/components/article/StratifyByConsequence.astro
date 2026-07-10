@@ -1,0 +1,95 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// Stratify by consequence, not frequency. A suite that mirrors traffic spends
+// most of its cases on the cheapest, safest surface and arrives underweight
+// where a failure does real damage. The Atlas seed mirrors risk instead: ten
+// hand-authored cases weighted onto the write surface: policy 2, account read
+// 2, action 6; seven high-consequence, three low. Bars are illustrative; the
+// Atlas counts are the real seed set (datasets/seed.py).
+
+const rows = [
+  {
+    surface: 'Policy / FAQ',
+    traffic: 70,
+    atlas: 2,
+    note: 'cheap, safe, common',
+  },
+  {
+    surface: 'Account read',
+    traffic: 22,
+    atlas: 2,
+    note: 'scoped to one customer',
+  },
+  {
+    surface: 'Action (write)',
+    traffic: 8,
+    atlas: 6,
+    note: 'moves money, changes a plan',
+  },
+]
+const atlasTotal = rows.reduce((n, r) => n + r.atlas, 0)
+
+const ariaLabel =
+  'A comparison of two ways to weight a test set across three surfaces. Mirroring traffic puts about 70 percent of cases on policy and FAQ, 22 percent on account reads, and only 8 percent on actions, most of the budget on the safest surface. The Atlas seed mirrors risk instead: of ten cases, two are policy, two are account reads, and six are actions, the write surface that moves money. Seven of the ten are high-consequence, three are low.'
+---
+
+<DiagramFigure label="Stratify by consequence, not frequency" ariaLabel={ariaLabel} data-sc>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+    <span class="font-mono text-mono-xs uppercase tracking-wider text-error">Mirror traffic, backwards</span>
+    <span class="hidden md:block font-mono text-mono-xs uppercase tracking-wider text-primary">Mirror risk: Atlas seed</span>
+
+    <div class="flex flex-col gap-2 mt-1">
+      {
+        rows.map((r) => (
+          <div>
+            <div class="flex justify-between font-mono text-mono-xs text-text-muted">
+              <span>{r.surface}</span>
+              <span>{r.traffic}%</span>
+            </div>
+            <div class="h-2 mt-1 rounded bg-surface-container-low overflow-hidden">
+              <div class="sc-bar sc-traffic h-full" style={`width:${r.traffic}%`} />
+            </div>
+          </div>
+        ))
+      }
+    </div>
+
+    <span class="md:hidden mt-3 font-mono text-mono-xs uppercase tracking-wider text-primary">Mirror risk: Atlas seed</span>
+    <div class="flex flex-col gap-2 mt-1">
+      {
+        rows.map((r) => (
+          <div>
+            <div class="flex justify-between font-mono text-mono-xs text-text-muted">
+              <span>{r.surface}</span>
+              <span>
+                {r.atlas}/{atlasTotal} · {r.note}
+              </span>
+            </div>
+            <div class="h-2 mt-1 rounded bg-surface-container-low overflow-hidden">
+              <div class="sc-bar sc-atlas h-full" style={`width:${(r.atlas / atlasTotal) * 100}%`} />
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+
+  <Fragment slot="note">
+    The Atlas seed is ten cases, 7 high-consequence and 3 low, weighted onto the
+    write surface, including the ones engineered to go wrong. A suite that mirrors
+    traffic is a comfort blanket with a dashboard stitched on.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-sc] .sc-bar {
+    border-radius: 9999px;
+  }
+  [data-sc] .sc-traffic {
+    background: color-mix(in srgb, var(--color-error) 55%, transparent);
+  }
+  [data-sc] .sc-atlas {
+    background: color-mix(in srgb, var(--color-primary) 65%, transparent);
+  }
+</style>

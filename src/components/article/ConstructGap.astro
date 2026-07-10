@@ -1,0 +1,64 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// The construct-validity gap. Correctness is the construct you are accountable
+// for; faithfulness is the operationalization that is easy to measure. They come
+// apart exactly where the retrieved page and the customer's account disagree,
+// Daniel's legacy plan. A metric pointed at the proxy paints that gap green.
+
+const ariaLabel =
+  'Two columns. On the left, the construct you are accountable for: correctness, meaning true for this customer. On the right, the operationalization you actually measure: faithfulness, meaning the answer matches the page it retrieved. Between them, a highlighted gap labelled: they diverge exactly where the page and the account disagree. Below, a statistic: in a NeurIPS 2025 audit of 445 LLM benchmarks, only 53.4 percent presented any evidence for their own construct validity.'
+---
+
+<DiagramFigure label="Faithfulness is not correctness" ariaLabel={ariaLabel} data-cgap>
+  <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-stretch gap-3">
+    <div class="cgap-construct rounded border px-4 py-3">
+      <span class="font-mono text-mono-xs uppercase tracking-wider text-primary">Construct · what you owe</span>
+      <p class="m-0 mt-1 text-sm text-text-primary font-medium">Correctness</p>
+      <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed">
+        true for <em>this</em> customer, matches the account &amp; catalog
+      </p>
+    </div>
+
+    <div class="cgap-gap flex md:flex-col items-center justify-center gap-1 px-2 py-2">
+      <span class="font-mono text-mono-xs uppercase tracking-wider text-error text-center leading-tight">the gap</span>
+      <span class="font-mono text-mono-xs text-text-muted text-center leading-tight">page&nbsp;≠ account</span>
+    </div>
+
+    <div class="cgap-proxy rounded border px-4 py-3">
+      <span class="font-mono text-mono-xs uppercase tracking-wider text-text-muted">Proxy · what you measure</span>
+      <p class="m-0 mt-1 text-sm text-text-primary font-medium">Faithfulness</p>
+      <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed">
+        matches the page retrieval surfaced, green even when the page is wrong for them
+      </p>
+    </div>
+  </div>
+
+  <Fragment slot="note">
+    A NeurIPS 2025 audit of 445 LLM benchmarks found only 53.4% presented any
+    evidence for their own construct validity. Measuring the proxy and reporting
+    it as the construct is the whole bug.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-cgap] .cgap-construct {
+    border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+  }
+  [data-cgap] .cgap-proxy {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-cgap] .cgap-gap {
+    border-left: 2px dashed color-mix(in srgb, var(--color-error) 55%, transparent);
+    border-right: 2px dashed color-mix(in srgb, var(--color-error) 55%, transparent);
+  }
+  @media (max-width: 767px) {
+    [data-cgap] .cgap-gap {
+      border: none;
+      border-top: 2px dashed color-mix(in srgb, var(--color-error) 55%, transparent);
+      border-bottom: 2px dashed color-mix(in srgb, var(--color-error) 55%, transparent);
+    }
+  }
+</style>
