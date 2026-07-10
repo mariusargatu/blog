@@ -1,0 +1,259 @@
+---
+import DiagramLabel from './DiagramLabel.astro'
+// The judge calibration study, straight from the Atlas repo (`task judge`). The same cross-family
+// judge scores a 28-case human-labelled set under two rubrics. Toggle the rubric: the naive
+// helpfulness rubric agrees with the humans at Cohen's kappa 0.21 (fails the 0.6 bar), the corrected
+// account-truth rubric at 0.85 (clears it, on its interval floor). The judge never changes; only the rubric does.
+// Data and kappa values are the committed artifact's, not illustrative. Keep in sync with
+// testing/harness/evals/datasets/judge_calibration.py if the calibration set changes.
+// `human` = the SME truth (1 good / 0 bad). `naive`/`corrected` = the recorded judge verdict per
+// rubric. A row "flips" when naive !== corrected: those are the cases the rubric change moves.
+const cases = [
+  { id: 'cap-correct-current', label: 'data cap · current', human: 1, naive: 1, corrected: 1 },
+  { id: 'bill-correct-current', label: 'bill · current', human: 1, naive: 1, corrected: 1 },
+  { id: 'usage-over-cap-correct', label: 'usage over cap · legacy', human: 1, naive: 1, corrected: 1 },
+  { id: 'plan-explained-correct', label: 'plan explainer · current', human: 1, naive: 1, corrected: 1 },
+  { id: 'addon-correct-current', label: 'add-ons · current', human: 1, naive: 1, corrected: 1 },
+  { id: 'garbled-false-cap', label: 'garbled cap answer', human: 0, naive: 0, corrected: 0 },
+  { id: 'evasive-nonanswer', label: 'evasive non-answer', human: 0, naive: 0, corrected: 0 },
+  { id: 'rambling-wrong-fee', label: 'rambling wrong fee', human: 0, naive: 0, corrected: 1 },
+  { id: 'confused-wrong-usage', label: 'confused usage', human: 0, naive: 0, corrected: 0 },
+  { id: 'cold-open-contract-free', label: 'the cold open · "cancel free"', human: 0, naive: 1, corrected: 0 },
+  { id: 'cap-uncapped-legacy', label: '"uncapped" to legacy', human: 0, naive: 1, corrected: 0 },
+  { id: 'correct-handoff', label: 'correct handoff', human: 1, naive: 0, corrected: 1 },
+  { id: 'correct-scope-refusal', label: 'scope refusal', human: 1, naive: 0, corrected: 1 },
+  { id: 'terse-true-cap', label: 'terse true "no cap"', human: 1, naive: 0, corrected: 1 },
+  { id: 'price-correct-legacy', label: 'monthly price · legacy', human: 1, naive: 1, corrected: 1 },
+  { id: 'term-correct-current', label: 'contract term · current', human: 1, naive: 1, corrected: 1 },
+  { id: 'bill-due-correct-legacy', label: 'bill due · legacy', human: 1, naive: 1, corrected: 1 },
+  { id: 'addon-none-correct-legacy', label: 'no add-ons · legacy', human: 1, naive: 1, corrected: 1 },
+  { id: 'garbled-wrong-price', label: 'garbled price answer', human: 0, naive: 0, corrected: 0 },
+  { id: 'vague-wrong-bill', label: 'vague wrong bill', human: 0, naive: 0, corrected: 0 },
+  { id: 'garbled-wrong-addon', label: 'garbled add-ons', human: 0, naive: 0, corrected: 0 },
+  { id: 'legacy-no-fee-false', label: '"no exit fee" to legacy', human: 0, naive: 1, corrected: 0 },
+  { id: 'legacy-uncapped-false', label: '"unlimited" to legacy', human: 0, naive: 1, corrected: 0 },
+  { id: 'current-overcap-false', label: '"over allowance" to current', human: 0, naive: 1, corrected: 0 },
+  { id: 'terse-true-price', label: 'terse true "£35"', human: 1, naive: 0, corrected: 1 },
+  { id: 'scope-refusal-bill', label: 'neighbour bill refusal', human: 1, naive: 0, corrected: 1 },
+  { id: 'handoff-contracted-cancel', label: 'contracted cancel handoff', human: 1, naive: 0, corrected: 1 },
+  { id: 'rambling-wrong-cap', label: 'rambling wrong cap', human: 0, naive: 0, corrected: 1 },
+].map((c) => ({ ...c, flips: c.naive !== c.corrected }))
+const BAR = 0.6 // the automation threshold marker, as a fraction of the 0..1 track
+const yn = (v: number) => (v ? '✓' : '✗')
+---
+
+<figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-5" data-jc data-inview>
+  <div class="mb-4 flex items-center gap-2">
+    <DiagramLabel label="Judge calibration: one rubric change, the same judge" />
+    <div class="h-px flex-1 bg-border-dark"></div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 mb-5" role="group" aria-label="Choose the judge rubric">
+    <span class="font-mono text-mono-xs text-text-muted mr-1" aria-hidden="true">Rubric:</span>
+    <button type="button" class="jc-toggle on inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark transition-colors" data-jc-rubric="naive" aria-pressed="true">
+      V1 · helpfulness
+    </button>
+    <button type="button" class="jc-toggle inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark text-text-muted transition-colors" data-jc-rubric="corrected" aria-pressed="false">
+      V2 · account-truth
+    </button>
+  </div>
+
+  <!-- kappa on a 0..1 scale; the value moves across the 0.60 bar as you toggle. Visual only;
+       the figcaption announces the same numbers to assistive tech. -->
+  <div class="mb-5" aria-hidden="true">
+    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-2">
+      <span class="font-mono text-3xl text-text-primary" data-jc-kappa>0.21</span>
+      <span class="font-mono text-mono-xs text-text-muted">floor <span data-jc-floor-val>−0.15</span></span>
+      <span class="font-mono text-mono-xs uppercase tracking-wide" data-jc-verdict>not licensed</span>
+      <span class="font-mono text-mono-xs text-text-muted sm:ml-auto">raw <span data-jc-raw>61%</span></span>
+    </div>
+    <div class="jc-track relative h-2.5 w-full overflow-hidden" data-jc-track>
+      <div class="jc-fill absolute inset-y-0 left-0 w-full origin-left" data-jc-fill></div>
+      <div class="jc-bar absolute inset-y-0" style={`left:${BAR * 100}%`}></div>
+    </div>
+    <!-- the 95% CI floor caret: licensing reads THIS, the honest lower bound, against the 0.60 bar,
+         never the point. It clears the bar for the corrected rubric and sits far left of it for the naive. -->
+    <div class="relative h-5 mt-1">
+      <span class="jc-floor absolute -translate-x-1/2 flex flex-col items-center leading-none" data-jc-floor style="left:0%">
+        <span class="text-[10px]" aria-hidden="true">▲</span>
+        <span class="font-mono text-mono-xs whitespace-nowrap">floor</span>
+      </span>
+    </div>
+    <div class="relative mt-0.5 font-mono text-mono-xs text-text-muted">
+      <span>κ 0</span>
+      <span class="hidden sm:inline absolute -translate-x-1/2 text-text-primary whitespace-nowrap" style={`left:${BAR * 100}%`}>0.60 bar</span>
+      <span class="float-right">1.0</span>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between mb-2 font-mono text-mono-xs text-text-muted">
+    <span>case</span>
+    <span class="flex gap-4"><span class="w-12 text-right">human</span><span class="w-12 text-right">judge</span></span>
+  </div>
+  <ul class="grid sm:grid-cols-2 gap-x-6 gap-y-0 m-0 p-0 list-none" data-jc-rows>
+    {
+      cases.map((c) => (
+        <li class="jc-row flex items-center justify-between py-1 border-b border-border-dark/40" data-human={c.human} data-naive={c.naive} data-corrected={c.corrected} data-flips={c.flips ? '1' : '0'}>
+          <span class="flex items-center gap-2 min-w-0">
+            <span class="font-mono text-mono-xs text-text-primary truncate" title={c.id}>{c.label}</span>
+            {c.flips && <span class="jc-flip-tag font-mono text-mono-xs px-1 shrink-0">flips</span>}
+          </span>
+          <span class="flex gap-4 shrink-0 font-mono text-mono-xs">
+            <span class="jc-human w-12 text-right" data-good={c.human}>{yn(c.human)}</span>
+            <span class="jc-judge w-12 text-right" data-jc-judge>{yn(c.naive)}</span>
+          </span>
+        </li>
+      ))
+    }
+  </ul>
+
+  <p class="m-0 mt-3 font-mono text-mono-xs text-text-muted" aria-hidden="true">
+    human = the SME label · judge = the rubric's verdict · <span class="text-error">red</span> = judge disagrees with the human · <span class="jc-flip-tag px-1">flips</span> = moves when you change the rubric
+  </p>
+
+  <figcaption class="m-0 mt-4 font-mono text-mono-xs text-text-muted" data-jc-caption aria-live="polite">
+    Naive helpfulness rubric: Cohen's κ 0.21, not licensed (bar 0.60). Agrees with the humans on 17 of 28 cases; it <span class="text-error">passes the grounded-but-false answers</span> and <span class="text-error">fails the terse-but-true</span> ones.
+  </figcaption>
+</figure>
+
+<style is:global>
+  /* selection state is neutral ink, never the green accent; green is reserved for the good/passing
+     data state (agree, licensed, fill over the bar) so the accent means one thing in this figure. */
+  [data-jc] .jc-toggle.on {
+    border-color: var(--color-text-primary);
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  }
+  [data-jc] .jc-track {
+    background: var(--color-surface-container-high);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-full);
+  }
+  [data-jc] .jc-fill {
+    background: var(--color-text-muted);
+    transform: scaleX(0.21);
+    transition: transform 0.45s var(--ease-out-quint), background-color 0.3s ease;
+  }
+  [data-jc] .jc-fill.is-licensed {
+    background: var(--color-primary);
+  }
+  [data-jc] .jc-bar {
+    width: 2px;
+    background: var(--color-text-primary);
+  }
+  /* the floor caret: muted when the honest lower bound misses the bar, green when it clears it. */
+  [data-jc] .jc-floor {
+    color: var(--color-text-muted);
+    transition: left 0.45s var(--ease-out-quint), color 0.3s ease;
+  }
+  [data-jc] .jc-floor.is-licensed {
+    color: var(--color-primary);
+  }
+  [data-jc] [data-jc-verdict] {
+    color: var(--color-error);
+  }
+  [data-jc] [data-jc-verdict].is-licensed {
+    color: var(--color-primary);
+  }
+  [data-jc] .jc-human[data-good='1'],
+  [data-jc] .jc-judge.is-agree {
+    color: var(--color-primary);
+  }
+  [data-jc] .jc-human[data-good='0'] {
+    color: var(--color-text-muted);
+  }
+  [data-jc] .jc-judge.is-miss {
+    color: var(--color-error);
+    font-weight: 600;
+  }
+  [data-jc] .jc-flip-tag {
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius);
+  }
+  [data-jc] .jc-row[data-flips='1'] .jc-flip-tag {
+    color: var(--color-text-primary);
+  }
+  [data-jc] .jc-row.changed {
+    animation: jc-pulse 0.9s var(--ease-out-quint);
+  }
+  @keyframes jc-pulse {
+    from { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+    to { background: transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-jc] .jc-fill,
+    [data-jc] .jc-floor { transition: none; }
+    [data-jc] .jc-row.changed { animation: none; }
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-jc]')
+  if (root) {
+    const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-jc-rubric]')]
+    const rows = [...root.querySelectorAll<HTMLElement>('.jc-row')]
+    const kappaEl = root.querySelector<HTMLElement>('[data-jc-kappa]')!
+    const rawEl = root.querySelector<HTMLElement>('[data-jc-raw]')!
+    const verdictEl = root.querySelector<HTMLElement>('[data-jc-verdict]')!
+    const fillEl = root.querySelector<HTMLElement>('[data-jc-fill]')!
+    const floorEl = root.querySelector<HTMLElement>('[data-jc-floor]')!
+    const floorValEl = root.querySelector<HTMLElement>('[data-jc-floor-val]')!
+    const captionEl = root.querySelector<HTMLElement>('[data-jc-caption]')!
+
+    type Rubric = 'naive' | 'corrected'
+    const stats: Record<Rubric, { kappa: number; floor: number; raw: string; licensed: boolean }> = {
+      naive: { kappa: 0.21, floor: -0.15, raw: '61%', licensed: false },
+      corrected: { kappa: 0.85, floor: 0.66, raw: '93%', licensed: true },
+    }
+    const caption = (r: Rubric, agree: number) =>
+      r === 'naive'
+        ? `Naive helpfulness rubric: Cohen's κ 0.21, not licensed (bar 0.60) — even its 95% interval floor, −0.15, sits far below the bar. Agrees with the humans on ${agree} of 28 cases; it <span class="text-error">passes the grounded-but-false answers</span> and <span class="text-error">fails the terse-but-true</span> ones.`
+        : `Account-truth rubric: same judge, one rubric edit. Cohen's κ 0.85, and licensing reads the interval floor, 0.66, which clears the 0.60 bar. Agreement rises to ${agree} of 28; the grounded-but-false answers now <span class="text-primary">fail</span> and the terse-but-true ones <span class="text-primary">pass</span>.`
+
+    let first = true
+    const render = (rubric: Rubric) => {
+      const s = stats[rubric]
+      kappaEl.textContent = s.kappa.toFixed(2)
+      rawEl.textContent = s.raw
+      verdictEl.textContent = s.licensed ? 'licensed' : 'not licensed'
+      verdictEl.classList.toggle('is-licensed', s.licensed)
+      fillEl.style.transform = `scaleX(${s.kappa})`
+      fillEl.classList.toggle('is-licensed', s.licensed)
+      // the floor caret: park it at the interval's lower bound (clamped to the 0..1 track) and
+      // color it by whether that floor, not the point, clears the bar
+      floorValEl.textContent = s.floor.toFixed(2).replace('-', '−')
+      floorEl.style.left = `${Math.max(0, Math.min(1, s.floor)) * 100}%`
+      floorEl.classList.toggle('is-licensed', s.licensed)
+      let agree = 0
+      rows.forEach((r) => {
+        const human = r.dataset.human!
+        const judge = (rubric === 'naive' ? r.dataset.naive : r.dataset.corrected)!
+        const mark = r.querySelector<HTMLElement>('[data-jc-judge]')!
+        const prev = mark.textContent
+        const next = judge === '1' ? '✓' : '✗'
+        mark.textContent = next
+        const ok = human === judge
+        if (ok) agree++
+        mark.classList.toggle('is-agree', ok)
+        mark.classList.toggle('is-miss', !ok)
+        // pulse the rows whose verdict actually changed, so the eye lands on what the rubric moved
+        if (!first && prev !== next) {
+          r.classList.remove('changed')
+          void r.offsetWidth // restart the animation
+          r.classList.add('changed')
+        }
+      })
+      captionEl.innerHTML = caption(rubric, agree)
+      toggles.forEach((t) => {
+        const on = t.dataset.jcRubric === rubric
+        t.classList.toggle('on', on)
+        t.setAttribute('aria-pressed', String(on))
+      })
+      first = false
+    }
+
+    toggles.forEach((t) => t.addEventListener('click', () => render(t.dataset.jcRubric as Rubric)))
+    render('naive')
+  }
+</script>
