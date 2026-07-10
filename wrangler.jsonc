@@ -2,10 +2,20 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "blog",
   "compatibility_date": "2026-06-01",
-  // Static-assets-only Worker: serve the Astro build output directly. No
-  // `main`/adapter => no SSR, no prerender server. `_redirects` and `_headers`
-  // inside dist/ are honored, same as Cloudflare Pages.
+  // Worker script handles POST /api/event (first-party CTA analytics via
+  // Analytics Engine); everything else falls through to the static assets.
+  // Asset-matching requests are still served directly without invoking the
+  // Worker. No SSR, no prerender server. `_redirects` and `_headers` inside
+  // dist/ are honored, same as Cloudflare Pages.
+  "main": "worker/index.js",
   "assets": {
-    "directory": "./dist"
-  }
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  "analytics_engine_datasets": [
+    {
+      "binding": "CTA_EVENTS",
+      "dataset": "blog_cta_events"
+    }
+  ]
 }

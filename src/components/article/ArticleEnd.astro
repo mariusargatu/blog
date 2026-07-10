@@ -113,6 +113,18 @@ const work = withBase('work')
         event: 'cta_click',
         cta_id: id,
       })
+      // First-party receiver: the Worker's /api/event endpoint writes this to
+      // Analytics Engine. sendBeacon survives the mailto navigation.
+      try {
+        navigator.sendBeacon?.(
+          '/api/event',
+          new Blob([JSON.stringify({ event: 'cta_click', cta: id, path: location.pathname })], {
+            type: 'application/json',
+          }),
+        )
+      } catch {
+        // beacon is best-effort; never block the CTA itself
+      }
     })
   })
 </script>
