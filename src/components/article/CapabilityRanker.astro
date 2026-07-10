@@ -36,13 +36,17 @@ const levels = [
   </p>
 
   <div class="flex flex-col gap-2" data-cr-list>
+    {/* is-top / is-low and the rank number are server-rendered from the
+        initial order (already sorted high→low) so a no-JS render shows
+        the honest reading: low-consequence rows get "Evals + monitoring
+        sufficient", not "start here". JS recompute() re-derives on load. */}
     {
       caps.map((c, i) => (
-        <div class="cr-row border border-border-dark bg-surface-container-low p-4 flex flex-col gap-3" data-cr-row data-index={i} data-consequence={c.consequence}>
+        <div class:list={['cr-row border border-border-dark bg-surface-container-low p-4 flex flex-col gap-3', i < 3 ? 'is-top' : 'is-low']} data-cr-row data-index={i} data-consequence={c.consequence}>
           <div class="flex items-start justify-between gap-4 flex-wrap">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
-                <span class="cr-rank font-mono text-mono-xs text-primary" data-cr-rank />
+                <span class="cr-rank font-mono text-mono-xs text-primary" data-cr-rank>{String(i + 1).padStart(2, '0')}</span>
                 <p class="m-0 text-text-primary font-medium">{c.name}</p>
               </div>
               <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted">↳ {c.worst}</p>
@@ -99,7 +103,8 @@ const levels = [
   [data-cr] .cr-row.is-top {
     border-color: color-mix(in srgb, var(--color-tertiary) 50%, transparent);
   }
-  /* default (no JS): show start-here, hide the low note */
+  /* rows carry is-top / is-low from static markup; the low note replaces
+     start-here on is-low rows with or without JS */
   [data-cr] .cr-rec-low {
     display: none;
   }

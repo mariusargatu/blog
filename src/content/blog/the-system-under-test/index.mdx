@@ -14,6 +14,7 @@ series:
   code: v2-system-under-test
 author: Marius Argatu
 pubDate: 2026-06-18
+updatedDate: 2026-07-10
 tags: [llm, langgraph, mcp, agentic, testing, rag, architecture]
 featured: true
 ogImage: ./og.jpg
@@ -58,6 +59,20 @@ faq:
       can move real money. Faked backends seeded with data for many customers let you
       attempt a thousand plan changes, and every adversarial variation of them,
       before lunch, with isolation and scope under test and nothing real at risk.
+  - q: What is the OWASP Top 10 for Agentic Applications?
+    a: >-
+      The OWASP Top 10 for Agentic Applications, published December 2025,
+      catalogs ten failure modes specific to agents that use tools, from goal
+      hijack (ASI01) to cascading failures (ASI08). It is the series' threat
+      model: every part of Atlas is named by the ASI or LLM entry it can fail
+      under, and every entry becomes concrete test cases in the suites.
+  - q: How does a confirmation gate stop an agent from making an unauthorized change?
+    a: >-
+      Before any irreversible write, LangGraph's `interrupt()` pauses the run,
+      persists the whole state, and waits for an explicit typed yes from the
+      human before the action commits. The pause is a real point in the control
+      flow, not a convention the model is trusted to honor, so nothing
+      irreversible happens until a person confirms it.
 ---
 
 import Foldable from '../../../components/article/Foldable.astro'
@@ -72,12 +87,12 @@ import CacheKeyIsolation from '../../../components/article/CacheKeyIsolation.ast
 import IdentitySource from '../../../components/article/IdentitySource.astro'
 
 <Callout variant="info" title="tl;dr">
-Every article in this series tests the same system, so it is worth drawing it once, with care. Atlas is an authenticated support agent for a broadband provider, built on LangGraph and MCP. It answers plan and policy questions from help documents, it reads the account of the customer who is signed in, and it makes changes to that account. This page is the map. It names every part by how it fails in an LLM application and what that forces you to test, not by how it is wired, and it sets the four invariants the rest of the series depends on. The same lesson the first article opened with runs underneath: nearly every way this system can break is a classical testing problem the AI era forgot, and the map below is an inventory of them. Read it once, then keep it open.
+**Atlas is an authenticated broadband support agent on LangGraph and MCP that answers policy questions, reads the signed-in customer's account, and changes it; this page maps its ten parts by how each one fails, names the OWASP risk behind each, and sets the four invariants the rest of the series depends on.** Every article in this series tests the same system, so it is worth drawing it once, with care. Atlas is an authenticated support agent for a broadband provider, built on LangGraph and MCP. It answers plan and policy questions from help documents, it reads the account of the customer who is signed in, and it makes changes to that account. This page is the map. It names every part by how it fails in an LLM application and what that forces you to test, not by how it is wired, and it sets the four invariants the rest of the series depends on. The same lesson the first article opened with runs underneath: nearly every way this system can break is a classical testing problem the AI era forgot, and the map below is an inventory of them. Read it once, then keep it open.
 </Callout>
 
 ## The same agent, right once and wrong once
 
-The same agent, fluent and grounded in a real document both times, can be right on one turn and wrong on the next, and nothing in the pipeline notices the difference. Two conversations show how.
+**The same agent, fluent and grounded in a real document both times, can be right on one turn and wrong on the next, and nothing in the pipeline notices the difference.** Two conversations show how.
 
 An Atlas customer named Sarah signs in and asks to move to a faster plan. The agent checks what she is on, confirms the faster plan is available at her address, tells her the price and that it starts next billing cycle, asks her to confirm, and on yes, makes the change and hands her a reference number. Forty seconds. Every fact correct.
 
@@ -89,7 +104,7 @@ Both conversations ran through the same agent. Both came back fast. Both would s
 
 ## What does Atlas do?
 
-Atlas is one agent inside an authenticated web chat. The customer is signed in, which means the system knows whose account this is from the session, never from anything the customer types into the box. That one fact will come back over and over, so hold onto it.
+**Atlas is a single authenticated support agent for a broadband provider, built on LangGraph and MCP. It does three things: answers plan and policy questions from help documents, reads the signed-in customer's own account, and makes changes to that account. Each is a distinct testing problem: retrieval, a scoped read, and a consequential write.** The customer is signed in, which means the system knows whose account this is from the session, never from anything the customer types into the box. That one fact will come back over and over, so hold onto it.
 
 A customer can do three things. They are not three flavors of one thing. They are three different testing problems behind the same chat box.
 
@@ -114,7 +129,7 @@ Here is the whole system, end to end. Read it in the **Runtime** view for the ar
 
 ## What are the parts, and how does each one break?
 
-Atlas has ten parts, and each is named here by the way it fails, not by how it is wired: the chat front door, the agent core, the knowledge retrieval surface, the account and catalog oracle, the actions write surface, least privilege binding per intent, the guard, the semantic cache, tracing, and the test harness. Each one maps to a specific failure mode from the OWASP catalogs and a specific thing the harness has to test. Take them in order.
+**Atlas has ten parts, each named by how it fails rather than how it is wired: the chat front door, agent core, knowledge retrieval, the account and catalog oracle, the actions write surface, per-intent binding, the guard, the semantic cache, tracing, and the test harness. Each maps to a specific OWASP failure mode and a specific test.** Take them in order.
 
 ### The chat front door
 
@@ -202,7 +217,7 @@ Each part is named by its failure, not its wiring, because the failure is what y
 
 ## Follow one turn across every part
 
-The map is easier to trust once you watch a single turn cross it. Take Sarah's upgrade, the success from the top of the page that took forty seconds, and follow it through every part. Nothing here is improvised; each arrow is a node, an edge, or a guard verdict that the trace will later record.
+**The map is easier to trust once you watch a single turn cross it. Take Sarah's upgrade, the success from the top of the page that took forty seconds, and follow it through every part.** Nothing here is improvised; each arrow is a node, an edge, or a guard verdict that the trace will later record.
 
 <TurnTrace />
 
@@ -212,7 +227,7 @@ Now run Daniel's question through the same machinery and watch where it has a ch
 
 ## What are the four invariants?
 
-Four invariants run underneath everything in this series, and they are structural, not polish. Pull any one and the tests stop meaning anything.
+**Four invariants make every test in the series mean something: nothing external is real in CI, the model is recorded and replayed, every turn is traced from the first commit, and the customer's identity comes from the authenticated session, never from the model. Pull any one out and the tests stop meaning anything.** They are structural, not polish.
 
 1. **Nothing external is real in CI.** The account, catalog, and actions servers run against faked backends seeded with data for many customers. A test never depends on a live system, never reads a real person's bill, and never moves real money, which is exactly what makes it safe to attempt a thousand plan changes, and every adversarial variation of them, before lunch.
 2. **The model is recorded and replayed.** The one nondeterministic node runs through a gateway that records its calls and replays them, so behavior is deterministic and a failure reproduces on demand. A flaky agent test is almost always an unpinned model, not a real bug.
@@ -233,7 +248,7 @@ The invariants are not test hygiene, they are the preconditions that make a gree
 
 ## What does each article test?
 
-[The series](/blog/series/evals-are-checks-not-tests/) moves left to right across the map, and roughly in the order you would actually build the testing.
+**[The series](/blog/series/evals-are-checks-not-tests/) moves left to right across this map, roughly in the order you would build the testing: define correctness with a golden dataset, choose metrics and calibrate the LLM judge that scores them, make the numbers honest with statistics, then test retrieval, trajectory, simulation, and security surface by surface before taking the whole thing to production.**
 
 First, define what correct even means by building a golden dataset by hand, and face the risk hidden in every labeling choice that goes into it. Then learn to measure it: choose the metrics this system actually needs, by hand first and then with DeepEval, and accept that the LLM judge doing the scoring is itself a biased model that has to be calibrated against human labels before you trust a word it says. Then make the measurement honest with statistics, so a green number survives the question *would this hold on a different sample*, and a regression is a signal rather than noise.
 
@@ -243,7 +258,7 @@ Then it leaves the lab. Production: move the whole thing onto Langfuse, watch th
 
 ## Where does this article live in the series?
 
-This article does not live in one corner of the Atlas map. It is the map. Every other piece in the series picks one surface off this page, the retrieval layer, the trajectory, the guard, the trace store, and goes deep, and every one of them assumes the four invariants are already true. So this is the page to keep open in the other tab. When a later article says *the oracle*, or *binding per intent*, or *fails closed*, or *grounded is not the same as true*, it means the specific thing drawn here, not a metaphor.
+**This article does not live in one corner of the Atlas map. It is the map: every other article in the series picks one surface off this page, the retrieval layer, the trajectory, the guard, the trace store, and goes deep, and every one of them assumes the four invariants drawn here are already true.** So this is the page to keep open in the other tab. When a later article says *the oracle*, or *binding per intent*, or *fails closed*, or *grounded is not the same as true*, it means the specific thing drawn here, not a metaphor.
 
 Atlas is one agent. A LangGraph graph for the logic, four MCP servers for knowledge, the account and catalog reads, and the actions, a guard around both, and a harness that makes the whole thing safe to break a thousand times before a customer sees it. Every part on this page is backed by a runnable reference system, not a thought experiment: [clone it](https://github.com/mariusargatu/Atlas), run `task test`, and watch the grounded but false answer get held at the render guard, checked against the account oracle, the moment it would have shipped. That is the system under test. The rest of the series is the work of testing it without fooling yourself, and the first way you fool yourself is forgetting that grounded was never the same as true.
 
@@ -270,6 +285,14 @@ From the authenticated session, never from the model and never from the chat mes
 ### Why fake every external system in CI?
 
 Because a test that depends on a live system reads a real person's bill and can move real money. Faked backends seeded with data for many customers let you attempt a thousand plan changes, and every adversarial variation of them, before lunch, with isolation and scope under test and nothing real at risk.
+
+### What is the OWASP Top 10 for Agentic Applications?
+
+The OWASP Top 10 for Agentic Applications, published December 2025, catalogs ten failure modes specific to agents that use tools, from goal hijack (ASI01) to cascading failures (ASI08). It is the series' threat model: every part of Atlas is named by the ASI or LLM entry it can fail under, and every entry becomes concrete test cases in the suites.
+
+### How does a confirmation gate stop an agent from making an unauthorized change?
+
+Before any irreversible write, LangGraph's `interrupt()` pauses the run, persists the whole state, and waits for an explicit typed yes from the human before the action commits. The pause is a real point in the control flow, not a convention the model is trusted to honor, so nothing irreversible happens until a person confirms it.
 
 ## Sources
 

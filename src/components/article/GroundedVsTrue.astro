@@ -72,25 +72,31 @@ const data = JSON.stringify(Object.fromEntries(sources.map((s) => [s.key, s])))
       {initial.answer}
     </blockquote>
 
+    {/* Verdicts are server-rendered for the initial source so a no-JS render
+        never quotes the false answer without the Grounded ✓ / True ✗ reading
+        that is the whole point. JS apply() re-derives on init and toggle. */}
     <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div class="gt-verdict rounded border px-4 py-3" data-gt-card="grounded">
+      <div class:list={['gt-verdict rounded border px-4 py-3', initial.grounded ? 'ok' : 'bad']} data-gt-card="grounded">
         <div class="flex items-center justify-between gap-2">
           <span class="font-mono text-mono-xs uppercase tracking-wider text-text-muted">Grounded</span>
-          <span class="gt-mark font-mono text-sm" data-gt-mark="grounded" aria-hidden="true"></span>
+          <span class="gt-mark font-mono text-sm" data-gt-mark="grounded" aria-hidden="true">{initial.grounded ? '✓ yes' : '✗ no'}</span>
         </div>
-        <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed" data-gt-why="grounded"></p>
+        <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed" data-gt-why="grounded">{initial.groundedWhy}</p>
       </div>
-      <div class="gt-verdict rounded border px-4 py-3" data-gt-card="true">
+      <div class:list={['gt-verdict rounded border px-4 py-3', initial.trueVal ? 'ok' : 'bad']} data-gt-card="true">
         <div class="flex items-center justify-between gap-2">
           <span class="font-mono text-mono-xs uppercase tracking-wider text-text-muted">True</span>
-          <span class="gt-mark font-mono text-sm" data-gt-mark="true" aria-hidden="true"></span>
+          <span class="gt-mark font-mono text-sm" data-gt-mark="true" aria-hidden="true">{initial.trueVal ? '✓ yes' : '✗ no'}</span>
         </div>
-        <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed" data-gt-why="true"></p>
+        <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed" data-gt-why="true">{initial.trueWhy}</p>
       </div>
     </div>
 
     <p
-      class="gt-outcome m-0 mt-4 flex items-start gap-2 rounded border px-4 py-3 font-mono text-mono-xs leading-relaxed"
+      class:list={[
+        'gt-outcome m-0 mt-4 flex items-start gap-2 rounded border px-4 py-3 font-mono text-mono-xs leading-relaxed',
+        initial.outcomeSafe ? 'safe' : 'harm',
+      ]}
       data-gt-outcome
       aria-live="polite"
     >

@@ -15,6 +15,7 @@ series:
   code: v3-the-harness
 author: Marius Argatu
 pubDate: 2026-06-21
+updatedDate: 2026-07-10
 tags: [llm, langgraph, mcp, agentic, testing, evals, determinism]
 featured: true
 ogImage: ./og.jpg
@@ -49,6 +50,20 @@ faq:
       keeps the roles apart: a planner designs the task, a generator drives the
       agent under test, and a separate, calibrated evaluator grades the result.
       The separation is the control, not bureaucracy.
+  - q: What is the difference between an agent harness and an eval harness?
+    a: >-
+      The agent harness is the scaffolding that lets the model act in
+      production: a LangGraph state graph, MCP tools, a checkpointer, and a
+      runtime. The eval harness measures whether the first one works, running
+      seeded tasks in CI and grading them against an oracle. Same language, the
+      trace; opposite jobs, like a production server versus a build system.
+  - q: What is model drift and how do you catch it when the model is replayed?
+    a: >-
+      Model drift is a provider changing the model behind a stable version
+      string, so REPLAY returns last quarter's response and the suite stays
+      green on a stale snapshot. The drift lane reruns the pinned agent against
+      a fresh snapshot and diffs what the turn decided, its tools, guards, and
+      outcome, read structurally from the trace, not its prose.
 ---
 
 import HarnessMap from '../../../components/article/HarnessMap.astro'
@@ -59,10 +74,14 @@ import EvalHarness from '../../../components/article/EvalHarness.astro'
 import DriftDecision from '../../../components/article/DriftDecision.astro'
 
 <Callout variant="info" title="tl;dr">
+**You rent the model and own the harness. The dataset, gateway, seeded fakes, traces, and merge gate are the parts no competitor can call from an API key, and they are what separates a team that ships from a team that demos. Determinism means pinning the clock, ids, ordering, and checkpointer, not just the model.**
+
 The teams shipping agents don't have a better model; they have a better harness. The word hides two machines: an agent harness that lets the model act and an [eval harness](/blog/series/evals-are-checks-not-tests/) that measures it. Determinism means pinning the clock, ids, ordering, and checkpointer, not just the model. The flaky LLM suite is an engineering problem you already know how to solve.
 </Callout>
 
 ## It wasn't the model. It was the clock.
+
+**A flaky LLM test suite is almost never the model being mysterious. It is an unrecorded model call that reasks the live model every run, plus a moving clock, fresh UUIDs, and a checkpointer nobody pinned. That is classical nondeterminism wearing a new name, and you already own the fix: record the dependency, freeze the clock, seed the randomness, sort before you assert.**
 
 The suite is red. Someone reruns it. Now it is green. Same commit, same code, nothing changed but the dice. By Thursday everyone has the same explanation, delivered with a shrug: it's the model, it's nondeterministic, what do you expect from an LLM. The team starts rerunning the pipeline until it passes. A red stops meaning anything, which is the same as having no tests at all, except now you are paying for tests and getting nothing. And the red someone just reran away is the one case that catches a fluent, false answer about a customer's bill before it reaches the customer. A flaky suite does not only waste money. It quietly switches off the only thing standing between a wrong answer and a real person.
 
@@ -72,7 +91,7 @@ Here is the part that should reassure anyone who came up through classical QA. T
 
 ## Which part do you rent, and which do you own?
 
-You rent the model and own the harness. A frontier model is an API key away for you and every competitor, and Andreessen Horowitz forecast that winning systems would blend interchangeable models rather than treat any one as a moat ([a16z](https://a16z.com/big-ideas-in-tech-2025/)). The dataset, gateway, fakes, traces, and gate are the parts that are yours.
+**You rent the model and own the harness. A frontier model is one API key away for you and every competitor, so it is a commodity. The dataset, gateway, seeded fakes, traces, and merge gate are yours — and they are what separates a team that ships from a team that only demos.**
 
 Models are a commodity, and they behave like one. A frontier model is a few lines and an API key away, for you and for everyone you compete with. It changes under you without asking, sometimes without changing the version string you pinned against. You do not own it, you do not control it, and you cannot make it sit still. The market has priced this in: in its *Big Ideas in Tech for 2025*, Andreessen Horowitz forecast that winning systems would "blend together multiple large models and self-trained small models," the model as an interchangeable layer rather than a moat ([a16z](https://a16z.com/big-ideas-in-tech-2025/)). Anything you build that depends on the model being special is built on rented land.
 
@@ -84,7 +103,7 @@ The model is rented. The harness is yours. Build the part you own.
 
 ## Why two harnesses, not one?
 
-Because "harness" names two different machines: the **agent harness** that lets the model act in production, and the **eval harness** that measures whether it works in CI. They share one language, the trace, but conflating them is like confusing your production servers with your build system. Same vocabulary, opposite jobs.
+**Because "harness" names two different machines: the agent harness that lets the model act in production, and the eval harness that measures whether it works in CI. They share one language, the trace, but conflating them is like confusing your production servers with your build system. Same vocabulary, opposite jobs.**
 
 There is a confusion baked into the word, and it is worth clearing before it costs you an argument in a design review. "Harness" names two different machines.
 
@@ -100,7 +119,7 @@ In the Atlas repo the seam is physical, and you can read it as a folder tree. Th
 
 ## What makes a harness you can trust?
 
-A harness you can trust has five properties, each borrowed from classical testing rather than invented for LLMs ([VCR](https://github.com/vcr/vcr)):
+**A harness you can trust has five properties, each borrowed from classical testing rather than invented for LLMs** ([VCR](https://github.com/vcr/vcr)):
 
 1. Recorded and replayed model calls.
 2. Seeded fakes for every external dependency.
@@ -126,7 +145,7 @@ A test you have to rerun to believe is not a test. In `REPLAY` the run is determ
 
 ## Why is determinism more than the model?
 
-Determinism is a property of the whole run, not just the model. The clock, the RNG, id and reference generation, result ordering, and the framework's checkpointer all leak variance; LangGraph stamps every checkpoint with a UUIDv6 id and a wall-clock timestamp by default ([LangGraph](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint/langgraph/checkpoint/base/__init__.py)). You pin the agent by pinning its ports.
+**Determinism is a property of the whole run, not just the model. The clock, the RNG, id and reference generation, result ordering, and the framework's checkpointer all leak variance; LangGraph stamps every checkpoint with a UUIDv6 id and a wall-clock timestamp by default** ([LangGraph](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint/langgraph/checkpoint/base/__init__.py))**. You pin the agent by pinning its ports.**
 
 Pinning the model removes the loudest source of noise. It does not remove the rest, and the rest is where a suite stays subtly flaky long after the team is sure it solved flakiness. Determinism is a property of the whole run. Every unpinned source of variation is a red that comes and goes and teaches people to stop believing reds.
 
@@ -142,7 +161,7 @@ One port deserves its own line. MCP is transport-agnostic: the November 2025 spe
 
 ## Why are regression and evaluation two machines?
 
-Regression testing and evaluation answer opposite questions and have opposite relationships with nondeterminism. Regression asks whether a change broke a pinned behaviour: it runs on the replayed model, must eliminate variance, and gates the merge. Evaluation asks how good the agent is: it runs live, embraces variance, and reads as a trend. One machine cannot do both honestly.
+**Regression testing and evaluation answer opposite questions and have opposite relationships with nondeterminism. Regression asks whether a change broke a pinned behaviour: it runs on the replayed model, must eliminate variance, and gates the merge. Evaluation asks how good the agent is: it runs live, embraces variance, and reads as a trend. One machine cannot do both honestly.**
 
 Underneath the five properties is one distinction the whole series rests on, and it is the one teams collapse most often and most expensively. Regression testing and evaluation are two different machineries, and they answer two different questions.
 
@@ -152,23 +171,36 @@ Underneath the five properties is one distinction the whole series rests on, and
 
 **Evaluation** asks: how good is the agent, and is it getting better or worse. It runs on the real, un-replayed model, with graded metrics, because quality is not binary. It is statistical. It tolerates variance because measuring variance is part of its job. You read it as a trend and an aggregate, not as a single pass or fail, and you run it on a schedule, not on every keystroke.
 
+<DataTable
+  columns={['', 'Regression lane', 'Eval lane']}
+  rows={[
+    ['Question', 'Did this change break a pinned behaviour?', 'How good is the agent, and is it improving?'],
+    ['Model mode', 'Replayed and pinned, deterministic', 'Real and un-replayed, live'],
+    ['Variance', 'Eliminated', 'Embraced, because measuring it is the job'],
+    ['Gate', 'Blocks the merge, binary pass or fail', 'None; read as a trend and an aggregate'],
+    ['Cadence', 'Every pull request', 'On a schedule'],
+  ]}
+/>
+
 These need different machines because they have opposite relationships with nondeterminism. The regression suite must eliminate variance to do its job. The eval must embrace variance to do its job. Try to build one machine that does both and you get the worst of each: an "eval" you try to gate on that flickers, so the team learns to ignore its reds; or a "regression suite" you try to read as a quality signal when all it can ever tell you is yes or no against a frozen snapshot.
 
 So you keep them apart, deliberately. Same dataset, same traces, two readings. One asks did it change. The other asks is it good. Ask a single machine both questions and it will lie to you about both.
 
 ## The eval harness, drawn
 
-The eval harness is the second machine: it runs seeded tasks at scale, drives the agent, captures each trace, grades the outputs against an oracle, and reports a pass rate. It is built from three roles, a planner, a generator, and an evaluator, plus one grader stack, and lives in its own package the agent harness may never import.
+**The eval harness is the second machine: it runs seeded tasks at scale, drives the agent, captures each trace, grades outputs against an oracle, and reports a pass rate, not a verdict. It is built from three separated roles (planner, generator, evaluator) and a cheapest-first grader stack.**
 
-The eval harness is the second machine, built from the same parts as the first but read differently. It lives in its own package, `testing/harness/evals/evalkit`, that the agent harness may never import. The shape is small on purpose: three roles, one grader stack, one rate.
+The eval harness is the second machine, built from the same parts as the first but read differently. It lives in its own package — an eval toolkit at `testing/harness/evals/evalkit` — that the agent harness may never import. The shape is small on purpose: three roles, one grader stack, one rate.
 
 <EvalHarness />
 
 A **case** is one seeded task, a thread of user turns for one signed-in customer, with identity riding in the session channel and never a tool argument, the invariant the whole system turns on. The **evaluator** is a grader stack that grades with the cheapest, strictest tool that can do the job: it runs graders cheapest-first and short-circuits at the first hard fail, so an expensive judge never runs once a rule has already failed the run. The concrete graders, rules over the oracle, programmatic value checks, an LLM judge, each embed a later article's domain and arrive with those articles.
 
-The **runner** is where the live model's stochasticity is confronted head-on: it repeats each case `k` times and reports the pass rate, not the verdict. On `REPLAY` the model is pinned, all `k` trials are identical, and the rate is 0 or 1, which is exactly what lets the PR lane prove the runner's wiring deterministically; the variance only appears on `LIVE`. The same runner serves both lanes because the gateway mode lives in the caller's `build` hook, not in the runner. Flip `build` to a `LIVE` gateway and the identical runner becomes the nightly eval; the rate stops being 0 or 1 and becomes a real distribution. (Turning that rate into a confidence interval, and gating on its lower bound, is the statistics article's job; the honest-numbers module it will use, Wilson intervals and judge-versus-human Cohen's kappa, already lives at `testing/harness/evals/stats.py`.)
+The **runner** is where the live model's stochasticity is confronted head-on: it repeats each case `k` times and reports the pass rate, not the verdict. On `REPLAY` the model is pinned, all `k` trials are identical, and the rate is 0 or 1, which is exactly what lets the PR lane prove the runner's wiring deterministically; the variance only appears on `LIVE`. The same runner serves both lanes because the gateway mode lives in the caller's `build` hook, not in the runner. Flip `build` to a `LIVE` gateway and the identical runner becomes the nightly eval; the rate stops being 0 or 1 and becomes a real distribution. (Turning that rate into a confidence interval, and gating on its lower bound, is the statistics article's job; the honest-numbers module it will use, a Wilson interval to put an error bar on a pass rate and a Cohen's kappa to score how far a judge agrees with a human, already lives at `testing/harness/evals/stats.py`.)
 
 ## A fourth reading: catching the model that moved
+
+**Model drift is when a provider changes a model behind a stable version string, so replay returns last quarter's response forever and the suite stays green on a stale snapshot. The drift lane re-runs the pinned agent against a new snapshot and diffs what the turn decided, its tools, guards, and outcome, from its prose.**
 
 The gateway has three modes, but `REPLAY` carries a blind spot it cannot see on its own. A cassette is a *proxy* of the model, and nothing rechecks whether that proxy still matches the live model. When a provider updates the model behind a stable version string, the request bytes stay identical, `REPLAY` returns last quarter's response forever, and the suite stays green on a frozen snapshot while production has already moved. The green is real; the behaviour it certifies is stale.
 
@@ -180,7 +212,7 @@ In the Atlas repo this is a spike, runnable as `task drift` and tested hermetica
 
 ## What did 2026 name?
 
-2026 added names and habits, not new physics: eval-driven development, starting small with a few dozen hand-read traces, multi-trial sampling, and the three-agent harness. Anthropic now puts evals first, building them to define a capability before the agent can fulfill it ([Anthropic](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). The discipline underneath is old.
+**2026 added names and habits, not new physics: eval-driven development, starting small with a few dozen hand-read traces, multi-trial sampling, and the three-agent harness. Anthropic now puts evals first, building them to define a capability before the agent can fulfill it** ([Anthropic](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))**. The discipline underneath is old.**
 
 The fundamentals above are old. What the last couple of years added is not new physics but a set of names and habits, and a few are worth stating because they change how a team spends its first month.
 
@@ -196,7 +228,7 @@ The tools got names in 2026. The discipline did not change. Measure honestly, ag
 
 ## Where does this live in the series?
 
-This article is the foundation layer of the series: the test harness and the tracing every other article runs on. The dataset article's cases execute in it, the metrics article's judge runs through its recorded gateway, and the retrieval and agent articles assert on its traces. It is the part you own, backed by a runnable reference system ([Atlas](https://github.com/mariusargatu/Atlas)).
+**This article is the foundation layer of the series: the reproducible test rig and tracing substrate that pins the model, fakes the backends, and records every trace so the downstream numbers land on something stable. The cases from "The Golden Dataset" execute in it, the judge from "Metrics and the Lying Judge" runs through its recorded gateway, and the retrieval and agent articles assert on its traces.** It is the part you own, backed by a runnable reference system ([Atlas](https://github.com/mariusargatu/Atlas)).
 
 On the Atlas map, this article is the unglamorous block at the bottom of the diagram, the test harness and the tracing the whole system stands on. It is the layer every other article runs on. The dataset article's cases need this harness to execute in. The metrics article's judge runs through this gateway, recorded and replayed, so even the grading is reproducible. The retrieval and agent articles assert on these traces. The production article is this same harness moved to where the customers are.
 
@@ -221,6 +253,14 @@ They have opposite relationships with nondeterminism. The regression suite runs 
 ### Why keep the planner, generator, and evaluator separate?
 
 An agent that plans its own work, does it, and grades it is a student marking their own exam, and scoring it predictably well. Research on LLM judges has measured this self-preference bias directly. The harness keeps the roles apart: a planner designs the task, a generator drives the agent under test, and a separate, calibrated evaluator grades the result. The separation is the control, not bureaucracy.
+
+### What is the difference between an agent harness and an eval harness?
+
+The agent harness is the scaffolding that lets the model act in production: a LangGraph state graph, MCP tools, a checkpointer, and a runtime. The eval harness measures whether the first one works, running seeded tasks in CI and grading them against an oracle. Same language, the trace; opposite jobs, like a production server versus a build system.
+
+### What is model drift and how do you catch it when the model is replayed?
+
+Model drift is a provider changing the model behind a stable version string, so REPLAY returns last quarter's response and the suite stays green on a stale snapshot. The drift lane reruns the pinned agent against a fresh snapshot and diffs what the turn decided, its tools, guards, and outcome, read structurally from the trace, not its prose.
 
 ## Sources
 

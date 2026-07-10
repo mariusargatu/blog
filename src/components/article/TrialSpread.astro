@@ -25,7 +25,10 @@ const ITEMS = [
 const yn = (v: boolean) => (v ? '✓' : '✗')
 ---
 
-<figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-5" data-ts data-inview>
+{/* Statically rendered in ten-runs mode — the honest reading — so a no-JS render or an
+    extracted snapshot never quotes the misleading single-run view. The script flips the
+    interactive experience back to "once" on init so the toggle pedagogy is unchanged. */}
+<figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-5 show-ten" data-ts data-inview>
   <div class="mb-4 flex items-center gap-2">
     <DiagramLabel label="One item, ten trials: reliability is a spread, not a verdict" />
     <div class="h-px flex-1 bg-border-dark"></div>
@@ -33,10 +36,10 @@ const yn = (v: boolean) => (v ? '✓' : '✗')
 
   <div class="flex flex-wrap items-center gap-2 mb-6" role="group" aria-label="How many trials to show">
     <span class="font-mono text-mono-xs text-text-muted mr-1" aria-hidden="true">Run it:</span>
-    <button type="button" class="ts-toggle on inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark transition-colors" data-ts-mode="one" aria-pressed="true">
+    <button type="button" class="ts-toggle inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark text-text-muted transition-colors" data-ts-mode="one" aria-pressed="false">
       once
     </button>
-    <button type="button" class="ts-toggle inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark text-text-muted transition-colors" data-ts-mode="ten" aria-pressed="false">
+    <button type="button" class="ts-toggle on inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark transition-colors" data-ts-mode="ten" aria-pressed="true">
       ten times
     </button>
   </div>
@@ -47,7 +50,7 @@ const yn = (v: boolean) => (v ? '✓' : '✗')
         <div data-ts-item>
           <div class="flex items-baseline justify-between mb-2 font-mono text-mono-xs">
             <span class="text-text-primary">{it.label}</span>
-            <span class="text-text-muted"><span data-ts-rate>1/1</span> trials passed</span>
+            <span class="text-text-muted"><span data-ts-rate>{it.passes}/{it.k}</span> trials passed</span>
           </div>
           <div class="flex flex-wrap gap-1.5 mb-2" data-ts-cells>
             {it.trials.map((t, i) => (
@@ -64,7 +67,7 @@ const yn = (v: boolean) => (v ? '✓' : '✗')
   </div>
 
   <figcaption class="m-0 mt-5 border-t border-border-dark pt-4 font-mono text-mono-xs text-text-muted" data-ts-caption aria-live="polite">
-    One run each, and both look like a pass. The coin flip is invisible. A single green run is a landmine labelled safe.
+    Ten runs, and the second item shows its hand: 7 of 10. It clears pass@k (it can do the task) but fails pass^k (it cannot do it reliably). Money shaped behaviour is judged on pass^k, because "usually charges the right card" should frighten anyone who reads it slowly.
   </figcaption>
 </figure>
 

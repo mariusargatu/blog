@@ -17,6 +17,7 @@ series:
   code: v4-golden-dataset
 author: Marius Argatu
 pubDate: 2026-06-23
+updatedDate: 2026-07-10
 ogImage: ./og.jpg
 tags: [llm, evals, dataset, oracle, testing, agentic, construct-validity]
 featured: true
@@ -53,6 +54,21 @@ faq:
       it. Gold gates releases, silver explores coverage, and the promotion step is
       where trust gets manufactured deliberately instead of assumed. Decontaminate
       against known training data so the set measures reasoning, not recall.
+  - q: What Cohen's kappa threshold should you use to promote a label to gold?
+    a: >-
+      Treat Cohen's kappa of 0.61 as the floor, the start of Landis and Koch's
+      substantial band, before a case is promotable, and expect to clear 0.8 on
+      objective correctness. One caution that bites: kappa is depressed by class
+      imbalance, so a set that is 90% correct will show a low kappa even at high
+      raw agreement. Read the raw agreement alongside it.
+  - q: What is decontamination, and does n-gram matching catch it?
+    a: >-
+      Decontamination is the overlap check between your evaluation set and known
+      training data, flagging cases the model may have memorised rather than
+      reasoned through. The standard method is a 13-gram collision, and the
+      practical move is to split results into a clean set and a dirty set and
+      report both. The caveat: n-gram matching misses paraphrased or translated
+      items, which slip straight past string matching.
 ---
 
 import OracleStack from '../../../components/article/OracleStack.astro'
@@ -64,12 +80,14 @@ import StratifyByConsequence from '../../../components/article/StratifyByConsequ
 import LabelNoiseDial from '../../../components/article/LabelNoiseDial.astro'
 
 <Callout variant="info" title="tl;dr">
+**A golden dataset is the small set of human-verified cases that defines what correct means for each thing a system does, and it is the oracle every metric, judge, and regression gate depends on. Nothing measured downstream is more trustworthy than the dataset under it, so you build it first and treat each choice inside it as high-stakes.**
+
 Nothing downstream beats the oracle. Not a metric, not a DeepEval run, not a regression gate, because every one of them is a function of the thing that decides what correct was. So the work starts before any of that, with a small set of human-verified cases that says what correct means for each thing [Atlas](/blog/the-system-under-test/) does, answer, account read, action, and checks each one against a source of truth instead of a frozen string. This is the build of that set: what to do first, how to write a case, the measured cost hiding in every choice, synthetic versus real, big versus honest, who writes the gold, freeze versus oracle, and the 2026 machinery, silver-to-gold promotion, synthetic generators, decontamination, that lets a small honest seed set scale without rotting into a large dishonest one. The dataset is not the setup you rush through to reach the testing. It is the testing.
 </Callout>
 
 ## Why does a 500-row generated dataset fail?
 
-A 500-row generated dataset fails because the same model wrote the questions and the answers, so it shares its own blind spots and the grader passes wrong answers as green. A test is only as good as its oracle ([Weyuker, 1982](https://academic.oup.com/comjnl/article/25/4/465/366384)), and a self-graded set has none.
+**A 500-row generated dataset fails because the same model wrote the questions and the answers, so it shares its own blind spots and the grader passes wrong answers as green. A test is only as good as its oracle ([Weyuker, 1982](https://academic.oup.com/comjnl/article/25/4/465/366384)), and a self-graded set has none.**
 
 A QA lead gets handed a line item: stand up testing for the support agent. No dataset exists. The fastest path is obvious, and it is wrong. Ask a model for five hundred question-and-answer pairs, load them into an eval tool, run it, watch the dashboard turn green. The slide for the next standup writes itself.
 
@@ -81,13 +99,13 @@ The discipline has a name older than most engineers' careers. In 1982, Elaine We
 
 ## Why can no metric beat its oracle?
 
-No metric can beat its oracle because every metric, judge, and regression gate is a function of the answer key beneath it. Wire a great framework to a bad oracle and you only buy a faster way to be wrong. When no automated source is adequate, the oracle stays human ([Barr et al., IEEE TSE 2015](http://www0.cs.ucl.ac.uk/staff/m.harman/tse-oracle.pdf)).
+**No metric can beat its oracle because every metric, judge, and regression gate is a function of the answer key beneath it. Wire a great framework to a bad oracle and you only buy a faster way to be wrong. When no automated source is adequate, the oracle stays human ([Barr et al., IEEE TSE 2015](http://www0.cs.ucl.ac.uk/staff/m.harman/tse-oracle.pdf)).**
 
 Say it without the metaphor. A metric is a function of its oracle. A judge is a function of its oracle. A regression gate is a function of its oracle. Buy the best evaluation framework on the market, wire it to a bad answer key, and all you have bought is a faster, more confident way to be wrong. The 2015 survey that mapped this whole problem space put the stakes plainly: distinguishing correct from incorrect behavior is "the test oracle problem," and when no automated source is adequate, "the final source of test oracle information remains the human" ([Barr, Harman, McMinn, Shahbaz, Yoo, *The Oracle Problem in Software Testing: A Survey*, IEEE TSE 2015](http://www0.cs.ucl.ac.uk/staff/m.harman/tse-oracle.pdf)). The human-verified case is not a nice-to-have. It is the base of the stack, and everything you build sits on top of it.
 
 <OracleStack />
 
-On Atlas, the most dangerous failures are precisely the ones that sail past the obvious check. Picture a customer on a legacy plan asking a plain question: is there a cap on my data. Retrieval does its job and pulls the current plan documentation, which states, correctly, that Atlas plans are term-free and uncapped. The agent answers, grounded word for word in that document: no cap, cancel any time, no term. Every claim is supported by the retrieved text, so a faithfulness metric passes it green and moves to the next case. And the answer is false. This customer is not on a current plan. The account says legacy. The catalog says legacy plans carry a twelve-month term and a five-hundred-gigabyte cap. The document was true about a product this customer does not have.
+On [Atlas](https://github.com/mariusargatu/Atlas), the most dangerous failures are precisely the ones that sail past the obvious check. Picture a customer on a legacy plan asking a plain question: is there a cap on my data. Retrieval does its job and pulls the current plan documentation, which states, correctly, that Atlas plans are term-free and uncapped. The agent answers, grounded word for word in that document: no cap, cancel any time, no term. Every claim is supported by the retrieved text, so a faithfulness metric passes it green and moves to the next case. And the answer is false. This customer is not on a current plan. The account says legacy. The catalog says legacy plans carry a twelve-month term and a five-hundred-gigabyte cap. The document was true about a product this customer does not have.
 
 This is Daniel from [the system map](/blog/the-system-under-test/), and it is Jake Moffatt from [the first article in this series](/blog/your-evals-are-checks-not-tests/), the grieving customer whose chatbot quoted a bereavement policy the airline's own page contradicted, and whom a tribunal made Air Canada pay for. A faithfulness score never had a chance of catching it, because faithfulness asks whether the answer matches the retrieved text, and the retrieved text was the problem. The only thing that catches it is the account and catalog, the structured source of truth, checked as the oracle. Correct, for an account-grounded answer, means the numbers match this customer's record, not that the prose matches a page that happened to surface.
 
@@ -101,7 +119,7 @@ An oracle that is a real source of truth, not the documents and not the model's 
 
 ## What You Do First, in Order
 
-Before any tooling, do three things in order: define what correct means for each job, seed a small set of real human-verified examples, and name the oracle for each job in writing. The NeurIPS 2025 audit's first recommendation is blunt: define the phenomenon, then measure only the phenomenon ([Bean et al., 2025](https://arxiv.org/html/2511.04703v1)).
+**Before any tooling, do three things in order: define what correct means separately for each job (document answer, account read, action), seed a few dozen real human-verified examples, and name the oracle for each job in writing. The NeurIPS 2025 audit's first rule: define the phenomenon, then measure only the phenomenon ([Bean et al., 2025](https://arxiv.org/html/2511.04703v1)).**
 
 Three steps, and the order is not negotiable.
 
@@ -115,7 +133,7 @@ Define correct, seed truth, name the oracle. Everything after this is plumbing.
 
 ## How do you write a golden case?
 
-A golden case is four load-bearing parts: the input with its session context, the expected behaviour written as a concrete check two domain experts would grade the same way ([Anthropic, 2026](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)), a risk label, and a reference to the oracle wherever data changes. Start from intents, and stratify by consequence, not frequency.
+**A golden case is four load-bearing parts: the input with its session context, the expected behaviour written as a concrete check two domain experts would grade the same way ([Anthropic, 2026](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)), a risk label, and a reference to the oracle wherever data changes. Start from intents, and stratify by consequence, not frequency.**
 
 Start from intents, not from chat logs. List what a customer comes to Atlas to do, and cover all three families: ask about a plan or policy, ask about their own account, change something. Random logs over-represent the questions that are common and cheap and starve the ones that are rare and expensive, which is backwards, because the rare and expensive ones are the entire reason the suite exists. Nobody stands up a test harness to confirm the agent can say what time the store opens.
 
@@ -139,7 +157,7 @@ This is the same argument [the first article](/blog/your-evals-are-checks-not-te
 
 ## The Decisions, and What Each One Costs
 
-Every dataset choice buys something and charges for it. Synthetic-only data goes green on inputs no customer sends; auto-labeled sets carry label noise that flips model rankings, an average of at least 3.3% in canonical benchmarks ([Northcutt et al., NeurIPS 2021](https://arxiv.org/abs/2103.14749)); and coverage stays structurally incomplete. Name each cost while it is cheap.
+**Every dataset choice buys something and charges for it. Synthetic-only data goes green on inputs no customer sends; auto-labeled sets carry label noise that flips model rankings, an average of at least 3.3% in canonical benchmarks ([Northcutt et al., NeurIPS 2021](https://arxiv.org/abs/2103.14749)); frozen expected values teach teams to ignore reds; and coverage stays structurally incomplete. Name each cost while it is cheap.**
 
 This is the part most guides skip, and it is the part that decides whether any of the rest was worth doing. Every choice below buys something and charges for it, and by 2026 the charge has a number on it. Name it out loud now, while it is still cheap.
 
@@ -165,7 +183,7 @@ Every choice in the golden set has a measured cost. Synthetic-only data goes gre
 
 ## What did 2026 add to golden datasets?
 
-What 2026 added is not new argument but new machinery: silver-to-gold promotion, leashed synthetic generation, decontamination, and rich per-case metadata, the parts that let a small honest seed set scale without rotting. Weak supervision pioneers showed provisional labels can be reconciled systematically, building models 2.8x faster ([Ratner et al., VLDB 2017](https://arxiv.org/pdf/1711.10160)).
+**What 2026 added is not new argument but new machinery: silver-to-gold promotion, leashed synthetic generation, decontamination, and rich per-case metadata, the parts that let a small honest seed set scale without rotting. Weak supervision pioneers showed provisional labels can be reconciled systematically, building models 2.8x faster ([Ratner et al., VLDB 2017](https://arxiv.org/pdf/1711.10160)).**
 
 The argument above is old and does not change. What changed by 2026 is the machinery around it, the parts that let a small, honest seed set scale without rotting into a large, dishonest one. Four additions earn their place.
 
@@ -185,9 +203,9 @@ The evaluator-agreement half of the gate has its own measurement, and you should
 
 ## What does a golden seed set look like?
 
-A golden seed set is a small table of hand-verified cases, ten here, all gold, each naming its customer, the ask, and what gold checks against the account and catalog rather than a frozen string. Identity comes from the session, so two cases can share a sentence and split only on the account.
+**A golden seed set is a small table of hand-verified cases, ten here, all gold, each naming its customer, the ask, and what gold checks against the account and catalog rather than a frozen string. Identity comes from the session, so two cases can share a sentence and split only on the account.**
 
-On the Atlas map, the golden set sits in the test harness, and its expected outputs are checked against the source-of-truth block, the account and catalog, rather than against frozen strings. This is also why the seed data is engineered the way it is. The legacy-plan customer from the cold-open is not an accident the suite might stumble onto, it is a fixture fact, planted on purpose: an account that carries a term and a cap while the public documentation describes a product that is term-free and uncapped. The grounded-but-false answer is a trap the dataset sets, for the agent and for any metric naive enough to grade grounding and call it correctness. If the suite cannot catch that one, the suite does not work, so it is built in from the very first case.
+On the Atlas map — Atlas is the example support agent this series is built around — the golden set sits in the test harness, and its expected outputs are checked against the source-of-truth block, the account and catalog, rather than against frozen strings. This is also why the seed data is engineered the way it is. The legacy-plan customer from the cold-open is not an accident the suite might stumble onto, it is a fixture fact, planted on purpose: an account that carries a term and a cap while the public documentation describes a product that is term-free and uncapped. The grounded-but-false answer is a trap the dataset sets, for the agent and for any metric naive enough to grade grounding and call it correctness. If the suite cannot catch that one, the suite does not work, so it is built in from the very first case.
 
 Here is the actual seed: ten cases, hand-written, all gold. Not a finish line, a starting position. Production traffic grows it later, which is the living-loop article. Read the customer column first. Identity comes from the session, never from the words, which is why two cases share a sentence and split only on the account.
 
@@ -229,6 +247,14 @@ Construct validity asks whether a metric measures the abstract thing you care ab
 ### How do you scale a golden set without it rotting?
 
 With a tiered workflow. Generate synthetic cases for volume and label them silver, provisional and not yet permitted to gate a release. Promote a case to gold only after a human verifies the label and an evaluator agrees with it. Gold gates releases, silver explores coverage, and the promotion step is where trust gets manufactured deliberately instead of assumed. Decontaminate against known training data so the set measures reasoning, not recall.
+
+### What Cohen's kappa threshold should you use to promote a label to gold?
+
+Treat Cohen's kappa of 0.61 as the floor, the start of Landis and Koch's substantial band, before a case is promotable, and expect to clear 0.8 on objective correctness. One caution that bites: kappa is depressed by class imbalance, so a set that is 90% correct will show a low kappa even at high raw agreement. Read the raw agreement alongside it.
+
+### What is decontamination, and does n-gram matching catch it?
+
+Decontamination is the overlap check between your evaluation set and known training data, flagging cases the model may have memorised rather than reasoned through. The standard method is a 13-gram collision, and the practical move is to split results into a clean set and a dirty set and report both. The caveat: n-gram matching misses paraphrased or translated items, which slip straight past string matching.
 
 ## Sources
 
