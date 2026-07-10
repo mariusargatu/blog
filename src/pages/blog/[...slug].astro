@@ -3,7 +3,7 @@ import { getCollection, render } from 'astro:content'
 import ArticleLayout from '../../layouts/ArticleLayout.astro'
 import { mdxComponents } from '../../components/mdx'
 import { postUrl, seriesUrl } from '../../lib/url'
-import { postsInSeries } from '../../lib/series'
+import { postsInSeries, seriesRepoUrl } from '../../lib/series'
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog', ({ data }) =>
@@ -30,6 +30,7 @@ export async function getStaticPaths() {
         ? {
             name: seriesName,
             href: seriesUrl(seriesName),
+            repoUrl: seriesRepoUrl(seriesName),
             current: idx + 1,
             total: members.length,
             parts: members.map((p) => ({

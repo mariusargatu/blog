@@ -5,6 +5,8 @@ type Post = CollectionEntry<'blog'>
 export interface Series {
   name: string
   blurb: string
+  /** Companion reference repository the series' code lives in, if any. */
+  repoUrl?: string
 }
 
 /**
@@ -18,12 +20,18 @@ export const SERIES: Series[] = [
     name: 'Evals Are Checks, Not Tests',
     blurb:
       'A hands-on series on testing GenAI like real software — where eval dashboards stop and classical testing discipline takes over.',
+    repoUrl: 'https://github.com/mariusargatu/Atlas',
   },
 ]
 
 /** Registry blurb for a series, or '' when none is registered. */
 export function seriesBlurb(name: string): string {
   return SERIES.find((s) => s.name === name)?.blurb ?? ''
+}
+
+/** Companion repo URL for a series, or undefined when none is registered. */
+export function seriesRepoUrl(name: string): string | undefined {
+  return SERIES.find((s) => s.name === name)?.repoUrl
 }
 
 /** Members of a series, sorted by their 1-based part order ascending. */

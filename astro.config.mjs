@@ -53,6 +53,11 @@ export default defineConfig({
   // is namespaced under /blog/* by its route folder. The bare / redirects to
   // /blog via public/_redirects (Cloudflare Pages, a real 301).
   output: 'static',
+  // The site root has no page of its own. This build-time redirect emits a
+  // static `/index.html` so `/` resolves to the blog in dev, `astro preview`,
+  // and any host. In production, Cloudflare's `dist/_redirects` (a real 301)
+  // is evaluated first; this is the universal fallback for everywhere else.
+  redirects: { '/': '/blog' },
   // Tailwind v4 is wired via postcss.config.mjs (@tailwindcss/postcss).
   markdown: {
     remarkPlugins: [remarkReadingTime],

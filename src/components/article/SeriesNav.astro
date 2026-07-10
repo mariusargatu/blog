@@ -11,6 +11,7 @@ interface Part {
 export interface SeriesNavData {
   name: string
   href: string
+  repoUrl?: string
   current: number
   total: number
   parts: Part[]
@@ -20,14 +21,14 @@ export interface SeriesNavData {
 
 type Props = SeriesNavData
 
-const { name, href, current, total, parts, prev, next } = Astro.props
+const { name, href, repoUrl, current, total, parts, prev, next } = Astro.props
 ---
 
 <aside
   class="not-prose mb-12 border border-border-dark bg-surface rounded-lg p-5 md:p-6"
   aria-label={`Series: ${name}`}
 >
-  <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
     <a
       href={href}
       class="group inline-flex items-center gap-2 font-mono text-mono-xs uppercase tracking-widest text-primary hover:underline"
@@ -35,9 +36,26 @@ const { name, href, current, total, parts, prev, next } = Astro.props
       <Icon name="material-symbols:stacks-outline" class="text-[16px]" />
       <span>{name}</span>
     </a>
-    <span class="font-mono text-mono-xs uppercase tracking-wider text-text-muted">
-      Part {current} of {total}
-    </span>
+    <div class="inline-flex items-center gap-3 font-mono text-mono-xs uppercase tracking-wider text-text-muted">
+      {
+        repoUrl && (
+          <a
+            href={repoUrl}
+            target="_blank"
+            rel="noopener"
+            class="group inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-primary hover:bg-primary/20 hover:border-primary/50 transition-colors"
+          >
+            <Icon name="github" class="text-[15px]" />
+            <span>GitHub Code</span>
+            <Icon
+              name="material-symbols:arrow-outward"
+              class="text-[13px] shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+            />
+          </a>
+        )
+      }
+      <span>Part {current} of {total}</span>
+    </div>
   </div>
 
   <ol class="flex flex-col gap-1 list-none m-0 p-0">

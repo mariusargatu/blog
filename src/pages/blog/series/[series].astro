@@ -9,6 +9,7 @@ import {
   postsInSeries,
   categoryOfSeries,
   seriesBlurb,
+  seriesRepoUrl,
 } from '../../../lib/series'
 
 export async function getStaticPaths() {
@@ -23,11 +24,12 @@ export async function getStaticPaths() {
       blurb: seriesBlurb(name),
       parentCategory: categoryOfSeries(posts, name),
       posts: postsInSeries(posts, name),
+      repoUrl: seriesRepoUrl(name),
     },
   }))
 }
 
-const { name, blurb, parentCategory, posts } = Astro.props
+const { name, blurb, parentCategory, posts, repoUrl } = Astro.props
 
 const fmt = (d: Date) =>
   d
@@ -71,9 +73,26 @@ const minutes = (body?: string) =>
   </p>
   {
     blurb && (
-      <p class="text-body-md text-on-surface-variant max-w-2xl mb-section-gap">
+      <p class="text-body-md text-on-surface-variant max-w-2xl mb-4">
         {blurb}
       </p>
+    )
+  }
+  {
+    repoUrl && (
+      <a
+        href={repoUrl}
+        target="_blank"
+        rel="noopener"
+        class="group inline-flex items-center gap-2 mb-section-gap bg-primary text-on-primary font-mono text-mono-label px-5 py-3 rounded-full hover:opacity-90 active:scale-95 transition-all"
+      >
+        <Icon name="github" class="text-[18px]" />
+        <span>GitHub Code</span>
+        <Icon
+          name="material-symbols:arrow-outward"
+          class="text-[15px] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+        />
+      </a>
     )
   }
 
