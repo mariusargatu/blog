@@ -1,0 +1,137 @@
+---
+import { Icon } from 'astro-icon/components'
+
+// The article's failure cases as a scannable, expandable ledger: what the eval
+// "saw", what was actually true, the classical bug it really was, and which
+// testing pattern would have caught it.
+interface Incident {
+  org: string
+  year: string
+  system: string
+  // Impact is typed (impactKind) so the reader isn't asked to compare $812 to a
+  // CVSS score to a tenant count as if they were one scale.
+  impactKind: string
+  impact: string
+  evalSaw: string
+  truth: string
+  rootCause: string
+  caughtBy: string
+}
+
+const incidents: Incident[] = [
+  {
+    org: 'Air Canada',
+    year: '2024',
+    system: 'Support chatbot (RAG)',
+    impactKind: 'Liability',
+    impact: '$812 + precedent',
+    evalSaw: 'Answer faithful to the retrieved chunks.',
+    truth: 'Bereavement fares cannot be applied retroactively.',
+    rootCause: 'Consistency bug: answer vs canonical policy',
+    caughtBy: 'Pattern 1 · Independent source of truth',
+  },
+  {
+    org: 'Asana',
+    year: '2025',
+    system: 'MCP server',
+    impactKind: 'Exposure',
+    impact: '~1,000 tenants',
+    evalSaw: 'Agent faithful to what the cache returned.',
+    truth: 'One tenant must never see another tenant’s data.',
+    rootCause: 'Tenant isolation / confused-deputy',
+    caughtBy: 'Architecture · enforce real boundaries',
+  },
+  {
+    org: 'Salesforce ForcedLeak',
+    year: '2025',
+    system: 'Agentforce',
+    impactKind: 'Severity',
+    impact: 'CVSS 9.4',
+    evalSaw: 'Agent processed “ordinary” lead data.',
+    truth: 'External input is untrusted until sanitized.',
+    rootCause: 'Indirect prompt injection / input validation',
+    caughtBy: 'Pattern 3 · Adversarial regression',
+  },
+  {
+    org: 'Lenovo Lena',
+    year: '2025',
+    system: 'Support chatbot (GPT-4)',
+    impactKind: 'Exploit',
+    impact: 'XSS → session theft',
+    evalSaw: 'Chatbot did exactly what it was asked.',
+    truth: 'Model output is untrusted until encoded.',
+    rootCause: 'Output validation / stored XSS',
+    caughtBy: 'Pattern 2 · Validate output before it ships',
+  },
+]
+---
+
+<div class="not-prose my-10" data-inview>
+  <div
+    class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4 flex items-center gap-2"
+  >
+    <Icon name="material-symbols:format-list-bulleted" class="text-[16px]" />
+    Incident ledger: what evals missed
+  </div>
+
+  <div class="flex flex-col gap-2">
+    {
+      incidents.map((it) => (
+        <details class="accordion border border-border-dark bg-surface group">
+          <summary class="flex items-center justify-between gap-4 p-4">
+            <div class="flex items-center gap-3 min-w-0">
+              <Icon
+                name="material-symbols:warning-outline"
+                class="text-error text-[18px] shrink-0"
+              />
+              <span class="text-text-primary font-medium truncate">{it.org}</span>
+              <span class="hidden sm:inline font-mono text-mono-xs text-text-muted truncate">
+                {it.system}
+              </span>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <span class="font-mono text-mono-xs whitespace-nowrap">
+                <span class="hidden sm:inline text-text-muted uppercase tracking-wider mr-1.5">
+                  {it.impactKind}
+                </span>
+                <span class="text-error">{it.impact}</span>
+              </span>
+              <span class="font-mono text-mono-xs text-text-muted">{it.year}</span>
+              <Icon
+                name="material-symbols:expand-more"
+                class="acc-chevron text-primary text-[20px]"
+              />
+            </div>
+          </summary>
+
+          <div class="grid md:grid-cols-2 gap-px bg-border-dark border-t border-border-dark">
+            <div class="bg-surface p-4">
+              <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider">
+                The eval saw
+              </span>
+              <p class="m-0 mt-1 text-sm text-text-primary">{it.evalSaw}</p>
+            </div>
+            <div class="bg-surface p-4">
+              <span class="font-mono text-mono-xs text-error uppercase tracking-wider">
+                The truth was
+              </span>
+              <p class="m-0 mt-1 text-sm text-text-primary">{it.truth}</p>
+            </div>
+            <div class="bg-surface p-4">
+              <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider">
+                Classical root cause
+              </span>
+              <p class="m-0 mt-1 text-sm text-text-primary">{it.rootCause}</p>
+            </div>
+            <div class="bg-surface p-4">
+              <span class="font-mono text-mono-xs text-primary uppercase tracking-wider">
+                Caught by
+              </span>
+              <p class="m-0 mt-1 text-sm text-primary">{it.caughtBy}</p>
+            </div>
+          </div>
+        </details>
+      ))
+    }
+  </div>
+</div>

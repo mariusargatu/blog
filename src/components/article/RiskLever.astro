@@ -1,0 +1,196 @@
+---
+import { Icon } from 'astro-icon/components'
+
+// Architecture as a lever: drag the LLM from "presentation layer over canonical
+// facts" to "authoritative voice" and watch the blast radius and the required
+// testing rigor scale with its authority.
+// Opens at low authority so the reader drags UP into rigor (escalation reads
+// forward). Starting at the maxed-out end made "drag to escalate" read backward.
+const DEFAULT = 15
+const scaleFor = (v: number) => (40 + v * 1.1) / 160
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-6 md:p-8" data-rl data-tier="low">
+  <div class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-6 flex items-center gap-2">
+    <span>Architecture lever: where the LLM sits</span>
+    <div class="h-px flex-1 bg-border-dark"></div>
+  </div>
+
+  <div class="flex items-center justify-between gap-3 mb-2 font-mono text-mono-xs uppercase tracking-wider text-text-muted">
+    <span>Presentation layer</span>
+    <span>Authoritative voice</span>
+  </div>
+  <input
+    type="range"
+    min="0"
+    max="100"
+    value={DEFAULT}
+    class="rl-range w-full"
+    data-rl-range
+    aria-label="LLM authority"
+    aria-valuetext={`${DEFAULT} percent, Low rigor`}
+    aria-describedby="rl-note"
+  />
+  <p
+    class="rl-hint m-0 mt-2 flex items-center gap-1.5 font-mono text-mono-xs text-text-muted"
+    data-rl-hint
+    aria-hidden="true"
+  >
+    <Icon name="material-symbols:drag-pan" class="text-[14px]" />
+    Drag to set how much authority the LLM holds
+  </p>
+
+  <div class="grid md:grid-cols-2 gap-6 mt-8 items-center">
+    <!-- Blast radius -->
+    <div class="flex flex-col items-center gap-3">
+      <div class="relative h-40 w-40 flex items-center justify-center">
+        <div class="rl-blast rounded-full" data-rl-blast style={`--s:${scaleFor(DEFAULT)}`}></div>
+        <span class="relative font-mono text-mono-xs text-text-primary" data-rl-blast-label>Low</span>
+      </div>
+      <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider">Blast radius</span>
+    </div>
+
+    <!-- Required rigor -->
+    <div class="flex flex-col gap-3">
+      <div class="flex items-baseline justify-between">
+        <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider">Required testing rigor</span>
+        <span class="rl-rigor font-mono text-headline-md" data-rl-rigor>Low</span>
+      </div>
+      <div class="h-2 bg-surface-container-low border border-border-dark overflow-hidden">
+        <div class="rl-bar h-full" data-rl-bar style={`transform:scaleX(${DEFAULT / 100})`}></div>
+      </div>
+      <p class="m-0 font-mono text-mono-xs text-text-muted leading-relaxed" id="rl-note" data-rl-note>
+        LLM only presents facts pulled from a canonical source. Consistency is
+        mechanical; evals + monitoring mostly suffice.
+      </p>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  [data-rl] .rl-range {
+    accent-color: var(--color-primary);
+    height: 1.75rem;
+    cursor: grab;
+  }
+  [data-rl] .rl-range:active {
+    cursor: grabbing;
+  }
+  [data-rl] .rl-range:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  [data-rl] .rl-hint {
+    transition: opacity var(--dur-2) var(--ease-out-quart);
+  }
+  [data-rl] .rl-hint.is-hidden {
+    opacity: 0;
+  }
+  /* Pulse twice when the panel is opened to invite the drag, then settle. */
+  @media (prefers-reduced-motion: no-preference) {
+    .accordion[open] .rl-hint:not(.is-hidden) {
+      animation: rlHint 2.2s var(--ease-out-quart) 0.7s 2;
+    }
+  }
+  @keyframes rlHint {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  [data-rl] .rl-blast {
+    width: 10rem;
+    height: 10rem;
+    border: 1px solid;
+    transform: scale(var(--s, 0.8));
+  }
+  [data-rl] .rl-bar {
+    width: 100%;
+    transform-origin: left;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-rl].is-interactive .rl-blast {
+      transition: transform 0.25s ease, background-color 0.25s ease, border-color 0.25s ease;
+    }
+    [data-rl].is-interactive .rl-bar {
+      transition: transform 0.25s ease, background-color 0.25s ease;
+    }
+  }
+  /* tier colors applied via data-tier on the root */
+  [data-rl][data-tier='low'] .rl-blast { border-color: var(--color-success); background: color-mix(in srgb, var(--color-success) 12%, transparent); }
+  [data-rl][data-tier='low'] .rl-bar { background: var(--color-success); }
+  [data-rl][data-tier='low'] .rl-rigor { color: var(--color-success); }
+  [data-rl][data-tier='med'] .rl-blast { border-color: var(--color-tertiary); background: color-mix(in srgb, var(--color-tertiary) 12%, transparent); }
+  [data-rl][data-tier='med'] .rl-bar { background: var(--color-tertiary); }
+  [data-rl][data-tier='med'] .rl-rigor { color: var(--color-tertiary); }
+  [data-rl][data-tier='high'] .rl-blast { border-color: var(--color-secondary); background: color-mix(in srgb, var(--color-secondary) 12%, transparent); }
+  [data-rl][data-tier='high'] .rl-bar { background: var(--color-secondary); }
+  [data-rl][data-tier='high'] .rl-rigor { color: var(--color-secondary); }
+  [data-rl][data-tier='max'] .rl-blast { border-color: var(--color-error); background: color-mix(in srgb, var(--color-error) 12%, transparent); }
+  [data-rl][data-tier='max'] .rl-bar { background: var(--color-error); }
+  [data-rl][data-tier='max'] .rl-rigor { color: var(--color-error); }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-rl]')
+  if (root) {
+    root.classList.add('is-interactive')
+    const range = root.querySelector<HTMLInputElement>('[data-rl-range]')!
+    const blast = root.querySelector<HTMLElement>('[data-rl-blast]')!
+    const blastLabel = root.querySelector<HTMLElement>('[data-rl-blast-label]')!
+    const rigor = root.querySelector<HTMLElement>('[data-rl-rigor]')!
+    const bar = root.querySelector<HTMLElement>('[data-rl-bar]')!
+    const note = root.querySelector<HTMLElement>('[data-rl-note]')!
+
+    const tiers = [
+      {
+        max: 25,
+        key: 'low',
+        name: 'Low',
+        note: 'LLM only presents facts pulled from a canonical source. Consistency is mechanical; evals + monitoring mostly suffice.',
+      },
+      {
+        max: 50,
+        key: 'med',
+        name: 'Medium',
+        note: 'LLM shapes answers from retrieved context. Add output validation and an independent source-of-truth check.',
+      },
+      {
+        max: 75,
+        key: 'high',
+        name: 'High',
+        note: 'LLM is largely authoritative. Independent truth, output validators, and adversarial regression are non-negotiable.',
+      },
+      {
+        max: 101,
+        key: 'max',
+        name: 'Maximum',
+        note: 'LLM is the authoritative source: every claim needs the full program (independent truth, output validation, adversarial + trajectory tests).',
+      },
+    ]
+
+    const update = () => {
+      const v = Number(range.value)
+      const t = tiers.find((x) => v < x.max)!
+      root.dataset.tier = t.key
+      blast.style.setProperty('--s', String((40 + v * 1.1) / 160))
+      blastLabel.textContent = t.name
+      rigor.textContent = t.name
+      bar.style.transform = `scaleX(${v / 100})`
+      note.textContent = t.note
+      // Announce the derived tier to screen readers instead of the raw 0-100.
+      range.setAttribute('aria-valuetext', `${v} percent, ${t.name} rigor`)
+    }
+    const hint = root.querySelector<HTMLElement>('[data-rl-hint]')
+    range.addEventListener(
+      'input',
+      () => hint?.classList.add('is-hidden'),
+      { once: true },
+    )
+    range.addEventListener('input', update)
+    update()
+  }
+</script>

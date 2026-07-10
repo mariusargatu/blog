@@ -1,0 +1,56 @@
+---
+import { getCollection, render } from 'astro:content'
+import ArticleLayout from '../../layouts/ArticleLayout.astro'
+import { mdxComponents } from '../../components/mdx'
+import { postUrl } from '../../lib/url'
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) =>
+    import.meta.env.PROD ? !data.draft : true,
+  )
+  const byDate = [...posts].sort(
+    (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
+  )
+
+  return posts.map((post) => {
+    const toCard = (p: (typeof posts)[number]) => ({
+      href: postUrl(p.id),
+      title: p.data.title,
+      kicker: p.data.kicker,
+    })
+    // Same-topic first, then backfill with the most recent other posts.
+    const sameTopic = byDate.filter(
+      (p) => p.id !== post.id && p.data.topic === post.data.topic,
+    )
+    const others = byDate.filter(
+      (p) => p.id !== post.id && p.data.topic !== post.data.topic,
+    )
+    const related = [...sameTopic, ...others].slice(0, 2).map(toCard)
+
+    return { params: { slug: post.id }, props: { post, related } }
+  })
+}
+
+const { post, related } = Astro.props
+const { Content, headings, remarkPluginFrontmatter } = await render(post)
+const minutesRead = remarkPluginFrontmatter.minutesRead as number | undefined
+---
+
+<ArticleLayout
+  title={post.data.title}
+  description={post.data.description}
+  kicker={post.data.kicker}
+  author={post.data.author}
+  pubDate={post.data.pubDate}
+  updatedDate={post.data.updatedDate}
+  minutesRead={minutesRead}
+  image={(post.data.ogImage ?? post.data.coverImage)?.src}
+  cover={post.data.coverImage}
+  coverAlt={post.data.coverImageAlt}
+  headings={headings}
+  related={related}
+  topic={post.data.topic}
+  faq={post.data.faq}
+>
+  <Content components={mdxComponents} />
+</ArticleLayout>

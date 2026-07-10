@@ -1,0 +1,92 @@
+---
+import '@fontsource-variable/hanken-grotesk'
+import '@fontsource-variable/source-serif-4'
+import '@fontsource-variable/spline-sans-mono'
+import '@fontsource/comic-neue/700.css'
+import '../styles/global.css'
+
+import TopNav from '../components/TopNav.astro'
+import Footer from '../components/Footer.astro'
+import SearchModal from '../components/SearchModal.astro'
+import { withBase, rssUrl } from '../lib/url'
+
+interface Props {
+  title: string
+  description: string
+  /** Path or URL to an OG/cover image. */
+  image?: string
+  /** Marks the page as an article for OG metadata. */
+  article?: boolean
+}
+
+const { title, description, image, article = false } = Astro.props
+
+const canonical = new URL(Astro.url.pathname, Astro.site)
+const ogImage = image ? new URL(image, Astro.site).href : undefined
+const rss = new URL(rssUrl(), Astro.site).href
+
+// Cloudflare Web Analytics beacon. Production-only, token read from the
+// PUBLIC_CF_ANALYTICS_TOKEN env var (set it in the Cloudflare Pages project).
+// Leave the var unset to rely on Cloudflare's automatic Pages injection instead.
+const cfAnalyticsToken = import.meta.env.PROD
+  ? import.meta.env.PUBLIC_CF_ANALYTICS_TOKEN
+  : undefined
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script is:inline>
+      document.documentElement.classList.add('js')
+    </script>
+    <link rel="canonical" href={canonical.href} />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+
+    <meta property="og:type" content={article ? 'article' : 'website'} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical.href} />
+    <meta property="og:site_name" content="Marius Argatu" />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    {ogImage && <meta property="og:image:alt" content={title} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    <link rel="alternate" type="application/rss+xml" title="Blog" href={rss} />
+    <link rel="sitemap" href={withBase('sitemap-index.xml')} />
+    <meta name="generator" content={Astro.generator} />
+
+    {
+      cfAnalyticsToken && (
+        <script
+          is:inline
+          defer
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon={JSON.stringify({ token: cfAnalyticsToken })}
+        />
+      )
+    }
+    <slot name="head" />
+  </head>
+  <body
+    class="min-h-screen bg-background-dark text-text-primary antialiased font-sans text-body-md selection:bg-primary-container selection:text-on-primary-container overflow-x-hidden"
+  >
+    <TopNav />
+    <slot />
+    <Footer />
+    <SearchModal />
+
+    <script>
+      import { initReveal } from '../scripts/reveal'
+      import { initInView } from '../scripts/inview'
+      initReveal()
+      initInView()
+    </script>
+  </body>
+</html>

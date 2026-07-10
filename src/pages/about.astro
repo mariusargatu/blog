@@ -1,0 +1,378 @@
+---
+import { Icon } from 'astro-icon/components'
+import BaseLayout from '../layouts/BaseLayout.astro'
+
+const linkedin = 'https://www.linkedin.com/in/mariusargatu'
+const github = 'https://github.com/mariusargatu'
+const email = 'mailto:contact@mariusargatu.com'
+
+const competencies = [
+  {
+    title: 'AI / LLM Testing',
+    items:
+      'Deepeval, RAGAS, Langfuse · golden-dataset regression · faithfulness, answer relevancy, hallucination · RAG metrics (hit rate, MRR, precision/recall@k) · agentic (multi-turn, tool calls, planning loops)',
+  },
+  {
+    title: 'Test Architecture',
+    items:
+      'Framework & runner design · model-based testing (xState) · property-based (Schemathesis, Hypothesis, fast-check) · Pydantic schemas',
+  },
+  {
+    title: 'API & Contract',
+    items: 'REST, GraphQL, OpenAPI-first, Postman',
+  },
+  {
+    title: 'UI & E2E',
+    items: 'Playwright (UI / API / Component), Selenium, Vitest, Cypress · POM & Screenplay',
+  },
+  {
+    title: 'CI/CD & Infra',
+    items: 'GitLab CI, GitHub Actions, Jenkins · Docker, Kubernetes',
+  },
+  {
+    title: 'Observability',
+    items: 'Datadog, OpenTelemetry, Grafana · trace-driven debugging',
+  },
+]
+
+interface Project {
+  role: string
+  period: string
+  summary?: string
+  points: string[]
+  tags: string[]
+}
+interface Company {
+  company: string
+  period: string
+  open: boolean
+  summary?: string
+  projects: Project[]
+}
+const experience: Company[] = [
+  {
+    company: 'Coherent Solutions',
+    period: '2021 – Present',
+    open: true,
+    summary:
+      'Client engagements across airline payments, healthcare SaaS, and enterprise desktop. Embedded with engineering: build the test platform and scale practices so developers own their own quality.',
+    projects: [
+      {
+        role: 'Senior SDET · Airline / Payments Platform',
+        period: 'Jul 2025 – Present',
+        points: [
+          'Own the quality strategy within my feature team: what to test, at what level, and why. Developers write their own unit, integration, and system tests while I advise on coverage gaps and where tests belong.',
+          'Maintain the system test framework and review developer-written tests, giving feedback on coverage and test design.',
+          'Shift-left: authored test scenarios during the LLD design phase as the spec for developer-written tests, embedding quality gates early in the lifecycle.',
+          'Help test new features to shorten the feedback cycle before handoff to the broader QA team.',
+          'Use agentic workflows day to day: MCP as a knowledge base, slash commands for bug triage, agents for test maintenance.',
+          'Built an internal LLM-powered debugging agent in Python that correlates failing test output with Datadog traces, the pytest stacktrace, and recent Jira changes, then loops until the test passes or a real bug surfaces. Debug time from hours to minutes.',
+          'Owned regression planning and release-gate decisions for the payments domain.',
+        ],
+        tags: ['Python', 'API', 'Datadog', 'MCP', 'Agentic Software Engineering'],
+      },
+      {
+        role: 'Senior SDET · Healthcare SaaS / Multi-Tenant',
+        period: 'Jan 2023 – Jul 2025',
+        summary:
+          'RAG testing, framework ownership, and platform-wide test architecture.',
+        points: [
+          'Built LLM evaluation for a RAG assistant answering researcher questions against FDA/EMA guidance and tenant submissions. Separated retrieval (hit rate, precision@k) from generation (faithfulness, answer relevancy) via RAGAS; golden datasets in Langfuse, eval runs in CI.',
+          'Model-based testing on the permissions matrix using xState: ~1,000 scenarios generated from a single state-machine definition, tracking the product as permissions evolve with no manual rewrite.',
+          'Built a Playwright + TypeScript test platform with POM and fixture-based tenant/role isolation, adopted across multiple functional teams.',
+          'Built an AST-based migration tool that translated a legacy KarateDSL suite into equivalent TypeScript + Playwright code, removing a manual rewrite of thousands of lines.',
+          'Framework SME: onboarding, test-pattern reviews, and coordination on cross-cutting changes including an auth-system rewrite.',
+        ],
+        tags: ['RAGAS', 'Langfuse', 'xState', 'Playwright', 'TypeScript', 'RAG'],
+      },
+      {
+        role: 'Senior SDET · Enterprise Desktop (QT)',
+        period: 'Jan 2022 – Jan 2023',
+        summary: 'Python + Pytest API test framework with dynamic data generation.',
+        points: [
+          'Built a custom Pytest plugin that runs dependent API tests concurrently via DAG-resolved ordering, cutting runtime while preserving test correctness.',
+          "Patched and rebuilt QT WebEngine's Chromium fork to expose the remote debugging port, replacing Appium with Selenium via CDP. Per-test effort dropped from 4 days to 1.",
+        ],
+        tags: ['Python', 'Pytest', 'Selenium', 'CDP', 'QT'],
+      },
+    ],
+  },
+  {
+    company: 'LSEG (London Stock Exchange Group)',
+    period: 'Mar 2021 – Jan 2022',
+    open: false,
+    projects: [
+      {
+        role: 'Senior QA Automation Engineer',
+        period: 'Mar 2021 – Jan 2022',
+        points: [
+          'Designed a cross-platform automation framework covering an SPA and a Windows desktop client using the Screenplay pattern with Playwright and WinAppDriver: one mental model, two surface areas.',
+          'Delivered an E2E suite that meaningfully reduced manual regression on the historically under-automated desktop side.',
+          'Maintained and optimized Jenkins pipelines for test execution and reporting across environments.',
+          'Coordinated day-to-day activities for a small QA team.',
+        ],
+        tags: ['Python', 'Playwright', 'WinAppDriver', 'Screenplay', 'Jenkins'],
+      },
+    ],
+  },
+  {
+    company: '2Checkout',
+    period: 'Mar 2020 – Mar 2021',
+    open: false,
+    projects: [
+      {
+        role: 'QA Automation Engineer · Payments / E-commerce',
+        period: 'Mar 2020 – Mar 2021',
+        points: [
+          'Led design of a Pytest-based automation framework for complex e-commerce and payment workflows; defined standards still in use.',
+          'Cut test execution time substantially via parallel execution and script optimization.',
+          "Built a database-diff tool that captured state changes triggered by UI actions, letting QA snapshot and restore environments locally. Removed hours of manual SQL from the team's weekly workload.",
+        ],
+        tags: ['Python', 'Pytest', 'Payments'],
+      },
+    ],
+  },
+  {
+    company: 'Amber',
+    period: 'Apr 2017 – Mar 2020',
+    open: false,
+    summary:
+      'Three-year progression across three roles, crossing from testing into production engineering, the reason I can credibly review developer code and design test harnesses they actually want to use.',
+    projects: [
+      {
+        role: 'Backend Engineer',
+        period: 'Mar 2019 – Mar 2020',
+        points: [
+          'Shipped RESTful APIs in Python + Flask; validated performance under load with K6; maintained CI/CD on Docker + Kubernetes.',
+        ],
+        tags: ['Python', 'Flask', 'K6', 'Docker', 'Kubernetes'],
+      },
+      {
+        role: 'Senior QA Tester',
+        period: 'Jun 2018 – Mar 2019',
+        points: [
+          'Owned integration testing of REST services end to end; organized daily QA across web, desktop, and mobile.',
+        ],
+        tags: [],
+      },
+      {
+        role: 'QA Tester',
+        period: 'Apr 2017 – May 2018',
+        points: [
+          'Authored and evolved test cases against changing requirements; ran regression cycles; partnered with devs, producers, and designers on defect resolution.',
+        ],
+        tags: [],
+      },
+    ],
+  },
+  {
+    company: 'Electronic Arts (EA)',
+    period: 'Apr 2016 – Oct 2016',
+    open: false,
+    projects: [
+      {
+        role: 'QA Tester',
+        period: 'Apr 2016 – Oct 2016',
+        points: ['End-to-end feature testing for AAA game titles across platforms.'],
+        tags: [],
+      },
+    ],
+  },
+]
+
+const ctaPrimary =
+  'inline-flex items-center gap-2 bg-primary text-on-primary font-mono text-mono-label px-5 py-2.5 rounded-full hover:opacity-90 active:scale-95 transition-all'
+const ctaGhost =
+  'inline-flex items-center gap-2 font-mono text-mono-label text-text-primary border border-border-dark px-5 py-2.5 rounded-full hover:border-primary transition-all'
+---
+
+<BaseLayout
+  title="About, Marius Argatu"
+  description="Senior SDET and AI Quality Engineer: 10 years of test infrastructure across airline payments, healthcare SaaS, and fintech, now focused on LLM, RAG, and agentic system testing. Contractor, Remote · EU Timezone."
+>
+  <main
+    class="max-w-container-max mx-auto px-margin-mobile md:px-gutter pt-32 pb-section-gap"
+    data-pagefind-body
+  >
+    <!-- Header -->
+    <header class="mb-section-gap" data-reveal>
+      <div class="flex items-center gap-2 mb-5">
+        <span
+          class="font-mono text-mono-label text-primary text-xs tracking-tighter"
+          >ABOUT</span
+        >
+        <div class="h-px flex-1 bg-border-dark"></div>
+      </div>
+      <h1
+        class="font-sans text-display-xl-mobile md:text-display-xl text-text-primary mb-3"
+      >
+        Marius Argatu
+      </h1>
+      <p class="text-body-lg text-text-muted mb-6 max-w-2xl">
+        Senior SDET · AI / LLM Quality Engineering · RAG &amp; Agentic Systems
+      </p>
+      <div class="flex flex-wrap items-center gap-3">
+        <span
+          class="font-mono text-mono-xs text-text-muted inline-flex items-center gap-2 border border-border-dark rounded-full px-3 py-1"
+        >
+          <span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+          CONTRACTOR · REMOTE · EU TIMEZONE · BUCHAREST
+        </span>
+        <a href={email} class={ctaPrimary}>
+          <Icon name="material-symbols:mail" class="text-[18px]" />
+          Get in touch
+        </a>
+        <a href={linkedin} target="_blank" rel="noopener noreferrer" class={ctaGhost}>
+          <Icon name="material-symbols:link" class="text-[18px]" />
+          LinkedIn
+        </a>
+        <a href={github} target="_blank" rel="noopener noreferrer" class={ctaGhost}>
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            fill="currentColor"
+            class="w-[18px] h-[18px]"
+          >
+            <path
+              d="M12 .5C5.73.5.5 5.73.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.3-1.7-1.3-1.7-1.06-.72.08-.71.08-.71 1.17.08 1.79 1.2 1.79 1.2 1.04 1.79 2.73 1.27 3.4.97.1-.76.41-1.27.74-1.56-2.55-.29-5.23-1.28-5.23-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .98-.31 3.2 1.18a11.1 11.1 0 0 1 5.82 0c2.22-1.49 3.2-1.18 3.2-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.69 5.39-5.25 5.68.42.36.79 1.07.79 2.16v3.2c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5Z"
+            ></path>
+          </svg>
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+      <!-- Left: summary / competencies / education / languages -->
+      <aside class="md:col-span-4 flex flex-col gap-10">
+        <section data-reveal>
+          <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4">
+            _SUMMARY
+          </h2>
+          <p class="text-body-md text-text-muted leading-relaxed">
+            Senior SDET with 10 years building test infrastructure for systems
+            where reliability matters, airline payments, multi-tenant
+            healthcare SaaS, fintech, and financial market data. For the past
+            several years, focused on testing AI-powered features: LLM
+            evaluation harnesses, RAG retrieval testing, golden-dataset
+            regression, and agentic system testing. Builds frameworks, runners,
+            and model-based test systems, and wires evaluation into CI/CD.
+          </p>
+        </section>
+
+        <section data-reveal>
+          <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4">
+            _COMPETENCIES
+          </h2>
+          <div class="flex flex-col gap-3">
+            {
+              competencies.map((c) => (
+                <div class="p-4 border border-border-dark bg-surface-container-low">
+                  <h3 class="font-mono text-mono-label text-on-surface mb-1">
+                    {c.title}
+                  </h3>
+                  <p class="font-mono text-mono-xs text-text-muted leading-relaxed">
+                    {c.items}
+                  </p>
+                </div>
+              ))
+            }
+          </div>
+        </section>
+
+        <section data-reveal>
+          <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-3">
+            _EDUCATION
+          </h2>
+          <p class="font-mono text-mono-label text-on-surface">
+            Hyperion University of Bucharest
+          </p>
+          <p class="font-mono text-mono-xs text-text-muted">
+            Applied Informatics & Automation · 2015 – 2019
+          </p>
+        </section>
+
+        <section data-reveal>
+          <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-3">
+            _LANGUAGES
+          </h2>
+          <p class="font-mono text-mono-xs text-text-muted">
+            English, Full Professional · Romanian, Native
+          </p>
+        </section>
+      </aside>
+
+      <!-- Right: experience accordion -->
+      <div class="md:col-span-8 flex flex-col gap-4">
+        <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-2">
+          _EXPERIENCE
+        </h2>
+        {
+          experience.map((company) => (
+            <details class="accordion border border-border-dark bg-surface" open={company.open}>
+              <summary class="flex justify-between items-center gap-4 p-6">
+                <div class="flex flex-col md:flex-row md:items-baseline gap-1 md:gap-3">
+                  <h3 class="text-headline-md text-text-primary">{company.company}</h3>
+                  <span class="font-mono text-mono-xs text-text-muted">
+                    {company.projects.length > 1
+                      ? `${company.projects.length} projects`
+                      : company.projects[0].role}
+                  </span>
+                </div>
+                <div class="flex items-center gap-4 shrink-0">
+                  <span class="font-mono text-mono-xs text-text-muted">
+                    {company.period}
+                  </span>
+                  <Icon
+                    name="material-symbols:expand-more"
+                    class="acc-chevron text-primary text-[22px]"
+                  />
+                </div>
+              </summary>
+              <div class="px-6 pb-6 pt-2 border-t border-border-dark">
+                {company.summary && (
+                  <p class="text-body-md text-text-muted mb-6">{company.summary}</p>
+                )}
+                <div class="flex flex-col gap-7">
+                  {company.projects.map((proj) => (
+                    <div class="relative pl-5 border-l border-border-dark">
+                      <span class="absolute -left-[4.5px] top-2 w-2 h-2 rounded-full bg-primary" />
+                      <div class="flex flex-col md:flex-row md:items-baseline md:justify-between gap-1 mb-2">
+                        <h4 class="font-mono text-mono-label text-on-surface">{proj.role}</h4>
+                        <span class="font-mono text-mono-xs text-text-muted shrink-0">
+                          {proj.period}
+                        </span>
+                      </div>
+                      {proj.summary && (
+                        <p class="text-body-md text-text-muted mb-3">{proj.summary}</p>
+                      )}
+                      {proj.points.length > 0 && (
+                        <ul class="flex flex-col gap-2 mb-3 list-none">
+                          {proj.points.map((pt) => (
+                            <li class="text-body-md text-text-muted flex gap-3">
+                              <span class="text-primary mt-1 shrink-0">▹</span>
+                              <span>{pt}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {proj.tags.length > 0 && (
+                        <div class="flex flex-wrap gap-2">
+                          {proj.tags.map((t) => (
+                            <span class="font-mono text-mono-xs px-2 py-1 bg-background-dark border border-border-dark text-primary">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+  </main>
+</BaseLayout>

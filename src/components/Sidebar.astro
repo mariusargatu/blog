@@ -1,0 +1,51 @@
+---
+import { Icon } from 'astro-icon/components'
+import { homeUrl, categoryUrl } from '../lib/url'
+import { CATEGORIES } from '../lib/categories'
+
+interface Props {
+  /** 'Home' or a category name, marks the active item. */
+  active?: string
+}
+
+const { active = 'Home' } = Astro.props
+const home = homeUrl()
+
+const item =
+  'flex items-center gap-3 py-2 px-3 rounded-sm transition-all duration-200'
+const activeCls = 'text-primary font-bold bg-surface-hover'
+const idleCls =
+  'text-text-muted font-normal hover:text-text-primary hover:bg-surface-hover'
+---
+
+<aside
+  class="hidden lg:flex flex-col py-8 gap-y-4 sticky top-16 h-[calc(100vh-64px)] w-sidebar-width shrink-0 border-r border-border-dark px-4 overflow-y-auto"
+>
+  <nav class="flex flex-col gap-y-1">
+    <a href={home} class:list={[item, active === 'Home' ? activeCls : idleCls]}>
+      <Icon name="material-symbols:home" class="text-[18px]" />
+      <span class="font-mono text-mono-label">Home</span>
+    </a>
+  </nav>
+
+  <div class="mt-4">
+    <h2
+      class="font-mono text-mono-xs text-primary uppercase tracking-widest px-3 mb-2"
+    >
+      Categories
+    </h2>
+    <nav class="flex flex-col gap-y-1">
+      {
+        CATEGORIES.map((c) => (
+          <a
+            href={categoryUrl(c.name)}
+            class:list={[item, active === c.name ? activeCls : idleCls]}
+          >
+            <Icon name={c.icon} class="text-[18px]" />
+            <span class="font-mono text-mono-label">{c.name}</span>
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+</aside>

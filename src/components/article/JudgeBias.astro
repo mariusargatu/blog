@@ -1,0 +1,121 @@
+---
+// Interactive demo of LLM-as-judge biases. Two responses say the same thing;
+// flipping any bias toggle flips the "objective" judge's verdict from A to B.
+const biases = [
+  { key: 'position', label: 'Position bias', note: 'B shown second/first' },
+  { key: 'verbosity', label: 'Verbosity bias', note: 'B is longer' },
+  { key: 'self', label: 'Self-preference', note: "B matches judge's style" },
+]
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-5" data-jb data-inview>
+  <div class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+    <span>LLM-as-judge: same answer, different verdict</span>
+    <div class="h-px flex-1 bg-border-dark"></div>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-3">
+    <div class="jb-card border p-4 transition-all" data-jb-card="A">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-mono text-mono-xs text-text-muted">Response A</span>
+        <span class="jb-win font-mono text-mono-xs px-2 py-0.5" data-jb-badge="A" aria-hidden="true">★ winner</span>
+      </div>
+      <p class="m-0 text-sm text-text-primary">Refund window: 30 days. Request before the ticket is issued.</p>
+    </div>
+    <div class="jb-card border p-4 transition-all" data-jb-card="B">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-mono text-mono-xs text-text-muted">Response B</span>
+        <span class="jb-win font-mono text-mono-xs px-2 py-0.5" data-jb-badge="B" aria-hidden="true">★ winner</span>
+      </div>
+      <p class="m-0 text-sm text-text-primary">
+        Great question! Our customer-first policy generally offers a comfortable
+        30-day window, just be sure to reach out before the ticket is issued, and
+        we'll be happy to help.
+      </p>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 mt-4">
+    <span class="font-mono text-mono-xs text-text-muted mr-1">Inject bias:</span>
+    {
+      biases.map((b) => (
+        <button type="button" class="jb-toggle inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark text-text-muted transition-all" data-jb-toggle={b.key} title={b.note} aria-pressed="false">
+          {b.label}
+        </button>
+      ))
+    }
+  </div>
+
+  <p class="m-0 mt-4 font-mono text-mono-xs text-text-muted" data-jb-verdict aria-live="polite">
+    Verdict: <span class="text-primary">A wins</span>: the concise, correct answer. No bias active.
+  </p>
+</div>
+
+<style is:global>
+  [data-jb] .jb-card {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-jb] .jb-card.is-winner {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-jb] .jb-win {
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  [data-jb] .jb-card.is-winner .jb-win {
+    opacity: 1;
+    transform: scale(1);
+  }
+  [data-jb] .jb-toggle.on {
+    border-color: var(--color-secondary);
+    color: var(--color-secondary);
+    background: color-mix(in srgb, var(--color-secondary) 8%, transparent);
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-jb]')
+  if (root) {
+    const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-jb-toggle]')]
+    const cardA = root.querySelector<HTMLElement>('[data-jb-card="A"]')!
+    const cardB = root.querySelector<HTMLElement>('[data-jb-card="B"]')!
+    const verdict = root.querySelector<HTMLElement>('[data-jb-verdict]')!
+    const active = new Set<string>()
+
+    const labels: Record<string, string> = {
+      position: 'position',
+      verbosity: 'verbosity',
+      self: 'self-preference',
+    }
+
+    const update = () => {
+      const biasOn = active.size > 0
+      cardA.classList.toggle('is-winner', !biasOn)
+      cardB.classList.toggle('is-winner', biasOn)
+      if (!biasOn) {
+        verdict.innerHTML =
+          'Verdict: <span class="text-primary">A wins</span>: the concise, correct answer. No bias active.'
+      } else {
+        const why = [...active].map((k) => labels[k]).join(' + ')
+        verdict.innerHTML = `Verdict: <span class="text-secondary">B wins</span>, flipped by <span class="text-secondary">${why}</span>, not by being more correct.`
+      }
+    }
+
+    toggles.forEach((t) =>
+      t.addEventListener('click', () => {
+        const k = t.dataset.jbToggle!
+        if (active.has(k)) active.delete(k)
+        else active.add(k)
+        t.classList.toggle('on', active.has(k))
+        t.setAttribute('aria-pressed', String(active.has(k)))
+        update()
+      }),
+    )
+    update()
+  }
+</script>

@@ -1,0 +1,19 @@
+---
+interface Props {
+  /** Tilt in degrees; alternate sign for a hand-pinned feel. */
+  rotate?: number
+}
+
+const { rotate = 2 } = Astro.props
+---
+
+<div
+  class="not-prose relative max-w-sm ml-auto mr-8 -mt-8 z-10"
+  style={`transform: rotate(${rotate}deg)`}
+>
+  <div class="bg-secondary-fixed text-on-secondary-fixed p-4 rounded shadow-lg">
+    <p class="font-handwritten text-handwritten m-0 leading-tight">
+      <slot />
+    </p>
+  </div>
+</div>

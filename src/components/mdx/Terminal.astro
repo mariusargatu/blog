@@ -1,0 +1,33 @@
+---
+import { Code } from 'astro:components'
+import type { BuiltinLanguage } from 'shiki'
+
+interface Props {
+  title?: string
+  /** The terminal/code contents. Pass a template literal in MDX. */
+  code: string
+  lang?: BuiltinLanguage
+}
+
+const { title = 'terminal', code, lang = 'bash' } = Astro.props
+---
+
+<div
+  class="not-prose bg-surface rounded-lg border border-border-dark overflow-hidden my-8 shadow-sm"
+>
+  <div
+    class="flex items-center justify-between px-4 py-2 bg-surface-container-high border-b border-border-dark"
+  >
+    <div class="flex gap-2">
+      <span class="w-3 h-3 rounded-full bg-[#FF5F56]"></span>
+      <span class="w-3 h-3 rounded-full bg-[#FFBD2E]"></span>
+      <span class="w-3 h-3 rounded-full bg-[#27C93F]"></span>
+    </div>
+    <span class="font-mono text-mono-xs text-text-muted">{title}</span>
+  </div>
+  <div
+    class="text-mono-label [&_pre]:!my-0 [&_pre]:!border-0 [&_pre]:!rounded-none [&_pre]:p-6"
+  >
+    <Code code={code} lang={lang} theme="github-light" />
+  </div>
+</div>

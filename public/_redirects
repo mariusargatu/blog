@@ -1,0 +1,3 @@
+# Cloudflare Pages redirects. https://developers.cloudflare.com/pages/configuration/redirects/
+# The site root has no page of its own; send it to the blog landing.
+/ /blog 301

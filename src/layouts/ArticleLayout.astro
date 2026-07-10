@@ -1,0 +1,260 @@
+---
+import { Image } from 'astro:assets'
+import type { ImageMetadata } from 'astro'
+import { Icon } from 'astro-icon/components'
+import BaseLayout from './BaseLayout.astro'
+import ReadingProgress from '../components/article/ReadingProgress.astro'
+import Toc from '../components/article/Toc.astro'
+import Kicker from '../components/article/Kicker.astro'
+import ArticleEnd from '../components/article/ArticleEnd.astro'
+import { buildTocTree, type Heading } from '../lib/toc'
+import { withBase, homeUrl, categoryUrl } from '../lib/url'
+
+interface Faq {
+  q: string
+  a: string
+}
+
+interface Related {
+  href: string
+  title: string
+  kicker: string
+}
+
+interface Props {
+  title: string
+  description: string
+  kicker: string
+  author: string
+  pubDate: Date
+  updatedDate?: Date
+  minutesRead?: number
+  image?: string
+  cover?: ImageMetadata
+  coverAlt?: string
+  headings: Heading[]
+  related?: Related[]
+  topic?: string
+  faq?: Faq[]
+}
+
+const {
+  title,
+  description,
+  kicker,
+  author,
+  pubDate,
+  updatedDate,
+  minutesRead,
+  image,
+  cover,
+  coverAlt,
+  headings,
+  related = [],
+  topic,
+  faq = [],
+} = Astro.props
+
+// Mobile readers get a collapsible jump list; the desktop sidebar TOC is
+// hidden below lg.
+const tocTree = buildTocTree(headings, 2, 3)
+
+const fmt = (d: Date) =>
+  d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+
+const canonicalHref = new URL(Astro.url.pathname, Astro.site).href
+const ogImageHref = image ? new URL(image, Astro.site).href : undefined
+
+// Entity-linked @graph: BlogPosting + Person + BreadcrumbList (+ FAQPage when
+// the post supplies faq pairs). Stable @ids let crawlers and AI assistants
+// resolve author/publisher to a single Person entity.
+const homeHref = new URL(homeUrl(), Astro.site).href
+const aboutHref = new URL(withBase('about/'), Astro.site).href
+const personId = `${aboutHref}#person`
+const categoryHref = topic ? new URL(categoryUrl(topic), Astro.site).href : undefined
+
+const person = {
+  '@type': 'Person',
+  '@id': personId,
+  name: author,
+  url: aboutHref,
+  ...(author === 'Marius Argatu'
+    ? {
+        jobTitle: 'Senior SDET, AI Quality Engineer',
+        sameAs: [
+          'https://www.linkedin.com/in/mariusargatu',
+          'https://github.com/mariusargatu',
+        ],
+      }
+    : {}),
+}
+
+const blogPosting = {
+  '@type': 'BlogPosting',
+  '@id': `${canonicalHref}#article`,
+  headline: title,
+  description,
+  datePublished: pubDate.toISOString(),
+  dateModified: (updatedDate ?? pubDate).toISOString(),
+  author: { '@id': personId },
+  publisher: { '@id': personId },
+  mainEntityOfPage: { '@type': 'WebPage', '@id': canonicalHref },
+  ...(ogImageHref ? { image: ogImageHref } : {}),
+}
+
+const breadcrumb = {
+  '@type': 'BreadcrumbList',
+  '@id': `${canonicalHref}#breadcrumb`,
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: homeHref },
+    ...(topic && categoryHref
+      ? [{ '@type': 'ListItem', position: 2, name: topic, item: categoryHref }]
+      : []),
+    {
+      '@type': 'ListItem',
+      position: topic && categoryHref ? 3 : 2,
+      name: title,
+      item: canonicalHref,
+    },
+  ],
+}
+
+const faqPage =
+  faq.length > 0
+    ? {
+        '@type': 'FAQPage',
+        '@id': `${canonicalHref}#faq`,
+        mainEntity: faq.map((f) => ({
+          '@type': 'Question',
+          name: f.q,
+          acceptedAnswer: { '@type': 'Answer', text: f.a },
+        })),
+      }
+    : undefined
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [blogPosting, person, breadcrumb, ...(faqPage ? [faqPage] : [])],
+}
+---
+
+<BaseLayout
+  title={`${title} | Blog`}
+  description={description}
+  image={image}
+  article={true}
+>
+  <Fragment slot="head">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </Fragment>
+
+  <ReadingProgress />
+
+  <main
+    id="top"
+    class="max-w-container-max mx-auto px-margin-mobile md:px-gutter pt-32 pb-section-gap flex flex-col lg:flex-row gap-gutter"
+  >
+    <Toc headings={headings} />
+
+    <article class="flex-1 max-w-article-max mx-auto w-full">
+      <header class="mb-16">
+        {
+          topic && (
+            <nav aria-label="Breadcrumb" class="mb-5">
+              <a
+                href={categoryUrl(topic)}
+                class="inline-flex items-center gap-1 font-mono text-mono-xs uppercase tracking-wider text-text-muted hover:text-primary transition-colors"
+              >
+                <Icon name="material-symbols:arrow-left-alt" class="text-[16px]" />
+                {topic}
+              </a>
+            </nav>
+          )
+        }
+        <Kicker label={kicker} />
+        <h1
+          class="font-sans text-display-xl-mobile md:text-display-xl text-text-primary mb-6"
+        >
+          {title}
+        </h1>
+        <p class="text-body-lg text-text-muted mb-6">{description}</p>
+        <div
+          class="flex flex-wrap items-center gap-3 font-mono text-mono-xs text-text-muted"
+        >
+          <span class="text-text-primary">{author}</span>
+          <span aria-hidden="true">•</span>
+          <time datetime={pubDate.toISOString()}>{fmt(pubDate)}</time>
+          {
+            minutesRead && (
+              <>
+                <span aria-hidden="true">•</span>
+                <span>{minutesRead} MIN READ</span>
+              </>
+            )
+          }
+          {
+            updatedDate && (
+              <>
+                <span aria-hidden="true">•</span>
+                <span>Updated {fmt(updatedDate)}</span>
+              </>
+            )
+          }
+        </div>
+      </header>
+
+      {
+        tocTree.length > 0 && (
+          <details class="accordion lg:hidden not-prose mb-12 border border-border-dark rounded-lg bg-surface-container-low">
+            <summary class="flex min-h-11 cursor-pointer items-center justify-between gap-3 px-4 py-3 font-mono text-mono-xs uppercase tracking-wider text-text-primary">
+              On this page
+              <Icon name="material-symbols:expand-more" class="acc-chevron text-primary text-[20px]" />
+            </summary>
+            <nav class="flex flex-col gap-2 border-t border-border-dark px-4 pb-4 pt-3">
+              {tocTree.map((node) => (
+                <Fragment>
+                  <a
+                    href={`#${node.slug}`}
+                    class="font-mono text-mono-xs text-text-muted hover:text-primary transition-colors"
+                  >
+                    {node.text}
+                  </a>
+                  {node.children.map((child) => (
+                    <a
+                      href={`#${child.slug}`}
+                      class="pl-4 font-mono text-mono-xs text-text-muted hover:text-primary transition-colors"
+                    >
+                      {child.text}
+                    </a>
+                  ))}
+                </Fragment>
+              ))}
+            </nav>
+          </details>
+        )
+      }
+
+      {
+        cover && (
+          <figure class="mb-16 -mx-margin-mobile md:mx-0">
+            <Image
+              src={cover}
+              alt={coverAlt ?? ''}
+              widths={[640, 960, 1200]}
+              sizes="(max-width: 768px) 100vw, 768px"
+              loading="eager"
+              fetchpriority="high"
+              class="w-full h-auto md:rounded-lg border border-border-subtle"
+            />
+          </figure>
+        )
+      }
+
+      <div class="prose max-w-none" data-pagefind-body>
+        <slot />
+      </div>
+
+      <ArticleEnd related={related} />
+    </article>
+  </main>
+</BaseLayout>

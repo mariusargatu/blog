@@ -1,0 +1,50 @@
+---
+import { Icon } from 'astro-icon/components'
+import BaseLayout from '../layouts/BaseLayout.astro'
+import { homeUrl } from '../lib/url'
+
+const ctaPrimary =
+  'inline-flex items-center gap-2 bg-primary text-on-primary font-mono text-mono-label px-5 py-2.5 rounded-full hover:opacity-90 active:scale-95 transition-all'
+const ctaGhost =
+  'inline-flex items-center gap-2 font-mono text-mono-label text-text-primary border border-border-dark px-5 py-2.5 rounded-full hover:border-primary transition-all'
+---
+
+<BaseLayout
+  title="404, Page not found | Marius Argatu"
+  description="That page does not exist."
+>
+  <main
+    class="max-w-container-max mx-auto px-margin-mobile md:px-gutter pt-32 pb-section-gap min-h-[60vh] flex flex-col justify-center"
+  >
+    <div class="max-w-2xl" data-reveal>
+      <div class="flex items-center gap-2 mb-5">
+        <span class="font-mono text-mono-label text-primary text-xs tracking-tighter">
+          ERROR 404
+        </span>
+        <div class="h-px flex-1 bg-border-dark"></div>
+      </div>
+
+      <h1
+        class="font-sans font-bold tracking-tight leading-[1.05] text-text-primary text-[clamp(2.5rem,6vw,4.5rem)]"
+      >
+        This page failed its test.
+      </h1>
+
+      <p class="text-body-lg text-text-muted mt-6 max-w-xl">
+        The URL doesn't resolve to anything here. It may have moved, or it never
+        existed. Head back, or search for what you were after.
+      </p>
+
+      <div class="flex flex-wrap items-center gap-3 mt-8">
+        <a href={homeUrl()} class={ctaPrimary}>
+          <Icon name="material-symbols:arrow-left-alt" class="text-[18px]" />
+          Back home
+        </a>
+        <button type="button" data-search-open class={ctaGhost}>
+          <Icon name="material-symbols:search" class="text-[18px]" />
+          Search
+        </button>
+      </div>
+    </div>
+  </main>
+</BaseLayout>

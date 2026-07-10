@@ -1,0 +1,144 @@
+---
+import { Icon } from 'astro-icon/components'
+
+// The escalating cost of the same failure: small-claims → class action →
+// regulator. Only the first figure is real (Moffatt v. Air Canada); the other
+// two are honestly labelled ranges, not invented exact dollars. Bars are
+// LOG-scaled (each ~order of magnitude), so they read as "10x bigger", not as a
+// linear chart that would lie about a $812-vs-$50M comparison.
+const tiers = [
+  {
+    label: 'Small claims (actual)',
+    display: '$812',
+    value: 812,
+    note: 'Moffatt v. Air Canada, 2024',
+    width: 12,
+  },
+  {
+    label: 'Class action (plausible)',
+    display: '$1M – 5M',
+    note: 'aggregated customer harm',
+    width: 74,
+  },
+  {
+    label: 'Regulatory penalty (plausible)',
+    display: '$10M – 100M+',
+    note: 'under a financial regulator',
+    width: 100,
+  },
+]
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-6 md:p-8" data-stakes data-inview>
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+    <div class="font-mono text-mono-xs text-primary uppercase tracking-widest flex items-center gap-2">
+      <Icon name="material-symbols:trending-up" class="text-[16px]" />
+      The cost of the same failure
+    </div>
+    <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider">
+      Log scale · order of magnitude
+    </span>
+  </div>
+
+  <div class="flex flex-col gap-5">
+    {
+      tiers.map((t) => (
+        <div class="flex flex-col gap-1">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider min-w-0">{t.label}</span>
+            <span
+              class="stk-num font-mono text-headline-md text-text-primary tabular-nums"
+              data-stk-num
+              data-value={t.value ?? ''}
+            >
+              {t.display}
+            </span>
+          </div>
+          <div class="h-2 bg-surface-container-low border border-border-dark overflow-hidden">
+            <div class="stk-bar h-full" data-stk-bar style={`--w:${t.width / 100}`}></div>
+          </div>
+          <span class="font-mono text-mono-xs text-text-muted">{t.note}</span>
+        </div>
+      ))
+    }
+  </div>
+
+  <p class="m-0 mt-6 font-mono text-mono-xs text-text-muted leading-relaxed">
+    Only the $812 is a real ruling. The ranges are illustrative: the point is the
+    order of magnitude, not the digits. The next ruling won't be $812.
+  </p>
+</div>
+
+<style is:global>
+  [data-stakes] .stk-bar {
+    width: 100%;
+    transform: scaleX(var(--w)); /* no-JS: bars show their final value */
+    transform-origin: left;
+    background: var(--color-text-primary); /* solid ink; magnitude is carried by width, not by a dashboard-style hue ramp */
+  }
+  .js [data-stakes] .stk-bar {
+    transform: scaleX(0); /* JS present: start empty, fill on scroll */
+  }
+  .js [data-stakes].in-view .stk-bar {
+    transform: scaleX(var(--w));
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .js [data-stakes].in-view .stk-bar {
+      transition: transform 1.1s cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .js [data-stakes] .stk-bar {
+      transform: scaleX(var(--w)); /* JS + reduced motion: full, no animation */
+    }
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-stakes]')
+  if (root) {
+    const fmt = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    })
+    // Only count up tiers with a real numeric value (the $812 ruling). The
+    // "plausible" range tiers ($1M-5M, $10M-100M+) keep their text untouched, so
+    // the widget never animates invented dollars as if they were measured.
+    const nums = [...root.querySelectorAll<HTMLElement>('[data-stk-num]')].filter(
+      (n) => Number(n.dataset.value) > 0,
+    )
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!reduce) nums.forEach((n) => (n.textContent = fmt.format(0)))
+
+    const countUp = (el: HTMLElement, to: number) => {
+      if (reduce) {
+        el.textContent = fmt.format(to)
+        return
+      }
+      const dur = 1100
+      const start = performance.now()
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - start) / dur)
+        const eased = 1 - Math.pow(1 - p, 3)
+        el.textContent = fmt.format(Math.round(to * eased))
+        if (p < 1) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }
+
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            obs.disconnect()
+            root.classList.add('in-view')
+            nums.forEach((n) => countUp(n, Number(n.dataset.value)))
+          }
+        }
+      },
+      { threshold: 0.3 },
+    )
+    io.observe(root)
+  }
+</script>

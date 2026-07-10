@@ -1,0 +1,56 @@
+---
+import BaseLayout from './BaseLayout.astro'
+import Sidebar from '../components/Sidebar.astro'
+import { homeUrl, categoryUrl } from '../lib/url'
+import { CATEGORIES } from '../lib/categories'
+
+interface Props {
+  title: string
+  description: string
+  /** 'Home' or a category name — highlights the matching nav item. */
+  active?: string
+}
+
+const { title, description, active = 'Home' } = Astro.props
+
+const mobileNav = [
+  { label: 'Home', href: homeUrl(), key: 'Home' },
+  ...CATEGORIES.map((c) => ({ label: c.name, href: categoryUrl(c.name), key: c.name })),
+]
+const chip =
+  'shrink-0 inline-flex items-center min-h-[44px] px-4 font-mono text-mono-xs border rounded-full transition-colors'
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="flex max-w-container-max mx-auto mt-16">
+    <Sidebar active={active} />
+    <main
+      class="flex-1 min-w-0 px-margin-mobile md:px-gutter py-12 lg:ml-8"
+      data-pagefind-body
+    >
+      <!-- Mobile section nav (sidebar is hidden below lg) -->
+      <nav
+        class="lg:hidden flex gap-2 overflow-x-auto -mx-margin-mobile px-margin-mobile pb-5 mb-2"
+        aria-label="Sections"
+      >
+        {
+          mobileNav.map((item) => (
+            <a
+              href={item.href}
+              class:list={[
+                chip,
+                active === item.key
+                  ? 'border-primary text-primary bg-primary/5'
+                  : 'border-border-dark text-text-muted',
+              ]}
+            >
+              {item.label}
+            </a>
+          ))
+        }
+      </nav>
+
+      <slot />
+    </main>
+  </div>
+</BaseLayout>

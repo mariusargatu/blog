@@ -1,0 +1,119 @@
+---
+import { Icon } from 'astro-icon/components'
+
+interface CardData {
+  href: string
+  title: string
+  description: string
+  kicker: string
+  date: string
+  minutesRead?: number
+}
+
+interface Props {
+  number: string
+  name: string
+  accent: 'primary' | 'secondary' | 'tertiary'
+  viewAllHref: string
+  posts: CardData[]
+}
+
+const { number, name, accent, viewAllHref, posts } = Astro.props
+
+const [large, ...others] = posts
+const small = others.slice(0, 3)
+const rest = others.slice(3)
+
+const accentText = {
+  primary: 'text-primary',
+  secondary: 'text-secondary',
+  tertiary: 'text-tertiary',
+}[accent]
+const accentDot = {
+  primary: 'bg-primary',
+  secondary: 'bg-secondary',
+  tertiary: 'bg-tertiary',
+}[accent]
+---
+
+<section class="mb-section-gap" data-reveal>
+  <div
+    class="flex items-end justify-between mb-8 border-b border-border-dark pb-4"
+  >
+    <h2 class="text-headline-md text-text-primary flex items-center gap-3">
+      <span class={accentText}>{number}.</span>
+      {name}
+    </h2>
+    <a
+      href={viewAllHref}
+      class="font-mono text-mono-label text-primary hover:underline transition-all flex items-center gap-1"
+    >
+      View All
+      <Icon name="material-symbols:arrow-right-alt" class="text-[14px]" />
+    </a>
+  </div>
+
+  {
+    large && (
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-component-gap mb-8">
+        <a
+          href={large.href}
+          class="md:col-span-2 lg:col-span-2 group relative overflow-hidden bg-surface border border-border-dark p-6 flex flex-col transition-all hover:bg-surface-hover hover:border-primary/50 min-h-[220px]"
+        >
+          <span class="font-mono text-mono-xs text-primary mb-3 block">
+            {large.kicker}
+          </span>
+          <h3 class="text-headline-md mb-4 text-text-primary leading-tight group-hover:text-primary transition-colors">
+            {large.title}
+          </h3>
+          <p class="text-body-md text-text-muted text-sm mb-6 line-clamp-3">
+            {large.description}
+          </p>
+          <div class="flex items-center gap-4 mt-auto">
+            {large.minutesRead && (
+              <span class="font-mono text-mono-xs text-text-muted uppercase">
+                {large.minutesRead} MIN READ
+              </span>
+            )}
+            <div class:list={['w-1.5 h-1.5 rounded-full', accentDot]} />
+          </div>
+        </a>
+
+        {small.map((s) => (
+          <a
+            href={s.href}
+            class="lg:col-span-1 group bg-surface border border-border-dark p-4 transition-all hover:bg-surface-hover hover:border-primary/50 flex flex-col"
+          >
+            <span class="font-mono text-mono-xs text-primary mb-2 block">
+              {s.kicker}
+            </span>
+            <h4 class="font-bold text-text-primary mb-2 leading-snug group-hover:text-primary transition-colors">
+              {s.title}
+            </h4>
+            <p class="text-xs text-text-muted line-clamp-3">{s.description}</p>
+          </a>
+        ))}
+      </div>
+    )
+  }
+
+  {
+    rest.length > 0 && (
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-4">
+        {rest.map((r, i) => (
+          <a
+            href={r.href}
+            class="group flex gap-2 border-b border-border-dark/40 pb-2 hover:border-primary transition-all"
+          >
+            <span class="font-mono text-mono-xs text-text-muted group-hover:text-primary">
+              {String(i + 1).padStart(2, '0')}
+            </span>
+            <span class="text-sm text-text-primary group-hover:text-primary transition-colors">
+              {r.title}
+            </span>
+          </a>
+        ))}
+      </div>
+    )
+  }
+</section>

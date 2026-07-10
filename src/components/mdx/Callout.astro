@@ -1,0 +1,65 @@
+---
+import { Icon } from 'astro-icon/components'
+
+interface Props {
+  variant?: 'warning' | 'info' | 'success' | 'takeaway'
+  title?: string
+  /** Override the default icon for the chosen variant. */
+  icon?: string
+}
+
+const { variant = 'warning', title, icon } = Astro.props
+
+const variants = {
+  warning: {
+    box: 'border-error/40 bg-error/5',
+    text: 'text-error',
+    icon: icon ?? 'material-symbols:warning',
+  },
+  info: {
+    box: 'border-primary/40 bg-primary/5',
+    text: 'text-primary',
+    icon: icon ?? 'material-symbols:info',
+  },
+  success: {
+    box: 'border-success/40 bg-success/5',
+    text: 'text-success',
+    icon: icon ?? 'material-symbols:check-circle',
+  },
+  takeaway: {
+    box: 'border-text-primary/20 bg-surface-container-low',
+    text: 'text-text-primary',
+    icon: icon ?? 'material-symbols:lightbulb-outline',
+  },
+} as const
+
+const style = variants[variant]
+---
+
+<div
+  class:list={[
+    'not-prose flex gap-4 items-start p-6 rounded-lg border my-8',
+    style.box,
+  ]}
+>
+  <Icon name={style.icon} class:list={['text-3xl mt-1 shrink-0', style.text]} />
+  <div>
+    {
+      title && (
+        <p
+          class:list={[
+            'font-mono text-mono-label uppercase tracking-wider m-0 mb-2',
+            style.text,
+          ]}
+        >
+          {title}
+        </p>
+      )
+    }
+    <div
+      class="text-text-primary text-body-md leading-relaxed [&>*:last-child]:mb-0"
+    >
+      <slot />
+    </div>
+  </div>
+</div>

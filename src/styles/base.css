@@ -1,0 +1,117 @@
+/* ------------------------------------------------------------------ *
+ * Base styles: clean white ground, subtle scrollbar, reading bar,
+ * reveal. Motion gated behind prefers-reduced-motion.
+ * ------------------------------------------------------------------ */
+
+/* Scrollbar (WebKit) + Firefox — thin and quiet. */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-background-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border: 3px solid var(--color-background-dark);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
+}
+* {
+  scrollbar-color: var(--color-outline-variant) var(--color-background-dark);
+}
+
+/* Reading-progress bar: width driven by --read-progress (0..1) in JS. */
+.read-progress {
+  transform-origin: left;
+  transform: scaleX(var(--read-progress, 0));
+}
+
+/* Hero accent wash (kept subtle; the class name is legacy). */
+.shimmer-indigo {
+  background: none;
+}
+
+/* Reveal-on-scroll, only when JS is present and motion is welcome. */
+@media (prefers-reduced-motion: no-preference) {
+  .read-progress {
+    transition: transform 0.1s ease-out;
+  }
+  .js [data-reveal] {
+    opacity: 0;
+    transform: translateY(0.75rem);
+    transition:
+      opacity 0.6s ease,
+      transform 0.6s ease;
+  }
+  .js [data-reveal].is-visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Motion system: shared easings + durations so every component speaks
+ * one calm, deceleration-based language. Spent on the moments that aid
+ * comprehension (entrance, state, feedback), never decoration.
+ * ------------------------------------------------------------------ */
+:root {
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-1: 0.15s; /* instant feedback */
+  --dur-2: 0.25s; /* state change */
+  --dur-3: 0.4s; /* reveal / expand */
+  --dur-4: 0.7s; /* entrance */
+}
+
+/* One calm entrance per figure as it scrolls into view. JS + motion only;
+ * no-JS and reduced-motion show the final state with no shift. */
+@media (prefers-reduced-motion: no-preference) {
+  .js [data-inview] {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  .js [data-inview].in-view {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity var(--dur-4) var(--ease-out-quart),
+      transform var(--dur-4) var(--ease-out-quart);
+  }
+}
+
+/* Accordion panels (IncidentLedger rows, Foldable) ease their content in on
+ * open. Height snaps (layout animation is avoided); the content slides. */
+@media (prefers-reduced-motion: no-preference) {
+  .accordion[open] > :not(summary) {
+    animation: accordionPanel var(--dur-3) var(--ease-out-quart);
+  }
+}
+@keyframes accordionPanel {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Tactile press on the bespoke diagram controls. */
+@media (prefers-reduced-motion: no-preference) {
+  :is([data-jb], [data-vp], [data-vg], [data-cr], [data-crescendo], [data-rl])
+    button:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Consistent, crisp keyboard focus ring (low specificity so components can
+ * still override). Keyboard navigation lands on an unmistakable target. */
+:where(a, button, summary, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}

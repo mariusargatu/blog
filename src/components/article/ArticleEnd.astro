@@ -1,0 +1,88 @@
+---
+import { withBase } from '../../lib/url'
+
+interface Related {
+  href: string
+  title: string
+  kicker: string
+}
+interface Props {
+  related?: Related[]
+}
+
+const { related = [] } = Astro.props
+const email = 'mailto:contact@mariusargatu.com'
+---
+
+<footer class="mt-section-gap pt-8 border-t border-border-dark">
+  <!-- Hire CTA at the reading peak -->
+  <div
+    class="bg-surface border border-border-dark rounded-lg p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-6 justify-between"
+  >
+    <div class="flex items-center gap-4">
+      <div
+        class="w-12 h-12 rounded-full border border-border-dark bg-surface-container-high flex items-center justify-center font-mono text-mono-label text-text-primary shrink-0"
+      >
+        MA
+      </div>
+      <div>
+        <p class="m-0 text-text-primary font-medium">
+          Marius Argatu · AI Quality &amp; Evaluation Engineer
+        </p>
+        <p class="m-0 font-mono text-mono-xs text-text-muted">
+          Helps teams test LLM, RAG, and agentic systems. Contractor · Remote · EU Timezone.
+        </p>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 shrink-0">
+      <a
+        href={email}
+        class="inline-flex items-center gap-2 bg-primary text-on-primary font-mono text-mono-label px-5 py-3 rounded-full hover:opacity-90 active:scale-95 transition-all"
+      >
+        Get in touch
+      </a>
+      <a
+        href={withBase('about')}
+        class="font-mono text-mono-label text-text-muted hover:text-primary underline underline-offset-4 decoration-border-dark hover:decoration-primary transition-colors"
+      >
+        About / CV
+      </a>
+    </div>
+  </div>
+
+  {
+    related.length > 0 && (
+      <div class="mt-10">
+        <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4">
+          Related
+        </h2>
+        <ul class="grid sm:grid-cols-2 gap-3 list-none m-0 p-0">
+          {related.map((r) => (
+            <li>
+              <a
+                href={r.href}
+                class="group block border border-border-dark bg-surface p-4 hover:border-primary/50 transition-colors h-full"
+              >
+                <span class="font-mono text-mono-xs text-secondary">
+                  {r.kicker}
+                </span>
+                <span class="block text-text-primary mt-1 group-hover:text-primary transition-colors">
+                  {r.title}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
+  <div class="mt-8">
+    <a
+      href="#top"
+      class="font-mono text-mono-xs text-text-muted hover:text-primary inline-flex items-center gap-1"
+    >
+      ↑ Back to top
+    </a>
+  </div>
+</footer>

@@ -1,0 +1,104 @@
+---
+// Pattern 5: the disconnect between the failures you built evals for and the
+// failures that actually happen. Two sets slide together on scroll; the
+// uncovered "blind spot" pulses — what only reading real transcripts reveals.
+---
+
+<figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-6 md:p-8" data-inview data-cg>
+  <figcaption class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-6">
+    What your eval set misses
+  </figcaption>
+
+  <div class="relative flex items-center justify-center h-52 md:h-64 select-none">
+    <div class="cg-circle cg-a flex items-center justify-center text-center">
+      <span class="font-mono text-mono-xs text-primary leading-tight mr-12 md:mr-16">
+        Tested<br />for
+      </span>
+    </div>
+    <div class="cg-circle cg-b flex items-center justify-center text-center -ml-16 md:-ml-24">
+      <span class="font-mono text-mono-xs text-error leading-tight ml-12 md:ml-16">
+        Happens<br />in prod
+      </span>
+    </div>
+
+    <!-- the intersection: the only region evals actually cover -->
+    <span class="cg-overlap absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-mono text-mono-xs text-text-muted text-center leading-tight">
+      evals<br />catch
+    </span>
+  </div>
+
+  <!-- blind-spot legend, below the figure so it never overlaps the lobes -->
+  <div class="cg-blind mt-5 flex items-start gap-2">
+    <span class="cg-dot mt-1 w-2.5 h-2.5 rounded-full bg-error shrink-0"></span>
+    <span class="font-mono text-mono-xs text-error uppercase tracking-wider">
+      Blind spot: the unknown unknowns only real transcripts reveal
+    </span>
+  </div>
+
+  <p class="m-0 mt-4 font-mono text-mono-xs text-text-muted leading-relaxed">
+    The overlap is what your dashboard catches. The rest is what reading real
+    production transcripts surfaces, and what no eval set anticipated.
+  </p>
+</figure>
+
+<style is:global>
+  [data-cg] .cg-circle {
+    width: 9.5rem;
+    height: 9.5rem;
+    border-radius: 9999px;
+    border: 1px solid;
+  }
+  @media (min-width: 768px) {
+    [data-cg] .cg-circle {
+      width: 14rem;
+      height: 14rem;
+    }
+  }
+  [data-cg] .cg-a {
+    border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+  }
+  [data-cg] .cg-b {
+    border-color: color-mix(in srgb, var(--color-error) 60%, transparent);
+    background: color-mix(in srgb, var(--color-error) 7%, transparent);
+  }
+  /* hidden state only when JS can reveal it; no-JS shows everything */
+  .js [data-cg] .cg-blind {
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .js [data-cg] .cg-a {
+      transform: translateX(-28px);
+      opacity: 0;
+    }
+    .js [data-cg] .cg-b {
+      transform: translateX(28px);
+      opacity: 0;
+    }
+    .js [data-cg].in-view .cg-a,
+    .js [data-cg].in-view .cg-b {
+      transform: translateX(0);
+      opacity: 1;
+      transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.8s ease;
+    }
+    [data-cg].in-view .cg-blind {
+      transition: opacity 0.4s ease 0.8s;
+    }
+    [data-cg] .cg-dot {
+      animation: cgPulse 2s ease-in-out infinite;
+    }
+  }
+  [data-cg].in-view .cg-blind {
+    opacity: 1;
+  }
+  @keyframes cgPulse {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-error) 50%, transparent);
+    }
+    50% {
+      opacity: 0.5;
+      box-shadow: 0 0 0 6px transparent;
+    }
+  }
+</style>

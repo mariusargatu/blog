@@ -1,0 +1,72 @@
+---
+import Search from 'astro-pagefind/components/Search.astro'
+---
+
+<dialog
+  id="search-modal"
+  class="search-dialog bg-transparent p-0 m-0 overflow-visible w-[calc(100%-2rem)] max-w-xl fixed left-1/2 top-[12vh] -translate-x-1/2 backdrop:bg-text-primary/45"
+  aria-label="Search"
+>
+  <div
+    class="search-card bg-surface border border-border-dark rounded-lg shadow-2xl overflow-visible p-2.5"
+  >
+    <Search className="search-pf" />
+  </div>
+</dialog>
+
+<script>
+  const dialog = document.getElementById(
+    'search-modal',
+  ) as HTMLDialogElement | null
+
+  const open = () => {
+    if (dialog && !dialog.open) {
+      dialog.showModal()
+      // Focus the search field once the modal is painted.
+      requestAnimationFrame(() =>
+        dialog.querySelector<HTMLInputElement>('input')?.focus(),
+      )
+    }
+  }
+
+  document.querySelectorAll('[data-search-open]').forEach((btn) => {
+    btn.addEventListener('click', open)
+  })
+
+  // Keyboard: "/" (when not typing) or Cmd/Ctrl+K opens search. Esc closes
+  // natively via <dialog>.
+  document.addEventListener('keydown', (e) => {
+    const el = e.target as HTMLElement | null
+    const typing =
+      !!el &&
+      (el.tagName === 'INPUT' ||
+        el.tagName === 'TEXTAREA' ||
+        el.isContentEditable)
+    if (
+      (e.key === '/' && !typing) ||
+      ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey))
+    ) {
+      e.preventDefault()
+      open()
+    }
+  })
+
+  // Close on backdrop click.
+  dialog?.addEventListener('click', (e) => {
+    if (e.target === dialog) dialog.close()
+  })
+
+  // Escape always closes the modal. Capture phase so it runs before Pagefind's
+  // searchbox, which otherwise swallows Escape for its own dropdown and would
+  // leave the dialog open (keyboard trap).
+  dialog?.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        dialog.close()
+      }
+    },
+    { capture: true },
+  )
+</script>

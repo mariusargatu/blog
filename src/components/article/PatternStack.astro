@@ -1,0 +1,127 @@
+---
+// The five testing patterns as an at-a-glance framework: each with its classical
+// analogue, what it catches, where it runs, and rough effort. Mirrors the deep
+// dives below it in the article.
+interface Pattern {
+  n: number
+  title: string
+  catches: string
+  analogue: string
+  runs: string
+  effort: 'Low' | 'Low–Med' | 'Medium' | 'Med–High' | 'High'
+}
+
+const patterns: Pattern[] = [
+  {
+    n: 1,
+    title: 'Test against an independent source of truth',
+    catches: 'Air Canada drift',
+    analogue: 'Price-page vs cart consistency',
+    runs: 'CI gate',
+    effort: 'High',
+  },
+  {
+    n: 2,
+    title: 'Validate the output before it ships',
+    catches: 'Lenovo XSS · Salesforce leak',
+    analogue: 'Input validation / output encoding',
+    runs: 'Production',
+    effort: 'Medium',
+  },
+  {
+    n: 3,
+    title: 'Maintain an adversarial regression suite',
+    catches: 'ForcedLeak · jailbreaks',
+    analogue: 'Regression testing',
+    runs: 'CI gate',
+    effort: 'Low–Med',
+  },
+  {
+    n: 4,
+    title: 'Test the trajectory, not just the turn',
+    catches: 'Crescendo multi-turn attacks',
+    analogue: 'E2E / user-journey tests',
+    runs: 'CI',
+    effort: 'Med–High',
+  },
+  {
+    n: 5,
+    title: 'Read real production conversations',
+    catches: 'Unknown unknowns',
+    analogue: 'Error analysis / exploratory testing',
+    runs: 'Ongoing',
+    effort: 'Low',
+  },
+]
+
+const effortBars: Record<Pattern['effort'], number> = {
+  Low: 1,
+  'Low–Med': 2,
+  Medium: 3,
+  'Med–High': 4,
+  High: 5,
+}
+---
+
+<div class="not-prose my-10" data-inview>
+  <div
+    class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4 flex items-center gap-2"
+  >
+    <span>The five patterns</span>
+    <div class="h-px flex-1 bg-border-dark"></div>
+  </div>
+
+  <ol class="flex flex-col gap-2 list-none m-0 p-0">
+    {
+      patterns.map((p) => (
+        <li class="border border-border-dark bg-surface p-5 hover:border-primary/40 hover:bg-surface-hover transition-colors">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="flex items-start gap-3 min-w-0">
+              <span class="shrink-0 flex flex-col items-center leading-none">
+                <span class="font-mono text-[9px] text-text-muted uppercase tracking-widest">
+                  Pattern
+                </span>
+                <span class="font-mono text-headline-md text-primary leading-none mt-1">
+                  {p.n}
+                </span>
+              </span>
+              <p class="text-text-primary font-medium m-0">{p.title}</p>
+            </div>
+            <div
+              class="flex items-center gap-1"
+              role="img"
+              aria-label={`Effort: ${p.effort}`}
+              title={`Effort: ${p.effort}`}
+            >
+              <span class="font-mono text-mono-xs text-text-muted uppercase mr-1" aria-hidden="true">
+                effort
+              </span>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span
+                  class:list={[
+                    'w-1.5 h-3',
+                    i < effortBars[p.effort] ? 'bg-secondary' : 'bg-border-dark',
+                  ]}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-2 mt-3 pl-9">
+            <span class="font-mono text-mono-xs text-text-muted">
+              <span class="text-primary">catches:</span> {p.catches}
+            </span>
+            <span class="text-border-dark">·</span>
+            <span class="font-mono text-mono-xs text-text-muted">
+              <span class="text-primary">like:</span> {p.analogue}
+            </span>
+            <span class="text-border-dark">·</span>
+            <span class="font-mono text-mono-xs text-text-muted">
+              <span class="text-primary">runs:</span> {p.runs}
+            </span>
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+</div>

@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "blog",
+  "compatibility_date": "2026-06-01",
+  // Static-assets-only Worker: serve the Astro build output directly. No
+  // `main`/adapter => no SSR, no prerender server. `_redirects` and `_headers`
+  // inside dist/ are honored, same as Cloudflare Pages.
+  "assets": {
+    "directory": "./dist"
+  }
+}

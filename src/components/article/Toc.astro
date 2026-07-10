@@ -1,0 +1,51 @@
+---
+import type { Heading } from '../../lib/toc'
+import { buildTocTree } from '../../lib/toc'
+
+interface Props {
+  headings: Heading[]
+}
+
+const { headings } = Astro.props
+const tree = buildTocTree(headings, 2, 3)
+
+const linkClass =
+  'toc-link font-mono text-mono-label text-text-muted hover:text-text-primary transition-colors flex items-center gap-2'
+---
+
+{
+  tree.length > 0 && (
+    <aside class="hidden lg:block w-sidebar-width shrink-0">
+      <div class="sticky top-32">
+        <h3 class="font-mono text-mono-xs text-text-muted mb-4 uppercase tracking-wider">
+          On this page
+        </h3>
+        <nav class="flex flex-col gap-component-gap" data-toc>
+          {tree.map((node) => (
+            <Fragment>
+              <a href={`#${node.slug}`} class={linkClass}>
+                <span class="toc-dot w-1 h-1 rounded-full bg-border-dark" />
+                {node.text}
+              </a>
+              {node.children.map((child) => (
+                <a href={`#${child.slug}`} class={`${linkClass} pl-4`}>
+                  <span class="toc-dot w-1 h-1 rounded-full bg-border-dark" />
+                  {child.text}
+                </a>
+              ))}
+            </Fragment>
+          ))}
+        </nav>
+      </div>
+    </aside>
+  )
+}
+
+<script>
+  import { initTocSync } from '../../scripts/article-ui'
+
+  const links = document.querySelectorAll<HTMLAnchorElement>(
+    '[data-toc] a.toc-link',
+  )
+  initTocSync(links)
+</script>

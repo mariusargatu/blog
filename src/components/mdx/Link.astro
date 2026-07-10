@@ -1,0 +1,21 @@
+---
+/**
+ * Anchor renderer for MDX links. External links (absolute http/https) open in a
+ * new tab and carry `rel="noopener noreferrer"` for security and SEO hygiene.
+ * Internal links pass through unchanged.
+ */
+const { href = '', ...rest } = Astro.props
+const isExternal = /^https?:\/\//i.test(String(href))
+---
+
+{
+  isExternal ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" {...rest}>
+      <slot />
+    </a>
+  ) : (
+    <a href={href} {...rest}>
+      <slot />
+    </a>
+  )
+}

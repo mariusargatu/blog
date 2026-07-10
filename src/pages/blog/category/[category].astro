@@ -1,0 +1,132 @@
+---
+import getReadingTime from 'reading-time'
+import { getCollection } from 'astro:content'
+import { Icon } from 'astro-icon/components'
+import DocsLayout from '../../../layouts/DocsLayout.astro'
+import PostCard from '../../../components/home/PostCard.astro'
+import { postUrl, slugifyCategory, categoryUrl } from '../../../lib/url'
+import { CATEGORIES } from '../../../lib/categories'
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) =>
+    import.meta.env.PROD ? !data.draft : true,
+  )
+  return CATEGORIES.map((category) => ({
+    params: { category: slugifyCategory(category.name) },
+    props: {
+      category,
+      posts: posts
+        .filter((p) => p.data.topic === category.name)
+        .sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime()),
+    },
+  }))
+}
+
+const { category, posts } = Astro.props
+// Featured-first: the latest post leads as a full-width feature, the rest fall
+// into a grid. Avoids a lone card stranded in a 3-column grid.
+const [featured, ...rest] = posts
+
+const fmt = (d: Date) =>
+  d
+    .toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    .toUpperCase()
+const minutes = (body?: string) =>
+  body ? Math.max(1, Math.round(getReadingTime(body).minutes)) : undefined
+---
+
+<DocsLayout
+  title={`${category.name} | Marius Argatu`}
+  description={`Posts on ${category.name}.`}
+  active={category.name}
+>
+  <div class="flex items-center gap-2 mb-4">
+    <span class="font-mono text-mono-label text-primary text-xs tracking-tighter"
+      >{category.name.toUpperCase()}</span
+    >
+    <div class="h-px flex-1 bg-border-dark"></div>
+  </div>
+  <h1 class="font-sans text-display-xl-mobile md:text-display-xl text-text-primary mb-2">
+    {category.name}
+  </h1>
+  <p class="font-mono text-mono-xs text-text-muted mb-4">
+    {posts.length} post{posts.length === 1 ? '' : 's'}
+  </p>
+  <p class="text-body-md text-on-surface-variant max-w-2xl mb-section-gap">
+    {category.blurb}
+  </p>
+
+  {
+    posts.length > 0 ? (
+      <>
+        <h2 class="sr-only">Posts in {category.name}</h2>
+
+        <a
+          href={postUrl(featured.id)}
+          class="group block border border-border-dark bg-surface rounded-lg p-6 md:p-10 hover:border-primary/50 transition-colors mb-component-gap"
+        >
+          <span class="font-mono text-mono-xs uppercase tracking-wider text-primary">
+            {featured.data.kicker}
+          </span>
+          <h3 class="font-sans text-headline-md md:text-display-xl text-text-primary leading-tight mt-3 group-hover:text-primary transition-colors">
+            {featured.data.title}
+          </h3>
+          <p class="text-body-lg text-text-muted mt-4 max-w-2xl">
+            {featured.data.description}
+          </p>
+          <div class="flex items-center gap-3 mt-7 font-mono text-mono-xs uppercase tracking-wider text-text-muted">
+            <span>{fmt(featured.data.pubDate)}</span>
+            {minutes(featured.body) && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{minutes(featured.body)} min read</span>
+              </>
+            )}
+            <Icon
+              name="material-symbols:arrow-right-alt"
+              class="text-[18px] text-primary ml-1 transition-transform group-hover:translate-x-1"
+            />
+          </div>
+        </a>
+
+        {rest.length > 0 && (
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-component-gap">
+            {rest.map((p) => (
+              <PostCard
+                href={postUrl(p.id)}
+                title={p.data.title}
+                description={p.data.description}
+                kicker={p.data.kicker}
+                date={fmt(p.data.pubDate)}
+                minutesRead={minutes(p.body)}
+                accent={category.accent}
+              />
+            ))}
+          </div>
+        )}
+      </>
+    ) : (
+      <p class="text-body-md text-text-muted">No posts in this topic yet.</p>
+    )
+  }
+
+  {
+    CATEGORIES.length > 1 && (
+      <nav class="mt-section-gap pt-8 border-t border-border-dark">
+        <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-3">
+          More categories
+        </h2>
+        <div class="flex flex-wrap gap-2">
+          {CATEGORIES.filter((c) => c.name !== category.name).map((c) => (
+            <a
+              href={categoryUrl(c.name)}
+              class="font-mono text-mono-xs text-text-muted border border-border-dark rounded-full px-4 py-2 hover:border-primary hover:text-primary transition-colors"
+            >
+              {c.name}
+            </a>
+          ))}
+        </div>
+      </nav>
+    )
+  }
+</DocsLayout>

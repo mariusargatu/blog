@@ -1,0 +1,17 @@
+---
+import { Icon } from 'astro-icon/components'
+
+interface Props {
+  label: string
+  icon?: string
+}
+
+const { label, icon = 'material-symbols:terminal' } = Astro.props
+---
+
+<div
+  class="font-mono text-mono-xs text-primary mb-6 inline-flex items-center gap-2 bg-primary/10 px-3 py-1 rounded-full"
+>
+  <Icon name={icon} class="text-[14px]" />
+  {label}
+</div>

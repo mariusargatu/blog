@@ -1,0 +1,65 @@
+---
+import { Icon } from 'astro-icon/components'
+import { withBase, homeUrl } from '../lib/url'
+
+const nav = [
+  { href: withBase('about'), label: 'About me' },
+  { href: withBase('philosophy'), label: 'Philosophy' },
+]
+const home = homeUrl()
+const path = Astro.url.pathname.replace(/\/+$/, '') || '/'
+const isActive = (href: string) => {
+  const h = href.replace(/\/+$/, '') || '/'
+  return path.startsWith(h)
+}
+---
+
+<header
+  class="fixed top-0 w-full z-50 bg-background-dark border-b border-border-dark"
+>
+  <nav
+    class="max-w-container-max mx-auto px-margin-mobile md:px-gutter h-16 flex items-center justify-between"
+  >
+    <div class="flex items-center gap-8">
+      <a
+        href={home}
+        class="text-headline-md font-bold tracking-tighter text-text-primary hover:text-primary transition-colors"
+      >
+        Marius Argatu
+      </a>
+      <div class="hidden md:flex items-center gap-6">
+        {
+          nav.map((item) => (
+            <a
+              href={item.href}
+              class:list={[
+                'text-body-md transition-colors',
+                isActive(item.href)
+                  ? 'text-primary border-b-2 border-primary pb-1'
+                  : 'text-text-muted hover:text-text-primary',
+              ]}
+            >
+              {item.label}
+            </a>
+          ))
+        }
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <button
+        type="button"
+        data-search-open
+        aria-label="Search (press /)"
+        class="group inline-flex items-center gap-2 text-text-muted hover:text-primary transition-all"
+      >
+        <Icon name="material-symbols:search" class="text-[22px]" />
+        <kbd
+          class="hidden md:inline-flex items-center font-mono text-[11px] leading-none text-text-muted border border-border-dark rounded px-1.5 py-1 group-hover:border-primary transition-colors"
+          aria-hidden="true"
+        >
+          /
+        </kbd>
+      </button>
+    </div>
+  </nav>
+</header>

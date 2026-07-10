@@ -1,0 +1,127 @@
+---
+import { Icon } from 'astro-icon/components'
+
+// Visualizes the article's core thesis: faithfulness metrics verify that the
+// answer is consistent with the RETRIEVED CHUNKS, but the real bug lives in the
+// gap between the answer and the CANONICAL SOURCE OF TRUTH — which evals never
+// check.
+const node = 'flex flex-col gap-1 px-4 py-3 border bg-surface-container-low'
+---
+
+<figure
+  class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-6 md:p-8"
+  data-inview
+  data-rg
+>
+  <figcaption
+    class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-6 flex items-center gap-2"
+  >
+    <Icon name="material-symbols:linked-services-outline" class="text-[16px]" />
+    Where the bug hides
+  </figcaption>
+
+  <!-- Pipeline: what the eval can see -->
+  <div class="flex flex-col md:flex-row md:items-stretch gap-2 md:gap-3" data-rg-step style="--d:0.05s">
+    <div class:list={[node, 'border-border-dark']}>
+      <span class="font-mono text-mono-xs text-text-muted">USER</span>
+      <span class="text-text-primary font-medium">Question</span>
+    </div>
+
+    <div class="flex flex-col items-center justify-center px-1 text-text-muted">
+      <span class="font-mono text-mono-xs uppercase tracking-wider">retrieve</span>
+      <Icon name="material-symbols:arrow-forward" class="text-[18px] rotate-90 md:rotate-0" />
+    </div>
+
+    <div class:list={[node, 'border-border-dark']}>
+      <span class="font-mono text-mono-xs text-text-muted">RETRIEVER</span>
+      <span class="text-text-primary font-medium">Top-k chunks</span>
+    </div>
+
+    <div class="flex flex-col items-center justify-center px-1 text-text-muted">
+      <span class="font-mono text-mono-xs uppercase tracking-wider">generate</span>
+      <Icon name="material-symbols:arrow-forward" class="text-[18px] rotate-90 md:rotate-0" />
+    </div>
+
+    <div class:list={[node, 'border-text-primary/30 bg-surface-container-high']}>
+      <span class="font-mono text-mono-xs text-text-primary">LLM</span>
+      <span class="text-text-primary font-medium">Answer ↗ ships</span>
+    </div>
+  </div>
+
+  <!-- What faithfulness actually checks: it "passes", but a pass here is the
+       trap, so it is rendered in muted ink, never green. Green in this article
+       is reserved for genuinely-safe states. -->
+  <div
+    class="mt-3 flex items-center gap-2 border border-border-dark bg-surface-container-low px-4 py-2 rounded"
+    data-rg-step
+    style="--d:0.25s"
+  >
+    <Icon name="material-symbols:check-circle-outline" class="text-text-muted text-[18px] shrink-0" />
+    <p class="m-0 text-sm text-text-primary">
+      <span class="font-mono text-mono-xs text-text-muted">FAITHFULNESS · RAGAS</span>
+      verifies the answer is consistent with the <em>retrieved chunks</em>. It
+      passes, which is exactly the trap.
+    </p>
+  </div>
+
+  <!-- The gap -->
+  <div class="flex items-center gap-3 my-3 pl-1" data-rg-step style="--d:0.5s">
+    <Icon name="material-symbols:link-off" class="text-error text-[20px]" />
+    <span class="font-mono text-mono-xs text-error uppercase tracking-wider"
+      >Never compared: the bug lives here</span
+    >
+    <div class="rg-line flex-1 border-t border-dashed border-error/50"></div>
+  </div>
+
+  <!-- The truth the answer should agree with -->
+  <div
+    class="flex items-center gap-2 border border-error/40 bg-error/5 px-4 py-3 rounded"
+    data-rg-step
+    style="--d:0.7s"
+  >
+    <Icon name="material-symbols:verified-outline" class="text-error text-[18px] shrink-0" />
+    <p class="m-0 text-sm text-text-primary">
+      <span class="font-mono text-mono-xs text-error">CANONICAL SOURCE OF TRUTH</span>
+      the policy the answer <em>should</em> agree with, independent of what the
+      retriever happened to surface.
+    </p>
+  </div>
+
+  <p
+    class="m-0 mt-5 font-mono text-mono-xs text-text-muted leading-relaxed"
+    data-rg-step
+    style="--d:0.9s"
+  >
+    “Consistent with retrieved context” ≠ “consistent with truth.” Air Canada
+    scored well on faithfulness and still shipped the opposite of its own policy.
+  </p>
+</figure>
+
+<style is:global>
+  /* Sequenced reveal: the diagram builds the argument in reading order, so the
+   * "never compared" gap lands as the punchline. Opacity-only (the figure's
+   * own entrance supplies the single lift); reduced-motion / no-JS show all. */
+  @media (prefers-reduced-motion: no-preference) {
+    .js [data-rg].in-view [data-rg-step] {
+      opacity: 0;
+      animation: rgStep var(--dur-3) var(--ease-out-quart) forwards;
+      animation-delay: var(--d, 0s);
+    }
+    .js [data-rg].in-view .rg-line {
+      transform: scaleX(0);
+      transform-origin: left;
+      animation: rgLine var(--dur-3) var(--ease-out-quint) forwards;
+      animation-delay: 0.6s;
+    }
+  }
+  @keyframes rgStep {
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes rgLine {
+    to {
+      transform: scaleX(1);
+    }
+  }
+</style>

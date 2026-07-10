@@ -1,0 +1,74 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+
+const principles = [
+  {
+    n: '01',
+    title: 'Identify the risk before any test exists',
+    body: 'Map what can break and what it costs, before any test. No risk model, no testing.',
+  },
+  {
+    n: '02',
+    title: 'Test the boundaries',
+    body: 'Systems fail at the edges. Contracts, schemas, the seams between components. Concentrate there, not on the internals.',
+  },
+  {
+    n: '03',
+    title: 'Maximum coverage for a fraction of the effort',
+    body: 'Model based and property based generation. Large coverage from little written code, not more tests for their own sake.',
+  },
+  {
+    n: '04',
+    title: 'Right test, right layer',
+    body: 'Each test at the cheapest layer that can hold it. E2E is the last resort, not the reflex.',
+  },
+  {
+    n: '05',
+    title: 'Every test earns its place',
+    body: 'No test by default. If it guards no real risk, it is cut. A suite is a liability as much as an asset.',
+  },
+]
+---
+
+<BaseLayout
+  title="Philosophy | Marius Argatu"
+  description="How I think about testing: model the risk first, test the boundaries, get disproportionate coverage from tooling, put each test at the cheapest layer, and make every test earn its place."
+>
+  <main
+    class="max-w-article-max mx-auto px-margin-mobile md:px-gutter pt-32 pb-section-gap"
+  >
+    <div class="flex items-center gap-2 mb-5">
+      <span class="font-mono text-mono-label text-secondary text-xs tracking-tighter"
+        >PHILOSOPHY</span
+      >
+      <div class="h-px flex-1 bg-border-dark"></div>
+    </div>
+    <h1
+      class="font-sans text-display-xl-mobile md:text-display-xl text-text-primary mb-4"
+    >
+      How I test systems
+    </h1>
+    <p class="text-body-lg text-on-surface-variant mb-section-gap">
+      Most systems do not break in the clever places. They break at the edges, in
+      the parts nobody tested and the failure modes nobody mapped. This holds for
+      AI systems too, the model is rarely the problem, the missing testing around
+      it is. Five things I hold to.
+    </p>
+
+    <ol class="flex flex-col gap-8 list-none m-0 p-0">
+      {
+        principles.map((p) => (
+          <li class="flex gap-5">
+            <span class="font-mono text-headline-md text-secondary leading-none shrink-0">
+              {p.n}
+            </span>
+            <div>
+              <h2 class="text-headline-md text-text-primary mb-2">{p.title}</h2>
+              <p class="m-0 text-body-md text-on-surface-variant">{p.body}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+  </main>
+</BaseLayout>

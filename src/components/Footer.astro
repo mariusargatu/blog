@@ -1,0 +1,40 @@
+---
+import { withBase, rssUrl } from '../lib/url'
+
+const year = new Date().getFullYear()
+const links = [
+  { href: 'https://www.linkedin.com/in/mariusargatu', label: 'LinkedIn', external: true },
+  { href: 'https://github.com/mariusargatu', label: 'GitHub', external: true },
+  { href: withBase('about'), label: 'About' },
+  { href: rssUrl(), label: 'RSS Feed' },
+]
+
+---
+
+<footer
+  class="w-full py-section-gap border-t border-border-dark bg-surface-container-lowest mt-12"
+>
+  <div
+    class="max-w-container-max mx-auto px-margin-mobile md:px-gutter grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
+  >
+    <div>
+      <p class="text-text-primary font-bold mb-2">Marius Argatu</p>
+      <p class="font-mono text-mono-xs text-text-muted">
+        © {year} · AI Quality &amp; Evaluation Engineer · Contractor · Remote · EU Timezone
+      </p>
+    </div>
+    <div class="flex flex-wrap md:justify-end gap-6">
+      {
+        links.map((l) => (
+          <a
+            href={l.href}
+            {...(l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+            class="font-mono text-mono-xs text-text-muted hover:text-primary transition-colors"
+          >
+            {l.label}
+          </a>
+        ))
+      }
+    </div>
+  </div>
+</footer>
