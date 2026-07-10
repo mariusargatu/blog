@@ -1,0 +1,216 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+import Tag from './Tag.astro'
+
+// The design choice, costed in test work. Switch between one orchestrating
+// agent and a committee of agents. Both must test the same surfaces. The
+// committee adds a second list of coordination concerns that a single agent
+// does not have, for capability one well-scoped agent already covers. The
+// component makes the tradeoff countable: the extra rows expand only for the
+// multi-agent choice, each tagged with the OWASP Agentic risk it introduces.
+
+// Surfaces both architectures have to test, no matter what.
+const base = [
+  { label: 'Retrieval', detail: 'grounded versus true' },
+  { label: 'Account reads', detail: 'scope and freshness' },
+  { label: 'Writes', detail: 'authorization, confirmation, idempotency, fidelity' },
+  { label: 'The guard', detail: 'fail-closed before action and render' },
+  { label: 'Identity and cache', detail: 'per-customer isolation' },
+]
+
+// What a committee adds on top, and only a committee.
+const extra = [
+  {
+    label: 'Inter-agent messages',
+    risk: 'ASI07',
+    detail: 'every message between agents is one more injection surface and one more contract to test.',
+  },
+  {
+    label: 'Cascading failures',
+    risk: 'ASI08',
+    detail: 'one bad decision amplifies down the delegation chain, so each hop needs its own containment test.',
+  },
+  {
+    label: 'Shared-state handoffs',
+    risk: '',
+    detail: 'ordering, races, and consistency when agents read and write the same context.',
+  },
+  {
+    label: 'Identity propagation',
+    risk: 'ASI03',
+    detail: 'customer_id must survive every hop and never be reasserted by a model mid-chain.',
+  },
+  {
+    label: 'Coordination liveness',
+    risk: '',
+    detail: 'deadlocks, loops between agents, and a token budget across the whole graph, not one turn.',
+  },
+]
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-at>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:network-node" label="One agent, or a committee?" />
+    <div class="flex items-center gap-1 border border-border-dark p-0.5" role="group" aria-label="Agent architecture">
+      <button type="button" data-at-mode="single" class="at-tab at-tab-on" aria-pressed="true">Single agent</button>
+      <button type="button" data-at-mode="multi" class="at-tab" aria-pressed="false">Multi-agent</button>
+    </div>
+  </div>
+
+  <div class="p-5">
+    {/* topology sketch */}
+    <div class="at-sketch flex items-center justify-center gap-3 flex-wrap rounded border border-border-dark bg-surface-container-low px-4 py-5 mb-5">
+      <div class="at-orch">
+        <Icon name="material-symbols:hub-outline" class="text-[16px]" />
+        Orchestrator
+      </div>
+
+      {/* single: orchestrator reaches tools directly */}
+      <div class="at-single flex items-center gap-2">
+        <Icon name="material-symbols:arrow-forward" class="text-text-muted text-[18px]" />
+        <span class="at-tools">3 MCP tools, bound per intent</span>
+      </div>
+
+      {/* multi: orchestrator delegates to sub-agents that message each other */}
+      <div class="at-multi items-center gap-2">
+        <Icon name="material-symbols:arrow-forward" class="text-text-muted text-[18px]" />
+        <div class="flex items-center gap-1.5">
+          <span class="at-sub">Agent A</span>
+          <span class="at-msg" title="agent-to-agent message">msg</span>
+          <span class="at-sub">Agent B</span>
+          <span class="at-msg" title="agent-to-agent message">msg</span>
+          <span class="at-sub">Agent C</span>
+        </div>
+      </div>
+    </div>
+
+    {/* what both must test */}
+    <p class="font-mono text-mono-xs text-text-muted uppercase tracking-wider mb-2">Both must test</p>
+    <ul class="m-0 p-0 list-none flex flex-col gap-1.5 mb-4">
+      {
+        base.map((b) => (
+          <li class="flex items-start gap-2 text-sm">
+            <Icon name="material-symbols:check-small" class="text-primary text-[18px] shrink-0 mt-0.5" />
+            <span class="text-text-primary">
+              {b.label}
+              <span class="text-text-muted">, {b.detail}</span>
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+
+    {/* what only a committee adds, expands on multi */}
+    <div class="at-extra-wrap" data-at-extra>
+      <p class="font-mono text-mono-xs uppercase tracking-wider mb-2 inline-flex items-center gap-2 text-text-muted">
+        <span class="at-extra-head">A committee also has to test</span>
+      </p>
+      <ul class="m-0 p-0 list-none flex flex-col gap-2">
+        {
+          extra.map((e) => (
+            <li class="at-extra-row flex items-start gap-2 rounded border border-primary/30 bg-primary/5 px-3 py-2">
+              <Icon name="material-symbols:add" class="text-primary text-[17px] shrink-0 mt-0.5" />
+              <span class="text-sm">
+                <span class="text-text-primary font-medium">{e.label}</span>
+                {e.risk && (
+                  <span class="ml-1.5 align-middle">
+                    <Tag label={e.risk} variant="neutral" />
+                  </span>
+                )}
+                <span class="block font-mono text-mono-xs text-text-muted leading-relaxed mt-0.5">{e.detail}</span>
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <p class="at-summary m-0 mt-4 flex items-start gap-2 px-3 py-2 border font-mono text-mono-xs border-border-dark text-text-muted" data-at-summary aria-live="polite">
+      <span data-at-summary-text></span>
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-at] .at-tab {
+    display: inline-flex; align-items: center; min-height: 2.75rem;
+    font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-muted);
+    padding: 0.2rem 0.8rem; transition: all 0.2s ease;
+  }
+  [data-at] .at-tab-on { background: var(--color-primary); color: var(--color-on-primary); }
+  [data-at] .at-tab:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+  /* sketch pieces */
+  [data-at] .at-orch, [data-at] .at-tools, [data-at] .at-sub {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-text-primary);
+    border: 1px solid var(--color-border-dark); background: var(--color-surface);
+    border-radius: var(--radius); padding: 0.3rem 0.6rem;
+  }
+  [data-at] .at-tools { color: var(--color-text-muted); }
+  [data-at] .at-msg {
+    font-family: var(--font-mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--color-error); border: 1px dashed color-mix(in srgb, var(--color-error) 50%, transparent);
+    border-radius: 999px; padding: 0.05rem 0.3rem;
+  }
+  /* default (single): show single path, hide multi */
+  [data-at] .at-single { display: flex; }
+  [data-at] .at-multi { display: none; }
+  [data-at].multi .at-single { display: none; }
+  [data-at].multi .at-multi { display: flex; }
+
+  /* the extra block: hidden for single, shown for multi */
+  [data-at] .at-extra-wrap { display: none; }
+  [data-at].multi .at-extra-wrap { display: block; }
+  [data-at] .at-extra-head { color: color-mix(in srgb, var(--color-primary) 85%, var(--color-text-primary)); }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-at].multi .at-extra-row {
+      opacity: 0; transform: translateY(4px);
+      animation: atRow var(--dur-3) var(--ease-out-quart) forwards;
+    }
+    [data-at].multi .at-extra-row:nth-child(2) { animation-delay: 0.05s; }
+    [data-at].multi .at-extra-row:nth-child(3) { animation-delay: 0.1s; }
+    [data-at].multi .at-extra-row:nth-child(4) { animation-delay: 0.15s; }
+    [data-at].multi .at-extra-row:nth-child(5) { animation-delay: 0.2s; }
+  }
+  @keyframes atRow { to { opacity: 1; transform: none; } }
+
+  [data-at] .at-summary.lean { border-color: color-mix(in srgb, var(--color-success) 50%, transparent); color: var(--color-text-primary); }
+  [data-at] .at-summary.heavy { border-color: color-mix(in srgb, var(--color-error) 45%, transparent); color: var(--color-text-primary); }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-at]')
+  if (root) {
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-at-mode]')]
+    const summary = root.querySelector<HTMLElement>('[data-at-summary]')!
+    const summaryText = root.querySelector<HTMLElement>('[data-at-summary-text]')!
+    const LEAN =
+      'Single agent: the five surfaces above, and nothing else. No messages to spoof, no chain to amplify a bad decision.'
+    const HEAVY =
+      'Multi-agent: the same five surfaces, plus five coordination concerns to test, for capability one well-scoped agent already covers.'
+
+    const apply = (mode: string) => {
+      const multi = mode === 'multi'
+      root.classList.toggle('multi', multi)
+      summary.classList.toggle('heavy', multi)
+      summary.classList.toggle('lean', !multi)
+      summaryText.textContent = multi ? HEAVY : LEAN
+    }
+
+    tabs.forEach((tab) =>
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => {
+          t.classList.remove('at-tab-on')
+          t.setAttribute('aria-pressed', 'false')
+        })
+        tab.classList.add('at-tab-on')
+        tab.setAttribute('aria-pressed', 'true')
+        apply(tab.dataset.atMode!)
+      }),
+    )
+
+    apply('single')
+  }
+</script>

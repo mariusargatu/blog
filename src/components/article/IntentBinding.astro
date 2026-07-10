@@ -1,0 +1,236 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+import Tag from './Tag.astro'
+
+// The article's central thesis made tangible: the agent's reach is decided per
+// turn, not per agent. Pick an intent and the toolset binds only the servers
+// that intent needs; the rest are not denied at call time, they are simply not
+// on the table. The "attempt change_plan" button proves it: a write is
+// unreachable on a read-only turn because the tool was never handed over.
+//
+// Interaction idiom matches ValidatorPipeline/RiskLever: JS adds .is-interactive
+// (no-JS shows the default intent fully bound and legible), tabs carry
+// aria-pressed, the verdict line is aria-live.
+
+const servers = [
+  { key: 'knowledge', name: 'Knowledge MCP', detail: 'help docs · RAG', access: 'READ' as const },
+  { key: 'account', name: 'Account + catalog', detail: 'the oracle', access: 'READ' as const },
+  { key: 'actions', name: 'Actions MCP', detail: 'change the account', access: 'WRITE' as const },
+]
+
+const intents = [
+  { key: 'troubleshoot', label: 'Troubleshoot', bind: ['knowledge', 'account'] },
+  { key: 'bill', label: 'Check bill', bind: ['account'] },
+  { key: 'plan', label: 'Change plan', bind: ['account', 'actions'] },
+]
+
+// data-bind holds the per-intent binding so the script needs no duplicated map
+const bindMap = JSON.stringify(Object.fromEntries(intents.map((i) => [i.key, i.bind])))
+---
+
+<div
+  class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden"
+  data-ib
+  data-bind={bindMap}
+>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:vpn-key-outline" label="Least privilege, per turn" />
+    <div class="flex items-center gap-1 border border-border-dark p-0.5" role="group" aria-label="Choose the turn's intent">
+      {
+        intents.map((it, i) => (
+          <button
+            type="button"
+            data-ib-intent={it.key}
+            class:list={['ib-tab', i === 0 && 'ib-tab-on']}
+            aria-pressed={i === 0 ? 'true' : 'false'}
+          >
+            {it.label}
+          </button>
+        ))
+      }
+    </div>
+  </div>
+
+  <div class="p-5">
+    <p class="m-0 mb-4 font-mono text-mono-xs text-text-muted uppercase tracking-wider">
+      Toolset bound for this turn
+    </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {
+        servers.map((s) => (
+          <div
+            class="ib-server flex flex-col gap-1 rounded border px-4 py-3"
+            data-ib-server={s.key}
+            data-access={s.access}
+          >
+            <div class="flex items-center justify-between gap-2">
+              <Icon name="material-symbols:dns-outline" class="ib-server-icon text-[18px] text-text-muted" />
+              <Tag label={s.access} variant="neutral" />
+            </div>
+            <span class="text-sm text-text-primary font-medium leading-snug mt-1">{s.name}</span>
+            <span class="font-mono text-mono-xs text-text-muted leading-tight">{s.detail}</span>
+            <span
+              class="ib-state mt-2 font-mono text-mono-xs uppercase tracking-wider inline-flex items-center gap-1"
+              data-ib-state
+            />
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="mt-5 flex flex-wrap items-center gap-3">
+      <button type="button" data-ib-attempt class="ib-attempt">
+        <Icon name="material-symbols:bolt" class="text-[16px]" />
+        Attempt change_plan() · write
+      </button>
+      <p
+        class="ib-verdict m-0 flex-1 min-w-0 flex items-center gap-2 font-mono text-mono-xs text-text-muted"
+        data-ib-verdict
+        aria-live="polite"
+      >
+        Pick an intent, then try the write.
+      </p>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  [data-ib] .ib-tab {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    padding: 0.2rem 0.8rem;
+    transition: all 0.2s ease;
+  }
+  [data-ib] .ib-tab-on {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  [data-ib] .ib-tab:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  /* default (no-JS) server look: hairline neutral, no verdict text */
+  [data-ib] .ib-server {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+    transition: border-color 0.25s ease, background-color 0.25s ease, opacity 0.25s ease;
+  }
+  [data-ib] .ib-server.bound {
+    border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  }
+  [data-ib] .ib-server.bound .ib-server-icon {
+    color: var(--color-primary);
+  }
+  [data-ib] .ib-server.unreachable {
+    opacity: 0.5;
+  }
+  [data-ib] .ib-server.bound .ib-state {
+    color: var(--color-primary);
+  }
+  [data-ib] .ib-server.unreachable .ib-state {
+    color: var(--color-text-muted);
+  }
+  [data-ib] .ib-attempt {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.75rem;
+    padding: 0 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    transition: all 0.2s ease;
+  }
+  [data-ib] .ib-attempt:hover {
+    border-color: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+  }
+  [data-ib] .ib-attempt:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-ib] .ib-attempt:active {
+      transform: scale(0.97);
+    }
+    [data-ib].blocked .ib-verdict {
+      animation: ibShake 0.4s ease;
+    }
+  }
+  @keyframes ibShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-ib]')
+  if (root) {
+    const bind: Record<string, string[]> = JSON.parse(root.dataset.bind || '{}')
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-ib-intent]')]
+    const servers = [...root.querySelectorAll<HTMLElement>('[data-ib-server]')]
+    const attempt = root.querySelector<HTMLButtonElement>('[data-ib-attempt]')!
+    const verdict = root.querySelector<HTMLElement>('[data-ib-verdict]')!
+    let current = tabs[0]?.dataset.ibIntent || 'troubleshoot'
+
+    const apply = (intent: string) => {
+      current = intent
+      const bound = bind[intent] || []
+      servers.forEach((s) => {
+        const key = s.dataset.ibServer!
+        const isBound = bound.includes(key)
+        s.classList.toggle('bound', isBound)
+        s.classList.toggle('unreachable', !isBound)
+        const state = s.querySelector<HTMLElement>('[data-ib-state]')!
+        state.textContent = isBound ? '● bound' : '○ not in toolset'
+      })
+      // reset the attempt verdict on each intent change
+      root.classList.remove('blocked')
+      verdict.textContent = 'Now try the write on this turn.'
+      verdict.classList.remove('text-error', 'text-primary')
+    }
+
+    tabs.forEach((tab) =>
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => {
+          t.classList.remove('ib-tab-on')
+          t.setAttribute('aria-pressed', 'false')
+        })
+        tab.classList.add('ib-tab-on')
+        tab.setAttribute('aria-pressed', 'true')
+        apply(tab.dataset.ibIntent!)
+      }),
+    )
+
+    attempt.addEventListener('click', () => {
+      const allowed = (bind[current] || []).includes('actions')
+      verdict.classList.remove('text-error', 'text-primary')
+      if (allowed) {
+        root.classList.remove('blocked')
+        verdict.classList.add('text-primary')
+        verdict.textContent =
+          'change_plan is in the toolset for this intent. It proceeds, behind the confirmation gate.'
+      } else {
+        root.classList.add('blocked')
+        verdict.classList.add('text-error')
+        verdict.textContent =
+          'Unreachable: change_plan was never on the table for this intent. Not denied, absent.'
+      }
+    })
+
+    root.classList.add('is-interactive')
+    apply(current)
+  }
+</script>

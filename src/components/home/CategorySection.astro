@@ -10,15 +10,21 @@ interface CardData {
   minutesRead?: number
 }
 
+interface SeriesLink {
+  name: string
+  href: string
+}
+
 interface Props {
   number: string
   name: string
   accent: 'primary' | 'secondary' | 'tertiary'
   viewAllHref: string
+  series?: SeriesLink[]
   posts: CardData[]
 }
 
-const { number, name, accent, viewAllHref, posts } = Astro.props
+const { number, name, accent, viewAllHref, series = [], posts } = Astro.props
 
 const [large, ...others] = posts
 const small = others.slice(0, 3)
@@ -52,6 +58,25 @@ const accentDot = {
       <Icon name="material-symbols:arrow-right-alt" class="text-[14px]" />
     </a>
   </div>
+
+  {
+    series.length > 0 && (
+      <div class="flex flex-wrap items-center gap-2 mb-8">
+        <span class="font-mono text-mono-xs uppercase tracking-wider text-text-muted mr-1">
+          Series
+        </span>
+        {series.map((s) => (
+          <a
+            href={s.href}
+            class="inline-flex items-center gap-1.5 font-mono text-mono-xs text-text-muted border border-border-dark rounded-full px-3 py-1.5 hover:border-primary hover:text-primary transition-colors"
+          >
+            <Icon name="material-symbols:stacks-outline" class="text-[14px]" />
+            {s.name}
+          </a>
+        ))}
+      </div>
+    )
+  }
 
   {
     large && (

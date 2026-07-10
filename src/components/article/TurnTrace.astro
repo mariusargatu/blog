@@ -1,0 +1,177 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramFigure from './DiagramFigure.astro'
+import Tag from './Tag.astro'
+
+// Sarah's upgrade, traced step by step across every part of the system. The
+// article's thesis is that every turn is recorded as it runs, so the figure is
+// shaped like a trace: a vertical run of steps, each tagged with the surface it
+// touches. The safety machinery (guard verdicts, the interrupt() pause, the
+// single idempotent write) is the only thing rendered in green, because here it
+// is genuinely safe; the dot on those steps goes green too, so the eye catches
+// the three beats that matter and ignores the plumbing.
+
+type Tone = 'plain' | 'guard' | 'pause' | 'write'
+
+interface Step {
+  lane: string
+  body: string
+  meta?: string
+  verdict?: string
+  tone?: Tone
+}
+
+const steps: Step[] = [
+  {
+    lane: 'FRONT DOOR',
+    body: '“Move me to the faster plan”',
+    meta: 'identity = customer_id from the session, not the message',
+  },
+  {
+    lane: 'CORE → ORACLE',
+    body: 'Read current plan, scoped to customer_id',
+    meta: 'on Plan A',
+  },
+  {
+    lane: 'CORE → ORACLE',
+    body: 'Faster plan at this address? price? start date?',
+    meta: 'Plan B · price X · next billing cycle',
+  },
+  {
+    lane: 'GUARD',
+    body: 'Draft confirmation, render check',
+    verdict: 'PASS',
+    tone: 'guard',
+  },
+  {
+    lane: 'CORE → CUSTOMER',
+    body: '“Plan B at X, from next cycle. Confirm?”',
+  },
+  {
+    lane: 'PAUSE',
+    body: 'interrupt() persists the run and waits',
+    meta: 'state checkpointed against the thread_id, indefinitely',
+    tone: 'pause',
+  },
+  {
+    lane: 'CUSTOMER',
+    body: '“yes”',
+    meta: 'run resumes via a Command',
+  },
+  {
+    lane: 'GUARD',
+    body: 'Pre-action check on the write',
+    meta: 'scope · confirmation given · idempotency key',
+    verdict: 'PASS',
+    tone: 'guard',
+  },
+  {
+    lane: 'ACTIONS',
+    body: 'change_plan(customer_id, Plan B, idem_key)',
+    meta: 'applied exactly once',
+    verdict: 'REF 4815',
+    tone: 'write',
+  },
+  {
+    lane: 'GUARD',
+    body: 'Reply, render check',
+    verdict: 'PASS',
+    tone: 'guard',
+  },
+  {
+    lane: 'CORE → CUSTOMER',
+    body: '“Done. Reference 4815.”',
+  },
+]
+
+// plain = hairline; guard = faint green wash; pause = dashed green (the
+// deliberate stop); write = solid green edge (the one committed change, safe
+// because the guard cleared it).
+const toneCard: Record<Tone, string> = {
+  plain: 'border-border-dark bg-surface-container-low',
+  guard: 'border-primary/30 bg-primary/5',
+  pause: 'border-primary/50 border-dashed bg-primary/5',
+  write: 'border-primary/60 bg-primary/10',
+}
+const isSafety = (t?: Tone) => t === 'guard' || t === 'pause' || t === 'write'
+
+const ariaLabel =
+  'A single Atlas turn, traced step by step. The front door reads identity from the session, not the message. The core makes two scoped oracle reads: the customer is on Plan A, and Plan B is available at price X from the next billing cycle. The guard clears the draft confirmation to render. interrupt() pauses the run and waits; the customer replies yes and the run resumes via a Command. The guard clears the write on scope, confirmation, and an idempotency key. The actions server applies change_plan exactly once, returning reference 4815. A final render check passes and the reply ships. Every step is written to the trace.'
+---
+
+<DiagramFigure
+  label="One turn across every part"
+  icon="material-symbols:account-tree-outline"
+  ariaLabel={ariaLabel}
+  stagger
+  data-tt
+>
+  <ol class="m-0 p-0 list-none flex flex-col">
+    {
+      steps.map((s, i) => (
+        <li
+          class="grid grid-cols-[auto_1fr] gap-x-3 md:gap-x-4"
+          data-stagger-item
+          style={`--d:${(i * 0.07).toFixed(2)}s`}
+        >
+          {/* rail: dot + connector line drawn between steps */}
+          <div class="flex flex-col items-center">
+            <span
+              class:list={[
+                'mt-1.5 h-2.5 w-2.5 rounded-full shrink-0',
+                isSafety(s.tone) ? 'bg-primary' : 'bg-border-dark',
+              ]}
+            />
+            {i < steps.length - 1 && <span class="tt-rail w-px flex-1 bg-border-dark my-1" />}
+          </div>
+
+          <div class={`mb-2 rounded border px-4 py-3 ${toneCard[s.tone ?? 'plain']}`}>
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider inline-flex items-center gap-1.5">
+                {s.tone === 'pause' && (
+                  <Icon name="material-symbols:pause-circle-outline" class="text-primary text-[15px]" />
+                )}
+                {s.lane}
+              </span>
+              {s.verdict &&
+                (s.tone === 'write' ? (
+                  <Tag variant="solid" label={s.verdict} />
+                ) : (
+                  <Tag variant="safe" icon="material-symbols:check-small" label={s.verdict} />
+                ))}
+            </div>
+            <p class="m-0 mt-1 text-sm text-text-primary">{s.body}</p>
+            {s.meta && (
+              <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed">{s.meta}</p>
+            )}
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+
+  <Fragment slot="note">
+    Every read, every tool call and its arguments, both guard verdicts, the pause
+    and the resume, and the final reply are written to the trace as the run
+    executes. Nothing here is improvised.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  /* The connector rail draws downward with each step. Unique to this figure
+   * (the shared stagger covers the cards' opacity lift); no-JS / reduced-motion
+   * show the full rail. */
+  @media (prefers-reduced-motion: no-preference) {
+    .js [data-tt].in-view .tt-rail {
+      transform: scaleY(0);
+      transform-origin: top;
+      animation: ttRail var(--dur-3) var(--ease-out-quint) forwards;
+      animation-delay: var(--d, 0s);
+    }
+  }
+  @keyframes ttRail {
+    to {
+      transform: scaleY(1);
+    }
+  }
+</style>

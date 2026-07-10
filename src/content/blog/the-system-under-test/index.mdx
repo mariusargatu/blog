@@ -1,0 +1,263 @@
+---
+title: 'The System Under Test: A Broadband Support Agent'
+description: >-
+  Meet Atlas: a broadband support agent on LangGraph and MCP, mapped against
+  OWASP's 10 agentic risks and the real incidents that prove each part can fail.
+kicker: GENAI_TESTING
+topic: GenAI
+ctaNote: >-
+  Shipping an LLM, RAG, or agentic system that can read or change a customer's
+  account? This is the harness I build to test it before a customer ever sees it.
+series:
+  name: Evals Are Checks, Not Tests
+  order: 2
+author: Marius Argatu
+pubDate: 2026-06-18
+tags: [llm, langgraph, mcp, agentic, testing, rag, architecture]
+featured: true
+ogImage: ./og.jpg
+faq:
+  - q: What does "grounded is not the same as true" mean for a support agent?
+    a: >-
+      Grounded means the answer is faithful to a document the system retrieved.
+      True means the answer agrees with this customer's actual account. The two
+      come apart when the document describes the current catalog and the truth
+      lives in the account record, which is exactly how a faithful, well retrieved
+      answer about a fee can still be false and cost a real person money. Daniel's
+      answer was grounded in the current plan page and false for the plan he was
+      actually on.
+  - q: Why is Atlas one agent instead of a system of many agents?
+    a: >-
+      Because designs with many agents buy coordination complexity you then have to
+      test, and little capability you couldn't get from one well scoped agent.
+      A single agent also sidesteps two of the OWASP Agentic Top 10 risks by
+      construction: insecure communication between agents (ASI07) and most of
+      cascading failures (ASI08). The interesting question was never how many
+      models talk to each other, but what the one model is allowed to reach, and
+      on which turn.
+  - q: How does Atlas stop one customer from seeing another's data?
+    a: >-
+      Every read against the account and catalog servers is scoped to a
+      customer_id that comes from the authenticated session, carried in the MCP
+      bearer token rather than as a tool argument the model can fill in. The
+      semantic cache keys customer specific answers per customer so it can never
+      serve one person's bill to another, and the guard refuses to render any
+      reply containing another customer's data. The failure to avoid is the Asana
+      one, where a caching layer crossed the tenant boundary.
+  - q: Where does the customer identity come from, and why does it matter?
+    a: >-
+      From the authenticated session, never from the model and never from the
+      chat message. It rides in the MCP call context, out of band of every tool
+      schema. The moment whose account this is becomes something the model
+      decides, you have handed an attacker a steering wheel, which is the
+      confused deputy failure behind the Asana cross tenant incident.
+  - q: Why fake every external system in CI?
+    a: >-
+      Because a test that depends on a live system reads a real person's bill and
+      can move real money. Faked backends seeded with data for many customers let you
+      attempt a thousand plan changes, and every adversarial variation of them,
+      before lunch, with isolation and scope under test and nothing real at risk.
+---
+
+import Foldable from '../../../components/article/Foldable.astro'
+import TurnTrace from '../../../components/article/TurnTrace.astro'
+import SystemMap from '../../../components/article/SystemMap.astro'
+import SystemArchitecture from '../../../components/article/SystemArchitecture.astro'
+import AgentTopology from '../../../components/article/AgentTopology.astro'
+import GroundedVsTrue from '../../../components/article/GroundedVsTrue.astro'
+import IntentBinding from '../../../components/article/IntentBinding.astro'
+import GuardGate from '../../../components/article/GuardGate.astro'
+import CacheKeyIsolation from '../../../components/article/CacheKeyIsolation.astro'
+import IdentitySource from '../../../components/article/IdentitySource.astro'
+
+<Callout variant="info" title="tl;dr">
+Every article in this series tests the same system, so it is worth drawing it once, with care. Atlas is an authenticated support agent for a broadband provider, built on LangGraph and MCP. It answers plan and policy questions from help documents, it reads the account of the customer who is signed in, and it makes changes to that account. This page is the map. It names every part by how it fails in an LLM application and what that forces you to test, not by how it is wired, and it sets the four invariants the rest of the series depends on. Read it once, then keep it open.
+</Callout>
+
+## Two conversations
+
+The same agent, fluent and grounded in a real document both times, can be right on one turn and wrong on the next, and nothing in the pipeline notices the difference. Two conversations show how.
+
+An Atlas customer named Sarah signs in and asks to move to a faster plan. The agent checks what she is on, confirms the faster plan is available at her address, tells her the price and that it starts next billing cycle, asks her to confirm, and on yes, makes the change and hands her a reference number. Forty seconds. Every fact correct.
+
+A week later a customer named Daniel asks whether his current plan has a contract he can leave without a fee. The agent answers, with confidence, that his plan is free of any contract and he can cancel any time, and it links the plan page to prove it. He cancels. He is charged an early termination fee. The plan page the agent quoted describes the current offer. Daniel's account is on last year's plan, which carried a term of twelve months, and that fact lives in his account record, not on the page. The answer was faithful to the document it retrieved. It was also false. A false answer about a fee is not like a clumsy sentence. It has a number on it, and that number went to a real person.
+
+If this sounds like something that already happened, it did. In November 2022, Air Canada's website chatbot told a grieving customer he could book at full fare and claim the bereavement discount later. The policy on the very page the bot linked to said the opposite. He was refused the refund, sued, and in February 2024 the British Columbia Civil Resolution Tribunal held the airline liable for what its chatbot said in [*Moffatt v. Air Canada*, 2024 BCCRT 149](https://www.canlii.org/en/bc/bccrt/doc/2024/2024bccrt149/2024bccrt149.html). [The first article in this series](/blog/your-evals-are-checks-not-tests/) opens on that case. Daniel is its broadband twin, with one difference that decides how the rest of this series is built: Daniel's contract was never missing from the system. It was sitting in his account record the whole time, knowable, one read away. That is why an agent built right has a chance of never making his mistake, and it is why so much of what follows is the work of proving whether it does.
+
+Both conversations ran through the same agent. Both came back fast. Both would score the same on a naive quality dashboard, because the words were fluent and grounded in a real retrieved document either way. One was right and one was wrong, and nothing in the pipeline knew the difference. The series opened by arguing [why a passing eval is not a passing test](/blog/your-evals-are-checks-not-tests/). This page draws the system precisely enough to test, so the rest of the series can stop arguing and start breaking it.
+
+## What does Atlas do?
+
+Atlas is one agent inside an authenticated web chat. The customer is signed in, which means the system knows whose account this is from the session, never from anything the customer types into the box. That one fact will come back over and over, so hold onto it.
+
+A customer can do three things. They are not three flavors of one thing. They are three different testing problems behind the same chat box.
+
+1. **Answer** a plan, policy, or troubleshooting question from the help documents. This is retrieval, and you grade it on whether the answer is grounded and whether it is true, which turn out to be two different questions.
+2. **Look up** the customer's own account: usage this month, the current bill, the equipment on file, the open tickets. This is a read against the source of truth, and you grade it on scope and freshness, whether it read the right customer and the current state.
+3. **Act**: change the plan, add or remove an extra, reset the modem, open a ticket, book an engineer. This is a write, and you grade it on authorization, confirmation, idempotency, and fidelity, because this is where a mistake stops being embarrassing and starts being expensive.
+
+Atlas is one agent with tools. It is not a committee of agents passing messages to each other. That is a design choice, and it is also a testing choice. A design with many agents adds coordination that you then have to test, and it buys little capability that one well scoped agent does not already have. It also adds failure modes that a single agent does not have at all. The OWASP Top 10 for Agentic Applications, from December 2025, lists two of them directly: insecure communication between agents, and cascading failures down a chain of delegated agents ([OWASP, *Top 10 for Agentic Applications*](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/)). Atlas has no messages between agents to spoof, and no delegation chain to carry one bad decision further. So the real question is not how many models talk to each other. It is what the one model can reach, and on which turn.
+
+The tradeoff is concrete, and it is a tradeoff in test work. Switch between the two architectures below and watch what each one forces you to test.
+
+<AgentTopology />
+
+| Architecture | What it buys | What it forces you to test | OWASP risks it adds |
+|---|---|---|---|
+| One agent with tools (Atlas) | One scoped decision point per turn | Tool scope and binding per intent | None new |
+| A committee of agents | Marginal extra capability | Coordination, message integrity, delegation chains | ASI07 insecure communication between agents, ASI08 cascading failures |
+
+Here is the whole system, end to end. Read it in the **Runtime** view for the architecture, then switch to **Test points** to see the four places the harness hooks in. The system does not change between the two views. The test view only shows where the tests connect to it.
+
+<SystemArchitecture />
+
+## What are the parts, and how does each one break?
+
+Atlas has ten parts, and each is named here by the way it fails, not by how it is wired: the chat front door, the agent core, the knowledge retrieval surface, the account and catalog oracle, the actions write surface, least privilege binding per intent, the guard, the semantic cache, tracing, and the test harness. Each one maps to a specific failure mode from the OWASP catalogs and a specific thing the harness has to test. Take them in order.
+
+**The chat front door.** Where the customer talks to Atlas, and where the reply gets rendered back into a browser. Two rules live here. The first: the account identity, the `customer_id` every downstream call is scoped by, comes from the authenticated session, never from the model and never from the message. The model is not asked whose account this is; it is told, out of band. The second: this is the front door for direct prompt injection, the customer typing *ignore your instructions and do this instead*, and it is the surface where the reply gets turned into HTML. So the reply has to be safe to render: no smuggled markup, no leaked links, nothing that executes.
+
+This is not a hypothetical surface. In August 2025, researchers showed that Lenovo's GPT-4 support chatbot, Lena, could be made to emit HTML containing an image tag with a broken source, whose `onerror` handler ran attacker JavaScript and stole the support agent's session cookies the moment the response rendered ([Cybernews](https://cybernews.com/security/lenovo-chatbot-lena-plagued-by-critical-vulnerabilities/)). The chatbot did exactly what it was asked. The interface did exactly what the HTML told it. Neither questioned the other. That is OWASP's LLM01 (prompt injection) chained into LLM05 (improper output handling), and the fix is an old one from web security: treat the model's output as untrusted, and escape or strip anything executable before it reaches a renderer. A chat box is an input you do not control, rendered into an output you cannot trust.
+
+**The agent core.** A LangGraph `StateGraph`. Nodes for retrieving, reading, deciding, acting, and replying; edges for the control flow between them; a typed state object threaded through the whole run. Most of that graph is ordinary, deterministic software, and that is the point of drawing it as a graph: it pins down everything that does not have to be improvised. Exactly one node is nondeterministic, the one that calls the model to decide what to do next. That single node is why naive LLM suites are flaky, and it is why the first thing the harness does is put a gateway in front of the model that records every call and replays it. Same input, same decision, every run. With the model pinned, a red in the suite is a real regression and not random noise.
+
+The graph is also where the human gets to stand in the loop. LangGraph's `interrupt()` pauses a run partway through a node, surfaces a payload to the caller, persists the whole state against a `thread_id` through a checkpointer, and waits, indefinitely if it has to, until the run is resumed with a `Command` carrying the human's answer ([LangChain, *Interrupts*](https://docs.langchain.com/oss/python/langgraph/interrupts)). That primitive is what the confirmation gate on the action surface is built from, which is the next reason the graph is worth drawing precisely: the pause is a real, inspectable point in the control flow, not a convention the model is trusted to respect.
+
+**Knowledge, the retrieval surface.** A knowledge MCP server that does RAG over the help articles and plan terms, across a vector index and a graph of how plans, extras, and policies relate to each other. The agent reaches it as one tool: ask a question, get passages back. The trap is the one Daniel fell into. Grounded is not the same as true. An answer can quote a current, correct, well retrieved document faithfully and still be false for this customer, because the document describes the catalog and the truth lives in the account. That is OWASP's LLM09, misinformation, the failure mode where confidently incorrect output gets acted on as fact, and no amount of better retrieval closes it, because retrieval was never the thing that was wrong.
+
+The documents are also an attack surface. A help article, or worse, a document a customer pastes into the chat, can carry an instruction the model reads as a command. This is indirect prompt injection, and it has a body count: in September 2025 the ForcedLeak vulnerability in Salesforce's Agentforce planted instructions in a Web-to-Lead description field that the agent later executed, walking CRM data out to an attacker's domain when an employee asked a perfectly innocent question about the lead ([Noma Security](https://noma.security/blog/forcedleak-agent-risks-exposed-in-salesforce-agentforce/)). The newer OWASP Agentic list files the same shape under memory and context poisoning, seeding a retrieval store so it pays out later. Retrieval is not only a quality surface. It is an attack surface that happens to also answer questions.
+
+<GroundedVsTrue />
+
+**Account and catalog, the oracle.** Two MCP servers, read only, that together hold the structured truth every claim is checked against. The catalog server has the plans, prices, speeds, caps, and terms, what the provider sells; it is also where a price or an eligibility decision is computed in code rather than left to the model, a thread a later article pulls on hard. The account server has this customer's reality: the plan they are actually on, usage, bill, equipment, tickets. This is the oracle in the testing sense, the source of ground truth a test consults to decide whether an answer was correct. Daniel's contract was knowable; it was sitting in the account server the whole time. Two risks define the surface.
+
+Scope: every read must be bound to this customer and reach no other, and the `customer_id` that binds it must come from the session context, never from a field the model filled in. The protocol is on your side here. An MCP server is an OAuth 2.1 resource server; the identity arrives in the bearer token on the connection, out of band of any tool schema, and the June 2025 specification explicitly forbids a server from passing that token through to upstream APIs, precisely to close the confused deputy hole ([Model Context Protocol, *Authorization (2025-06-18)*](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization); [Auth0](https://auth0.com/blog/mcp-specs-update-all-about-auth/)). Get this wrong and you get the Asana incident: in June 2025 a flaw in Asana's MCP caching layer let one organization's AI request receive another organization's cached result, project names, financials, M&A notes, for roughly a thousand customers ([Adversa AI](https://adversa.ai/blog/asana-ai-incident-comprehensive-lessons-learned-for-enterprise-security-and-ciso/)). OWASP files scope failures under LLM02 (sensitive information disclosure) and ASI03 (identity and privilege abuse). Freshness is the second risk: the answer must reflect current state, not yesterday's cached copy. When a later article checks whether an answer is true, this is what it checks against, which is why the oracle is a core part of the system and not a database footnote.
+
+**Actions, the write surface.** One MCP server, and the only one that changes a real customer's service: `change_plan`, `add_addon`, `remove_addon`, `reset_modem`, `open_ticket`, `book_engineer`. This is the highest consequence surface in the system, and almost everything genuinely hard about testing agents lives on it.
+
+Authorization: can this customer, on this turn, do this thing at all. Confirmation: nothing irreversible happens without an explicit, typed yes, surfaced through the LangGraph `interrupt()` that pauses the graph and waits for the human before the write commits. Idempotency: a call that times out and gets retried must not apply the change twice, the same lesson distributed systems learned decades ago, now with a customer's bill attached. Fidelity: the action executed is the action requested, the same command with the same arguments the customer actually gave, no helpful extras.
+
+The reason to spend the test budget here is that the public failures are not subtle. In April 2026 an AI coding agent at the car rental SaaS company PocketOS deleted the production database and every volume level backup in nine seconds; the freshest recoverable backup was three months old ([Tom's Hardware](https://www.tomshardware.com/tech-industry/artificial-intelligence/claude-powered-ai-coding-agent-deletes-entire-company-database-in-9-seconds-backups-zapped-after-cursor-tool-powered-by-anthropics-claude-goes-rogue)). In December 2025 Amazon's Kiro assistant, handed a minor task, decided the optimal fix was to delete and recreate a production environment, producing a thirteen hour outage ([AI Incident Database](https://incidentdatabase.ai/cite/1442/)). This is OWASP's LLM06 (excessive agency) and the Agentic list's ASI02 (tool misuse): an agent bending a legitimate tool into a destructive call. A wrong read is an embarrassing answer. A wrong write is a changed account. The test budget should follow the consequence, and the consequence pools right here.
+
+**Least privilege, drawn per turn.** Because the reads and the writes are separate servers, the agent's reach can be decided per turn instead of per agent. A troubleshooting turn binds the knowledge and account servers and nothing else; the actions server is simply not in its toolset. This is least privilege at its strongest, and again the protocol cooperates: an MCP client is told to request only the scopes it needs, and the November 2025 spec adds step up authorization, so a write capability is acquired only on the turn whose intent requires it and a read only turn carries a token that cannot write at all ([Model Context Protocol, *Authorization (2025-11-25)*](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)). An unauthorized action is not denied at call time, it is unreachable, because the tool that would perform it was never on the table for that intent. You cannot misuse a capability you were not handed, and binding per intent is how you decline to hand it over.
+
+<IntentBinding />
+
+**The guard, the membrane.** The model is untrusted by default, and the guard is where that assumption is enforced at runtime, for the cases binding cannot decide in advance. It is a gate that fails closed at two checkpoints: before any action executes, and before any reply renders. Before an action: argument schema and value bounds, customer scope on every id, that the action matches a real intent, that confirmation was actually given. Before a render: secrets, another customer's data, and anything unsafe to put in a browser, which is the Lena failure and the system prompt leakage failure (OWASP LLM05 and LLM07) caught at the door. Failing closed means the default is no. When a check cannot pass, nothing acts and nothing renders; the turn degrades to a safe message and, where it matters, a clean handoff to a human. Binding decides what the agent can reach. The guard decides what gets through. You want both, because they fail in different directions, and because a membrane that fails closed is how you keep one bad turn from becoming the Agentic list's ASI08, a cascading failure that does not stop on its own.
+
+<GuardGate />
+
+**The semantic cache.** Reuses answers to similar questions to cut model cost and latency, and it carries the nastiest isolation bug in the system precisely because it is the cheapest part. A customer specific answer, *your bill this month is forty pounds*, must be keyed per customer, or the cache will serve Daniel's bill to Sarah, the Asana failure rebuilt inside your own infrastructure for the sake of performance. Only generic, customer independent policy answers are safe to share across all customers. The cache is a performance optimization (OWASP's LLM10, unbounded consumption, is the risk it exists to manage) with a confidentiality blast radius (LLM02) the moment the key is wrong. The cache key is the whole game.
+
+<CacheKeyIsolation />
+
+**Tracing.** Records every turn end to end: the input, what was retrieved, which tools were called in what order with what arguments, the guard's verdicts, the final output. Because the agent core is a LangGraph graph, the run produces this trace as a byproduct of executing; the harness captures it and keeps it. You cannot judge an agent's behavior, and you cannot learn anything from a production failure, without a faithful record of what it actually did. Trajectory testing reads from it. Production triage reads from it. You cannot assert on a path you did not record, and you will not record it by wishing.
+
+**The test harness.** The machinery that makes all of the above testable, and the place most flaky LLM suites are actually broken. Three pieces. The model gateway, recording and replaying the one nondeterministic node. The faked backends behind the MCP servers, account, catalog, and actions, seeded with data for many customers so scope and isolation can be tested with more than one customer in the world and no real money ever moves. And the suites that gate every merge, the ones the rest of this series builds. It is the least glamorous part of the system, and the part that decides whether everything else is testable at all.
+
+Read the parts back as a list and something falls out: you have rebuilt the field's two security taxonomies from the bottom up, not because the system was designed against a checklist but because the checklist is just an inventory of how these systems break. The mapping is exact enough to be worth keeping.
+
+<Foldable label="The same map, as OWASP entries">
+
+Atlas's parts line up against the [OWASP Top 10 for LLM Applications (2025)](https://genai.owasp.org/llm-top-10/) and the [OWASP Top 10 for Agentic Applications (2025/26)](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/):
+
+- **Chat front door**: LLM01 Prompt Injection (direct), LLM05 Improper Output Handling; ASI01 Agent Goal Hijack.
+- **Knowledge / retrieval**: LLM01 Prompt Injection (indirect), LLM08 Vector and Embedding Weaknesses, LLM09 Misinformation; ASI06 Memory and Context Poisoning.
+- **Account + catalog (oracle)**: LLM02 Sensitive Information Disclosure; ASI03 Identity and Privilege Abuse.
+- **Actions (write)**: LLM06 Excessive Agency; ASI02 Tool Misuse.
+- **Least privilege / binding per intent**: LLM06 Excessive Agency; ASI03 Identity and Privilege Abuse.
+- **The guard**: LLM05 Improper Output Handling, LLM02 Sensitive Information Disclosure, LLM07 System Prompt Leakage; ASI08 Cascading Failures (containment that fails closed).
+- **Semantic cache**: LLM02 Sensitive Information Disclosure, LLM10 Unbounded Consumption.
+- **Confirmation gate**: ASI09 Human-Agent Trust Exploitation (the typed yes is the mitigation).
+- **One agent, not a committee**: sidesteps ASI07 Insecure Inter-Agent Communication, limits ASI08 Cascading Failures.
+
+The list is a vocabulary, not a test plan. Each entry becomes one or more concrete cases in the suites this series builds; none of them is checked by the existence of the part alone.
+
+</Foldable>
+
+<Callout variant="takeaway" title="Key takeaway">
+Each part is named by its failure, not its wiring, because the failure is what you test. The retrieval surface is graded on grounded versus true, the oracle on scope and freshness, the write surface on authorization, confirmation, idempotency, and fidelity. The budget follows the consequence, and the consequence pools on the write surface.
+</Callout>
+
+## One turn across every part
+
+The map is easier to trust once you watch a single turn cross it. Take Sarah's upgrade, the success from the top of the page that took forty seconds, and follow it through every part. Nothing here is improvised; each arrow is a node, an edge, or a guard verdict that the trace will later record.
+
+<TurnTrace />
+
+The front door takes the turn and the identity, and the identity does not come from the words Sarah typed. The core reads her current plan and the catalog through the oracle, both scoped to her `customer_id` by the bearer token, never by an argument the model chose. It drafts the confirmation, the guard clears it for rendering, and then the graph stops: `interrupt()` persists the run and waits. On *yes*, the run resumes through a `Command`, the guard checks the write before it executes, the actions server applies `change_plan` exactly once behind an idempotency key, and a reference number comes back. Every read, every tool call and its arguments, the guard's two verdicts, the pause and the resume, and the final reply are written to the trace as the run executes.
+
+Now run Daniel's question through the same machinery and watch where it has a chance. *Is my plan free of any contract?* is a question about his account, not the catalog, so an agent built right reaches the account server, finds the term of twelve months still on his record, and answers from it, or, if it answers from the catalog page anyway, the guard's check before render is the last place a fee claim that contradicts the account can be caught and held. Atlas is not magic. The honest position is that grounded versus true is the hardest thing in this system to get right, and this is why a whole later article exists for it. But the contract was always one read away. The job of the architecture is to make sure that something actually looks at the account.
+
+## What are the four invariants?
+
+Four invariants run underneath everything in this series, and they are structural, not polish. Pull any one and the tests stop meaning anything.
+
+1. **Nothing external is real in CI.** The account, catalog, and actions servers run against faked backends seeded with data for many customers. A test never depends on a live system, never reads a real person's bill, and never moves real money, which is exactly what makes it safe to attempt a thousand plan changes, and every adversarial variation of them, before lunch.
+2. **The model is recorded and replayed.** The one nondeterministic node runs through a gateway that records its calls and replays them, so behavior is deterministic and a failure reproduces on demand. A flaky agent test is almost always an unpinned model, not a real bug.
+3. **Every turn is traced, from the first commit.** You bolt tracing on at the start, or you spend the rest of the series unable to assert on what the agent did, because you cannot grade a path you did not record. There is no retrofitting your way out of that.
+4. **Identity comes from the session, never the model.** The `customer_id` is injected from the authenticated session and never appears as a field in any tool schema: it rides in the OAuth 2.1 bearer token on the HTTP transport in dev and production, and in the call context on the transport the harness runs in the same process in tests. Either way the model never sees it. The moment whose account this is becomes something the model decides, you have handed an attacker a steering wheel. This is the confused deputy failure the Asana incident is made of, and the cheapest way to lose a customer's data is to let the model choose whose data it is.
+
+<IdentitySource />
+
+Here is the whole system on one page.
+
+<SystemMap />
+
+Read it top to bottom. The chat front door takes the turn and the identity. The LangGraph core decides and, per intent, reaches the knowledge, account, or actions servers, wrapped the whole time in a guard that can stop an action or a render. Underneath, the harness pins the model, fakes the backends, and traces every turn. Everything this series does is somewhere on that picture.
+
+<Callout variant="takeaway" title="Key takeaway">
+The invariants are not test hygiene, they are the preconditions that make a green suite mean something. Faked backends make adversarial volume safe, record and replay makes failures reproducible, tracing from day one makes behavior assertable, and identity bound to the session keeps the model out of the one decision an attacker most wants it to make.
+</Callout>
+
+## What does each article test?
+
+[The series](/blog/series/evals-are-checks-not-tests/) moves left to right across the map, and roughly in the order you would actually build the testing.
+
+First, define what correct even means by building a golden dataset by hand, and face the risk hidden in every labeling choice that goes into it. Then learn to measure it: choose the metrics this system actually needs, by hand first and then with DeepEval, and accept that the LLM judge doing the scoring is itself a biased model that has to be calibrated against human labels before you trust a word it says. Then make the measurement honest with statistics, so a green number survives the question *would this hold on a different sample*, and a regression is a signal rather than noise.
+
+With the ground rules set, the series walks the surfaces. Retrieval: test the knowledge layer from a plain query set through reranking and agentic retrieval to graph RAG, separating grounded from true the whole way. Trajectory: test the agent as a path and not a last message, the tool calls, the order, the confirmation gate, the budgets, on the write surface where a mistake changes an account. Simulation: stop writing conversations by hand and let a simulated user push Atlas through flows that span many turns nobody scripted in advance. Security: turn the documents and the action surface into an adversary's playground, prompt injection, jailbreaks, socially engineered actions, and watch every landed attack become a committed regression.
+
+Then it leaves the lab. Production: move the whole thing onto Langfuse, watch the metrics drift as real traffic arrives, and feed real failures back into the dataset, which closes the loop the series opened. And last, the argument that the whole series has been making from the start: architecture is a testing lever. The MCP binding per intent, the guard that fails closed, the identity bound to the session drawn on this page are not just design choices, they are what makes the thing testable at all. You do not test quality into a system. You build it so that testing can find the truth.
+
+## Where does this article live in the series?
+
+This article does not live in one corner of the Atlas map. It is the map. Every other piece in the series picks one surface off this page, the retrieval layer, the trajectory, the guard, the trace store, and goes deep, and every one of them assumes the four invariants are already true. So this is the page to keep open in the other tab. When a later article says *the oracle*, or *binding per intent*, or *fails closed*, or *grounded is not the same as true*, it means the specific thing drawn here, not a metaphor.
+
+Atlas is one agent. A LangGraph graph for the logic, four MCP servers for knowledge, the account and catalog reads, and the actions, a guard around both, and a harness that makes the whole thing safe to break a thousand times before a customer sees it. Every part on this page is backed by a runnable reference system, not a thought experiment: clone it, run `task test`, and watch the grounded but false answer get held at the render guard, checked against the account oracle, the moment it would have shipped. That is the system under test. The rest of the series is the work of testing it without fooling yourself, and the first way you fool yourself is forgetting that grounded was never the same as true.
+
+## Frequently asked questions
+
+### What does "grounded is not the same as true" mean for a support agent?
+
+Grounded means the answer is faithful to a document the system retrieved. True means the answer agrees with this customer's actual account. The two come apart when the document describes the current catalog and the truth lives in the account record, which is exactly how a faithful, well retrieved answer about a fee can still be false and cost a real person money. Daniel's answer was grounded in the current plan page and false for the plan he was actually on.
+
+### Why is Atlas one agent instead of a system of many agents?
+
+Because designs with many agents buy coordination complexity you then have to test, and little capability you couldn't get from one well scoped agent. A single agent also sidesteps two of the OWASP Agentic Top 10 risks by construction: insecure communication between agents (ASI07) and most of cascading failures (ASI08). The interesting question was never how many models talk to each other, but what the one model is allowed to reach, and on which turn.
+
+### How does Atlas stop one customer from seeing another's data?
+
+Every read against the account and catalog servers is scoped to a `customer_id` that comes from the authenticated session, carried in the MCP bearer token rather than as a tool argument the model can fill in. The semantic cache keys customer specific answers per customer so it can never serve one person's bill to another, and the guard refuses to render any reply containing another customer's data. The failure to avoid is the Asana one, where a caching layer crossed the tenant boundary.
+
+### Where does the customer identity come from, and why does it matter?
+
+From the authenticated session, never from the model and never from the chat message. It rides out of band of every tool schema — in the OAuth 2.1 bearer token on the HTTP transport in dev and production, and in the call context on the transport the harness runs in the same process in tests. The moment whose account this is becomes something the model decides, you have handed an attacker a steering wheel, which is the confused deputy failure behind the Asana cross tenant incident.
+
+### Why fake every external system in CI?
+
+Because a test that depends on a live system reads a real person's bill and can move real money. Faked backends seeded with data for many customers let you attempt a thousand plan changes, and every adversarial variation of them, before lunch, with isolation and scope under test and nothing real at risk.
+
+## Sources
+
+- *Moffatt v. Air Canada*, 2024 BCCRT 149, [CanLII](https://www.canlii.org/en/bc/bccrt/doc/2024/2024bccrt149/2024bccrt149.html) (retrieved 2026-06-16)
+- LangChain, "Interrupts" (LangGraph human in the loop, `interrupt()` and `Command`), [docs.langchain.com](https://docs.langchain.com/oss/python/langgraph/interrupts) (retrieved 2026-06-16)
+- Model Context Protocol, "Authorization", [2025-06-18 revision](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization) (OAuth 2.1 resource servers, token passthrough prohibition) and [2025-11-25 revision](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization) (step up authorization) (retrieved 2026-06-16)
+- Auth0, "MCP Specs Update: All About Auth" (June 2025 spec, token passthrough prohibition, Resource Indicators), [auth0.com](https://auth0.com/blog/mcp-specs-update-all-about-auth/) (retrieved 2026-06-16)
+- OWASP GenAI Security Project, "Top 10 for LLM Applications (2025)", [genai.owasp.org](https://genai.owasp.org/llm-top-10/) (retrieved 2026-06-16)
+- OWASP GenAI Security Project, "Top 10 for Agentic Applications" (ASI01 to ASI10, December 2025), [genai.owasp.org](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/) (retrieved 2026-06-16)
+- Adversa AI, "Asana AI Incident: Comprehensive Lessons for CISOs", [adversa.ai](https://adversa.ai/blog/asana-ai-incident-comprehensive-lessons-learned-for-enterprise-security-and-ciso/) (retrieved 2026-06-16)
+- Noma Security, "ForcedLeak: AI Agent Risks Exposed in Salesforce Agentforce", [noma.security](https://noma.security/blog/forcedleak-agent-risks-exposed-in-salesforce-agentforce/) (retrieved 2026-06-16)
+- Cybernews, "Critical flaws plague Lenovo's chatbot Lena", [cybernews.com](https://cybernews.com/security/lenovo-chatbot-lena-plagued-by-critical-vulnerabilities/) (retrieved 2026-06-16)
+- Tom's Hardware, "AI coding agent deletes entire company database in 9 seconds" (PocketOS), [tomshardware.com](https://www.tomshardware.com/tech-industry/artificial-intelligence/claude-powered-ai-coding-agent-deletes-entire-company-database-in-9-seconds-backups-zapped-after-cursor-tool-powered-by-anthropics-claude-goes-rogue) (retrieved 2026-06-16)
+- "Incident 1442: Kiro AI Coding Tool Implicated in 13-Hour AWS Cost Explorer Outage", [AI Incident Database](https://incidentdatabase.ai/cite/1442/) (retrieved 2026-06-16)

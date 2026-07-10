@@ -82,6 +82,26 @@
   }
 }
 
+/* Shared sequenced reveal: a figure marked [data-stagger] builds its children
+ * in reading order once it enters view. Each child carries [data-stagger-item]
+ * and an inline `--d` delay. One definition replaces the per-component entrance
+ * keyframes the bespoke figures used to copy-paste. Opacity + a small lift only;
+ * no-JS and reduced-motion show every child immediately. */
+@media (prefers-reduced-motion: no-preference) {
+  .js [data-stagger].in-view [data-stagger-item] {
+    opacity: 0;
+    transform: translateY(6px);
+    animation: staggerItem var(--dur-3) var(--ease-out-quart) forwards;
+    animation-delay: var(--d, 0s);
+  }
+}
+@keyframes staggerItem {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Accordion panels (IncidentLedger rows, Foldable) ease their content in on
  * open. Height snaps (layout animation is avoided); the content slides. */
 @media (prefers-reduced-motion: no-preference) {

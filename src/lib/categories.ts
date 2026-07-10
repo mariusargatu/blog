@@ -11,10 +11,10 @@ export interface Category {
  */
 export const CATEGORIES: Category[] = [
   {
-    name: 'LLM Apps',
+    name: 'GenAI',
     icon: 'material-symbols:smart-toy-outline',
     accent: 'primary',
     blurb:
-      'Testing GenAI in production: RAG retrieval, evals vs tests, agentic trajectories, and the classical failures that hide behind a green dashboard.',
+      'Testing GenAI in production: RAG retrieval, evals vs tests, agentic trajectories, and the classical failures that hide behind a green dashboard. Grouped into hands-on series.',
   },
 ]

@@ -1,5 +1,6 @@
 ---
 import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
 
 // The article's failure cases as a scannable, expandable ledger: what the eval
 // "saw", what was actually true, the classical bug it really was, and which
@@ -67,12 +68,11 @@ const incidents: Incident[] = [
 ---
 
 <div class="not-prose my-10" data-inview>
-  <div
-    class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4 flex items-center gap-2"
-  >
-    <Icon name="material-symbols:format-list-bulleted" class="text-[16px]" />
-    Incident ledger: what evals missed
-  </div>
+  <DiagramLabel
+    icon="material-symbols:format-list-bulleted"
+    label="Incident ledger: what evals missed"
+    class="mb-4"
+  />
 
   <div class="flex flex-col gap-2">
     {

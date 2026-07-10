@@ -24,15 +24,23 @@ export function postUrl(id: string): string {
   return withBase(`blog/${id}/`)
 }
 
-/** Slug for a category display name, e.g. "LLM Apps" -> "llm-apps". */
-export function slugifyCategory(name: string): string {
+/** Slugify a display name, e.g. "GenAI" -> "genai", "LLM Apps" -> "llm-apps". */
+export function slugify(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
 }
 
+/** Back-compat alias for category slugs. */
+export const slugifyCategory = slugify
+
 /** URL for a category index page (namespaced under /blog). */
 export function categoryUrl(name: string): string {
-  return withBase(`blog/category/${slugifyCategory(name)}/`)
+  return withBase(`blog/category/${slugify(name)}/`)
+}
+
+/** URL for a series index page (namespaced under /blog). */
+export function seriesUrl(name: string): string {
+  return withBase(`blog/series/${slugify(name)}/`)
 }

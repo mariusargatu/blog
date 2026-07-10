@@ -1,0 +1,119 @@
+---
+import getReadingTime from 'reading-time'
+import { getCollection } from 'astro:content'
+import { Icon } from 'astro-icon/components'
+import DocsLayout from '../../../layouts/DocsLayout.astro'
+import { postUrl, slugify, categoryUrl } from '../../../lib/url'
+import {
+  allSeriesNames,
+  postsInSeries,
+  categoryOfSeries,
+  seriesBlurb,
+} from '../../../lib/series'
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) =>
+    import.meta.env.PROD ? !data.draft : true,
+  )
+  // One page per series that actually has posts; members ordered by part.
+  return allSeriesNames(posts).map((name) => ({
+    params: { series: slugify(name) },
+    props: {
+      name,
+      blurb: seriesBlurb(name),
+      parentCategory: categoryOfSeries(posts, name),
+      posts: postsInSeries(posts, name),
+    },
+  }))
+}
+
+const { name, blurb, parentCategory, posts } = Astro.props
+
+const fmt = (d: Date) =>
+  d
+    .toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    .toUpperCase()
+const minutes = (body?: string) =>
+  body ? Math.max(1, Math.round(getReadingTime(body).minutes)) : undefined
+---
+
+<DocsLayout
+  title={`${name} | Marius Argatu`}
+  description={blurb || `The ${name} series.`}
+  active={parentCategory}
+  activeSeries={name}
+>
+  {
+    parentCategory && (
+      <nav aria-label="Breadcrumb" class="mb-4">
+        <a
+          href={categoryUrl(parentCategory)}
+          class="inline-flex items-center gap-1 font-mono text-mono-xs uppercase tracking-wider text-text-muted hover:text-primary transition-colors"
+        >
+          <Icon name="material-symbols:arrow-left-alt" class="text-[16px]" />
+          {parentCategory}
+        </a>
+      </nav>
+    )
+  }
+
+  <div class="flex items-center gap-2 mb-4">
+    <span class="font-mono text-mono-label text-primary text-xs tracking-tighter"
+      >SERIES</span
+    >
+    <div class="h-px flex-1 bg-border-dark"></div>
+  </div>
+  <h1 class="font-sans text-display-xl-mobile md:text-display-xl text-text-primary mb-2">
+    {name}
+  </h1>
+  <p class="font-mono text-mono-xs text-text-muted mb-4">
+    {posts.length} part{posts.length === 1 ? '' : 's'}
+  </p>
+  {
+    blurb && (
+      <p class="text-body-md text-on-surface-variant max-w-2xl mb-section-gap">
+        {blurb}
+      </p>
+    )
+  }
+
+  <ol class="flex flex-col gap-component-gap list-none m-0 p-0">
+    {
+      posts.map((p, i) => (
+        <li>
+          <a
+            href={postUrl(p.id)}
+            class="group block border border-border-dark bg-surface rounded-lg p-6 md:p-8 hover:border-primary/50 transition-colors"
+          >
+            <div class="flex items-center gap-3 mb-3 font-mono text-mono-xs uppercase tracking-wider text-primary">
+              <span>Part {p.data.series?.order ?? i + 1}</span>
+              <span aria-hidden="true" class="text-text-muted">
+                ·
+              </span>
+              <span class="text-text-muted">{p.data.kicker}</span>
+            </div>
+            <h2 class="font-sans text-headline-md text-text-primary leading-tight group-hover:text-primary transition-colors">
+              {p.data.title}
+            </h2>
+            <p class="text-body-md text-text-muted mt-3 max-w-2xl">
+              {p.data.description}
+            </p>
+            <div class="flex items-center gap-3 mt-5 font-mono text-mono-xs uppercase tracking-wider text-text-muted">
+              <span>{fmt(p.data.pubDate)}</span>
+              {minutes(p.body) && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{minutes(p.body)} min read</span>
+                </>
+              )}
+              <Icon
+                name="material-symbols:arrow-right-alt"
+                class="text-[18px] text-primary ml-1 transition-transform group-hover:translate-x-1"
+              />
+            </div>
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+</DocsLayout>

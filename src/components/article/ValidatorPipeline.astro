@@ -1,5 +1,6 @@
 ---
 import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
 
 // Pattern 2 made tangible: an LLM output runs through deterministic validators
 // before it ships. Toggle a benign answer vs a malicious (Lenovo-style XSS)
@@ -17,10 +18,7 @@ const gates = [
   data-vp
 >
   <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
-    <span class="font-mono text-mono-xs text-primary uppercase tracking-widest flex items-center gap-2">
-      <Icon name="material-symbols:security" class="text-[16px]" />
-      Defense in depth: validate before ship
-    </span>
+    <DiagramLabel icon="material-symbols:security" label="Defense in depth: validate before ship" />
     <div class="flex items-center gap-1 border border-border-dark p-0.5">
       <button type="button" data-vp-mode="benign" class="vp-tab vp-tab-on" aria-pressed="true">Benign</button>
       <button type="button" data-vp-mode="malicious" class="vp-tab" aria-pressed="false">Malicious (XSS)</button>

@@ -4,8 +4,9 @@ import { getCollection } from 'astro:content'
 import { Icon } from 'astro-icon/components'
 import BaseLayout from '../../layouts/BaseLayout.astro'
 import CategorySection from '../../components/home/CategorySection.astro'
-import { postUrl, categoryUrl, withBase } from '../../lib/url'
+import { postUrl, categoryUrl, seriesUrl, withBase } from '../../lib/url'
 import { CATEGORIES } from '../../lib/categories'
+import { seriesNamesInCategory } from '../../lib/series'
 
 const email = 'mailto:contact@mariusargatu.com'
 const linkedin = 'https://www.linkedin.com/in/mariusargatu'
@@ -36,6 +37,10 @@ const sections = CATEGORIES.map((category, i) => ({
   name: category.name,
   accent: category.accent,
   viewAllHref: categoryUrl(category.name),
+  series: seriesNamesInCategory(posts, category.name).map((name) => ({
+    name,
+    href: seriesUrl(name),
+  })),
   posts: posts
     .filter((p) => p.data.topic === category.name)
     .sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime())
@@ -110,6 +115,7 @@ const ctaGhost =
               name={s.name}
               accent={s.accent}
               viewAllHref={s.viewAllHref}
+              series={s.series}
               posts={s.posts}
             />
           ))}

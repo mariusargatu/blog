@@ -1,5 +1,6 @@
 ---
 import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
 
 // Animated walkthrough of a Crescendo-style multi-turn attack: each turn passes
 // the single-turn eval, while a cumulative trajectory-risk meter climbs to a
@@ -21,10 +22,7 @@ const turns = [
   <div
     class="flex flex-wrap items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark"
   >
-    <span class="font-mono text-mono-xs text-primary uppercase tracking-widest flex items-center gap-2">
-      <Icon name="material-symbols:trending-up" class="text-[16px]" />
-      Crescendo · trajectory attack
-    </span>
+    <DiagramLabel icon="material-symbols:trending-up" label="Crescendo · trajectory attack" />
     <div class="flex items-center gap-2">
       <button type="button" data-cre-play class="cre-btn" aria-pressed="false">
         <Icon name="material-symbols:play-arrow" class="cre-ic-play text-[16px]" />

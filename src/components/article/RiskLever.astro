@@ -1,5 +1,6 @@
 ---
 import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
 
 // Architecture as a lever: drag the LLM from "presentation layer over canonical
 // facts" to "authoritative voice" and watch the blast radius and the required
@@ -11,8 +12,8 @@ const scaleFor = (v: number) => (40 + v * 1.1) / 160
 ---
 
 <div class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-6 md:p-8" data-rl data-tier="low">
-  <div class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-6 flex items-center gap-2">
-    <span>Architecture lever: where the LLM sits</span>
+  <div class="mb-6 flex items-center gap-2">
+    <DiagramLabel label="Architecture lever: where the LLM sits" />
     <div class="h-px flex-1 bg-border-dark"></div>
   </div>
 

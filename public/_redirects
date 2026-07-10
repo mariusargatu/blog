@@ -1,3 +1,6 @@
 # Cloudflare Pages redirects. https://developers.cloudflare.com/pages/configuration/redirects/
 # The site root has no page of its own; send it to the blog landing.
 / /blog 301
+
+# Category renamed: LLM Apps -> GenAI.
+/blog/category/llm-apps/ /blog/category/genai/ 301

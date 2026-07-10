@@ -1,0 +1,343 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+import Tag from './Tag.astro'
+
+// The full architecture, drawn for a Staff SDET or a CTO who has to decide
+// whether this is testable before signing off on it. Two views on one diagram:
+//   Runtime    the request path, the trust boundary, the capability tier, the
+//              systems of record. What ships.
+//   Test points the same diagram with the four places the harness hooks in made
+//              explicit: the model gateway (record / replay), the seeded fakes
+//              behind every MCP server, the per-customer cache key, and the
+//              trace export the assertions read from.
+// The toggle is the point: the system is the same, the test view just shows
+// where you cut it open. Static layout, one piece of state, keyboard reachable.
+
+const nodes = ['retrieve', 'read', 'decide', 'act', 'reply']
+
+const servers = [
+  {
+    key: 'knowledge',
+    name: 'Knowledge MCP',
+    proto: 'MCP · read scope',
+    detail: 'RAG over help docs, vector + graph',
+    access: 'READ' as const,
+    store: 'Vector index + relation graph',
+    accent: false,
+  },
+  {
+    key: 'oracle',
+    name: 'Account + catalog MCP',
+    proto: 'MCP · OAuth 2.1 · read scope',
+    detail: 'the oracle, source of truth',
+    access: 'READ' as const,
+    store: 'Account store · catalog store',
+    accent: false,
+  },
+  {
+    key: 'actions',
+    name: 'Actions MCP',
+    proto: 'MCP · OAuth 2.1 · step-up write scope',
+    detail: 'the only writer',
+    access: 'WRITE' as const,
+    store: 'Account store (mutations)',
+    accent: true,
+  },
+]
+---
+
+<div
+  class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden"
+  data-arch
+>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:account-tree-outline" label="Atlas, end to end" />
+    <div class="flex items-center gap-1 border border-border-dark p-0.5" role="group" aria-label="Diagram view">
+      <button type="button" data-arch-view="runtime" class="arch-tab arch-tab-on" aria-pressed="true">Runtime</button>
+      <button type="button" data-arch-view="seams" class="arch-tab" aria-pressed="false">Test points</button>
+    </div>
+  </div>
+
+  <div class="p-5 flex flex-col gap-0">
+    {/* tier 1: client, untrusted */}
+    <div class="arch-tier">
+      <span class="arch-tier-tag">CLIENT</span>
+      <div class="flex-1 flex flex-wrap items-center gap-3">
+        <div class="arch-box flex-1 min-w-[12rem]">
+          <span class="arch-box-h"><Icon name="material-symbols:chat-outline" class="text-[15px]" />Authenticated web chat</span>
+          <span class="arch-box-sub">session established · identity fixed here</span>
+        </div>
+        <div class="arch-id">
+          <Icon name="material-symbols:badge-outline" class="text-[14px]" />
+          customer_id in MCP call context, never a tool argument
+        </div>
+      </div>
+    </div>
+
+    {/* trust boundary */}
+    <div class="arch-boundary" role="separator">
+      <span class="arch-boundary-label">
+        <Icon name="material-symbols:shield-lock-outline" class="text-[14px]" />
+        trust boundary · everything the model emits is untrusted below this line
+      </span>
+    </div>
+
+    {/* tier 2: guard + agent runtime */}
+    <div class="arch-tier items-stretch">
+      <span class="arch-tier-tag">RUNTIME</span>
+      <div class="flex-1">
+        <div class="arch-guard">
+          <span class="arch-guard-tab">
+            <Icon name="material-symbols:security" class="text-[13px]" />
+            Guard · fail-closed · gates every action and every render
+          </span>
+          <div class="arch-core">
+            <span class="arch-box-h"><Icon name="material-symbols:hub-outline" class="text-[15px]" />Agent core · LangGraph StateGraph</span>
+            <div class="mt-2 flex flex-wrap items-center gap-1.5">
+              {
+                nodes.map((n, i) => (
+                  <>
+                    {i > 0 && <Icon name="material-symbols:chevron-right" class="text-text-muted text-[14px]" />}
+                    <span class:list={['arch-node', n === 'decide' && 'arch-node-nd']} data-node={n}>
+                      {n}
+                      {n === 'decide' && <span class="arch-nd-mark">model · nondeterministic</span>}
+                    </span>
+                  </>
+                ))
+              }
+            </div>
+            <div class="mt-2 flex flex-wrap gap-1.5">
+              <span class="arch-chip">semantic cache · key includes customer_id</span>
+              <span class="arch-chip">interrupt() · human confirm before any write</span>
+            </div>
+
+            {/* seam: model gateway, on the decide node */}
+            <div class="arch-seam" data-seam>
+              <Icon name="material-symbols:cable" class="text-[14px]" />
+              <span><b>test point:</b> model gateway records every call on <code>decide</code> and replays it. One nondeterministic node, pinned.</span>
+            </div>
+            {/* seam: cache key */}
+            <div class="arch-seam" data-seam>
+              <Icon name="material-symbols:key-outline" class="text-[14px]" />
+              <span><b>test point:</b> assert the cache key is per-customer, so a cached bill never crosses customers.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* connector */}
+    <div class="arch-flow">
+      <Icon name="material-symbols:arrow-downward" class="text-[16px]" />
+      <span>bound per intent · a read-only turn never holds a write capability</span>
+    </div>
+
+    {/* tier 3: capability layer */}
+    <div class="arch-tier items-stretch">
+      <span class="arch-tier-tag">CAPABILITY</span>
+      <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {
+          servers.map((s) => (
+            <div class:list={['arch-mcp', s.accent && 'arch-mcp-write']} data-mcp={s.key}>
+              <div class="flex items-center justify-between gap-2">
+                <Icon name="material-symbols:dns-outline" class:list={['text-[16px]', s.accent ? 'text-primary' : 'text-text-muted']} />
+                <Tag label={s.access} variant={s.accent ? 'solid' : 'neutral'} />
+              </div>
+              <span class="arch-box-h mt-1">{s.name}</span>
+              <span class="arch-box-sub">{s.detail}</span>
+              <span class="arch-proto">{s.proto}</span>
+              <div class="arch-store">
+                <Icon name="material-symbols:database-outline" class="text-[13px]" />
+                {s.store}
+              </div>
+              <div class="arch-seam" data-seam>
+                <Icon name="material-symbols:swap-horiz" class="text-[14px]" />
+                <span><b>test point:</b> seeded fake, multi-customer data, no real account touched.</span>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+
+    {/* trace rail */}
+    <div class="arch-trace" data-seam-rail>
+      <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider inline-flex items-center gap-1.5">
+        <Icon name="material-symbols:lab-profile-outline" class="text-[15px]" />
+        Trace · every node, tool call, argument, and guard verdict, recorded as the run executes
+      </span>
+      <div class="arch-seam mt-1" data-seam>
+        <Icon name="material-symbols:rule" class="text-[14px]" />
+        <span><b>test point:</b> trajectory assertions read this trace. You cannot assert on a path you did not record.</span>
+      </div>
+    </div>
+
+    <p class="arch-legend" data-legend aria-live="polite"></p>
+  </div>
+</div>
+
+<style is:global>
+  [data-arch] .arch-tab {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    padding: 0.2rem 0.8rem;
+    transition: all 0.2s ease;
+  }
+  [data-arch] .arch-tab-on { background: var(--color-primary); color: var(--color-on-primary); }
+  [data-arch] .arch-tab:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+  /* tier scaffold */
+  [data-arch] .arch-tier { display: flex; gap: 0.75rem; align-items: center; }
+  [data-arch] .arch-tier-tag {
+    flex: 0 0 auto; width: 5.25rem;
+    font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--color-text-muted);
+    padding-top: 0.85rem;
+  }
+  @media (max-width: 640px) {
+    [data-arch] .arch-tier { flex-direction: column; align-items: stretch; gap: 0.35rem; }
+    [data-arch] .arch-tier-tag { width: auto; padding-top: 0; }
+  }
+  [data-arch] .arch-box {
+    display: flex; flex-direction: column; gap: 0.15rem;
+    border: 1px solid var(--color-border-dark); border-radius: var(--radius);
+    background: var(--color-surface-container-low); padding: 0.7rem 0.9rem;
+  }
+  [data-arch] .arch-box-h {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    color: var(--color-text-primary); font-weight: 500; font-size: 0.9rem;
+  }
+  [data-arch] .arch-box-sub { font-family: var(--font-mono); font-size: 0.7rem; color: var(--color-text-muted); }
+  [data-arch] .arch-id {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--color-text-muted);
+    border: 1px dashed var(--color-border-dark); border-radius: 999px; padding: 0.3rem 0.7rem;
+  }
+
+  /* trust boundary */
+  [data-arch] .arch-boundary {
+    margin: 0.5rem 0 0.5rem 6rem; border-top: 1px dashed color-mix(in srgb, var(--color-error) 45%, transparent);
+    position: relative;
+  }
+  @media (max-width: 640px) { [data-arch] .arch-boundary { margin-left: 0; } }
+  [data-arch] .arch-boundary-label {
+    position: relative; top: -0.7rem; display: inline-flex; align-items: center; gap: 0.4rem;
+    background: var(--color-surface); padding-right: 0.6rem;
+    font-family: var(--font-mono); font-size: 0.68rem; color: color-mix(in srgb, var(--color-error) 80%, var(--color-text-muted));
+  }
+
+  /* guard membrane + core */
+  [data-arch] .arch-guard {
+    position: relative; border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+    border-radius: 0.6rem; padding: 1.3rem 0.8rem 0.8rem;
+  }
+  [data-arch] .arch-guard-tab {
+    position: absolute; top: -0.7rem; left: 0.8rem; display: inline-flex; align-items: center; gap: 0.35rem;
+    background: var(--color-surface); border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+    border-radius: 999px; padding: 0.15rem 0.6rem; white-space: nowrap;
+    font-family: var(--font-mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--color-primary);
+  }
+  [data-arch] .arch-core {
+    border: 1px solid var(--color-border-dark); background: var(--color-surface);
+    border-radius: var(--radius); padding: 0.7rem 0.9rem;
+  }
+  [data-arch] .arch-node {
+    position: relative; font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-text-muted);
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.25rem 0.55rem;
+  }
+  [data-arch] .arch-node-nd { color: var(--color-text-primary); border-color: color-mix(in srgb, var(--color-primary) 45%, transparent); }
+  [data-arch] .arch-nd-mark {
+    display: block; font-size: 0.6rem; color: var(--color-primary); margin-top: 0.1rem; letter-spacing: 0.02em;
+  }
+  [data-arch] .arch-chip {
+    font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-muted);
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.15rem 0.5rem;
+  }
+
+  /* flow connectors */
+  [data-arch] .arch-flow {
+    display: flex; align-items: center; gap: 0.5rem; margin: 0.6rem 0 0.6rem 6rem;
+    color: var(--color-text-muted); font-family: var(--font-mono); font-size: 0.68rem;
+  }
+  @media (max-width: 640px) { [data-arch] .arch-flow { margin-left: 0; } }
+
+  /* mcp cards */
+  [data-arch] .arch-mcp {
+    display: flex; flex-direction: column; gap: 0.15rem;
+    border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
+    border-radius: var(--radius); padding: 0.7rem 0.8rem;
+  }
+  [data-arch] .arch-mcp-write { border-color: color-mix(in srgb, var(--color-primary) 55%, transparent); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+  [data-arch] .arch-proto { font-family: var(--font-mono); font-size: 0.64rem; color: var(--color-primary); margin-top: 0.15rem; }
+  [data-arch] .arch-store {
+    display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.4rem;
+    font-family: var(--font-mono); font-size: 0.64rem; color: var(--color-text-muted);
+    border-top: 1px solid var(--color-border-dark); padding-top: 0.4rem;
+  }
+
+  /* trace rail */
+  [data-arch] .arch-trace {
+    margin: 0.6rem 0 0; border: 1px dashed var(--color-border-dark);
+    background: var(--color-surface-container-low); border-radius: var(--radius); padding: 0.7rem 0.9rem;
+  }
+
+  /* seams: hidden in runtime view, revealed in test-seams view */
+  [data-arch] .arch-seam {
+    display: none; align-items: flex-start; gap: 0.4rem; margin-top: 0.5rem;
+    font-family: var(--font-mono); font-size: 0.68rem; line-height: 1.5;
+    color: color-mix(in srgb, var(--color-primary) 90%, var(--color-text-primary));
+    border-left: none; border-top: 1px dashed color-mix(in srgb, var(--color-primary) 35%, transparent);
+    padding-top: 0.5rem;
+  }
+  [data-arch] .arch-seam code { font-size: 0.92em; }
+  [data-arch].seams .arch-seam { display: flex; }
+  [data-arch].seams .arch-node-nd { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 25%, transparent); }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-arch] .arch-seam { transition: opacity var(--dur-2) var(--ease-out-quart); }
+    [data-arch]:not(.seams) .arch-seam { opacity: 0; }
+    [data-arch].seams .arch-seam { opacity: 1; }
+  }
+  [data-arch] .arch-legend {
+    margin: 0.9rem 0 0; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.6;
+    color: var(--color-text-muted);
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-arch]')
+  if (root) {
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-arch-view]')]
+    const legend = root.querySelector<HTMLElement>('[data-legend]')!
+    const RUNTIME = 'What ships: the request path, the trust boundary, the capability tier bound per intent, and the systems of record behind it.'
+    const SEAMS =
+      'Four test points the harness hooks into: the model gateway pins the one nondeterministic node, seeded fakes stand in for every backend, the cache key is asserted per customer, and the trace is what trajectory tests read.'
+
+    const view = (v: string) => {
+      root.classList.toggle('seams', v === 'seams')
+      legend.textContent = v === 'seams' ? SEAMS : RUNTIME
+    }
+
+    tabs.forEach((tab) =>
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => {
+          t.classList.remove('arch-tab-on')
+          t.setAttribute('aria-pressed', 'false')
+        })
+        tab.classList.add('arch-tab-on')
+        tab.setAttribute('aria-pressed', 'true')
+        view(tab.dataset.archView!)
+      }),
+    )
+
+    view('runtime')
+  }
+</script>

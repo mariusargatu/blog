@@ -1,0 +1,68 @@
+---
+import DiagramLabel from './DiagramLabel.astro'
+
+// The shared shell for the static explainer figures (RagGap, CoverageGap,
+// SystemMap, TurnTrace). Owns the parts every one repeated verbatim: the
+// not-prose bordered figure, the mono kicker label, the bordered-top closing
+// note, the `data-inview` entrance, and the accessibility contract.
+//
+// Accessibility (the P1 fix, in one place): the decorative visual tree lives
+// inside a `role="img"` wrapper carrying the full text alternative, while the
+// figcaption and the closing note stay OUTSIDE it as real, announced text. A
+// screen reader hears: the caption, then the diagram's text alternative, then
+// the closing note, instead of the figcaption and note being swallowed.
+//
+// The bespoke body is the default slot. The closing note is the optional
+// `note` slot (rich content allowed). Sequenced reveal is opt-in via
+// `[data-stagger]` on this figure plus `[data-stagger-item]` on children
+// (see the shared keyframes in base.css).
+interface Props {
+  /** Mono kicker text shown as the figcaption. */
+  label: string
+  /** Optional leading icon for the kicker. */
+  icon?: string
+  /** Full text alternative for the decorative visual (read by assistive tech). */
+  ariaLabel: string
+  /** Turn on the shared sequenced-reveal keyframes for children. */
+  stagger?: boolean
+  /** Extra classes on the figure. */
+  class?: string
+  /** Pass-through for data-* hooks used by a component's own scoped styles. */
+  [attr: `data-${string}`]: string | undefined
+}
+const {
+  label,
+  icon,
+  ariaLabel,
+  stagger = false,
+  class: className = '',
+  ...rest
+} = Astro.props
+const hasNote = Astro.slots.has('note')
+---
+
+<figure
+  class:list={[
+    'not-prose my-10 border border-border-dark bg-surface rounded-lg p-6 md:p-8',
+    className,
+  ]}
+  data-inview
+  data-stagger={stagger ? '' : undefined}
+  {...rest}
+>
+  <figcaption class="mb-6">
+    <DiagramLabel label={label} icon={icon} />
+  </figcaption>
+
+  <div role="img" aria-label={ariaLabel}>
+    <slot />
+  </div>
+
+  {
+    hasNote && (
+      <p class="m-0 mt-5 pt-4 border-t border-border-dark font-mono text-mono-xs text-text-muted leading-relaxed">
+        <slot name="note" />
+      </p>
+    )
+  }
+</figure>

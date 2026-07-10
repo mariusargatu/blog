@@ -1,14 +1,15 @@
 ---
+import DiagramFigure from './DiagramFigure.astro'
+
 // Pattern 5: the disconnect between the failures you built evals for and the
 // failures that actually happen. Two sets slide together on scroll; the
-// uncovered "blind spot" pulses — what only reading real transcripts reveals.
+// uncovered "blind spot" pulses, what only reading real transcripts reveals.
+
+const ariaLabel =
+  'Two overlapping sets. One is what you tested for; the other is what happens in production. Their intersection, labelled "evals catch", is the only region your dashboard covers. The rest of the production set is the blind spot: the unknown unknowns that only reading real transcripts reveals, and that no eval set anticipated.'
 ---
 
-<figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-6 md:p-8" data-inview data-cg>
-  <figcaption class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-6">
-    What your eval set misses
-  </figcaption>
-
+<DiagramFigure label="What your eval set misses" ariaLabel={ariaLabel} data-cg>
   <div class="relative flex items-center justify-center h-52 md:h-64 select-none">
     <div class="cg-circle cg-a flex items-center justify-center text-center">
       <span class="font-mono text-mono-xs text-primary leading-tight mr-12 md:mr-16">
@@ -21,13 +22,13 @@
       </span>
     </div>
 
-    <!-- the intersection: the only region evals actually cover -->
+    {/* the intersection: the only region evals actually cover */}
     <span class="cg-overlap absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-mono text-mono-xs text-text-muted text-center leading-tight">
       evals<br />catch
     </span>
   </div>
 
-  <!-- blind-spot legend, below the figure so it never overlaps the lobes -->
+  {/* blind-spot legend, below the figure so it never overlaps the lobes */}
   <div class="cg-blind mt-5 flex items-start gap-2">
     <span class="cg-dot mt-1 w-2.5 h-2.5 rounded-full bg-error shrink-0"></span>
     <span class="font-mono text-mono-xs text-error uppercase tracking-wider">
@@ -35,11 +36,11 @@
     </span>
   </div>
 
-  <p class="m-0 mt-4 font-mono text-mono-xs text-text-muted leading-relaxed">
+  <Fragment slot="note">
     The overlap is what your dashboard catches. The rest is what reading real
     production transcripts surfaces, and what no eval set anticipated.
-  </p>
-</figure>
+  </Fragment>
+</DiagramFigure>
 
 <style is:global>
   [data-cg] .cg-circle {

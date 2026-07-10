@@ -1,0 +1,99 @@
+---
+import { Icon } from 'astro-icon/components'
+
+interface Part {
+  href: string
+  title: string
+  order: number
+  isCurrent: boolean
+}
+
+export interface SeriesNavData {
+  name: string
+  href: string
+  current: number
+  total: number
+  parts: Part[]
+  prev?: { href: string; title: string }
+  next?: { href: string; title: string }
+}
+
+type Props = SeriesNavData
+
+const { name, href, current, total, parts, prev, next } = Astro.props
+---
+
+<aside
+  class="not-prose mb-12 border border-border-dark bg-surface rounded-lg p-5 md:p-6"
+  aria-label={`Series: ${name}`}
+>
+  <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+    <a
+      href={href}
+      class="group inline-flex items-center gap-2 font-mono text-mono-xs uppercase tracking-widest text-primary hover:underline"
+    >
+      <Icon name="material-symbols:stacks-outline" class="text-[16px]" />
+      <span>{name}</span>
+    </a>
+    <span class="font-mono text-mono-xs uppercase tracking-wider text-text-muted">
+      Part {current} of {total}
+    </span>
+  </div>
+
+  <ol class="flex flex-col gap-1 list-none m-0 p-0">
+    {
+      parts.map((p) => (
+        <li>
+          {p.isCurrent ? (
+            <span
+              aria-current="true"
+              class="flex items-start gap-3 rounded-sm bg-surface-hover px-3 py-2 text-text-primary font-medium"
+            >
+              <span class="font-mono text-mono-xs text-primary shrink-0 pt-0.5">
+                {String(p.order).padStart(2, '0')}
+              </span>
+              <span>{p.title}</span>
+            </span>
+          ) : (
+            <a
+              href={p.href}
+              class="group flex items-start gap-3 rounded-sm px-3 py-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+            >
+              <span class="font-mono text-mono-xs text-text-muted group-hover:text-primary shrink-0 pt-0.5">
+                {String(p.order).padStart(2, '0')}
+              </span>
+              <span>{p.title}</span>
+            </a>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+
+  {
+    (prev || next) && (
+      <div class="flex items-center justify-between gap-4 mt-4 pt-4 border-t border-border-dark/60 font-mono text-mono-xs">
+        {prev ? (
+          <a
+            href={prev.href}
+            class="inline-flex items-center gap-1 text-text-muted hover:text-primary transition-colors min-w-0"
+          >
+            <Icon name="material-symbols:arrow-left-alt" class="text-[16px] shrink-0" />
+            <span class="truncate">{prev.title}</span>
+          </a>
+        ) : (
+          <span />
+        )}
+        {next && (
+          <a
+            href={next.href}
+            class="inline-flex items-center gap-1 text-text-muted hover:text-primary transition-colors min-w-0 text-right ml-auto"
+          >
+            <span class="truncate">{next.title}</span>
+            <Icon name="material-symbols:arrow-right-alt" class="text-[16px] shrink-0" />
+          </a>
+        )}
+      </div>
+    )
+  }
+</aside>

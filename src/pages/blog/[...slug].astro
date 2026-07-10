@@ -2,7 +2,8 @@
 import { getCollection, render } from 'astro:content'
 import ArticleLayout from '../../layouts/ArticleLayout.astro'
 import { mdxComponents } from '../../components/mdx'
-import { postUrl } from '../../lib/url'
+import { postUrl, seriesUrl } from '../../lib/url'
+import { postsInSeries } from '../../lib/series'
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog', ({ data }) =>
@@ -18,20 +19,58 @@ export async function getStaticPaths() {
       title: p.data.title,
       kicker: p.data.kicker,
     })
-    // Same-topic first, then backfill with the most recent other posts.
+
+    // In-article series navigator: ordered parts + prev/next, when the post
+    // belongs to a series.
+    const seriesName = post.data.series?.name
+    const members = seriesName ? postsInSeries(posts, seriesName) : []
+    const idx = members.findIndex((p) => p.id === post.id)
+    const series =
+      seriesName && idx !== -1
+        ? {
+            name: seriesName,
+            href: seriesUrl(seriesName),
+            current: idx + 1,
+            total: members.length,
+            parts: members.map((p) => ({
+              href: postUrl(p.id),
+              title: p.data.title,
+              order: p.data.series?.order ?? 0,
+              isCurrent: p.id === post.id,
+            })),
+            prev:
+              idx > 0
+                ? { href: postUrl(members[idx - 1].id), title: members[idx - 1].data.title }
+                : undefined,
+            next:
+              idx < members.length - 1
+                ? { href: postUrl(members[idx + 1].id), title: members[idx + 1].data.title }
+                : undefined,
+          }
+        : undefined
+
+    // Related: same-series first, then same-topic, then most recent others.
+    // Dedup by id preserves that priority order without double-counting.
+    const sameSeries = seriesName
+      ? byDate.filter((p) => p.id !== post.id && p.data.series?.name === seriesName)
+      : []
     const sameTopic = byDate.filter(
       (p) => p.id !== post.id && p.data.topic === post.data.topic,
     )
     const others = byDate.filter(
       (p) => p.id !== post.id && p.data.topic !== post.data.topic,
     )
-    const related = [...sameTopic, ...others].slice(0, 2).map(toCard)
+    const seen = new Set<string>()
+    const related = [...sameSeries, ...sameTopic, ...others]
+      .filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
+      .slice(0, 2)
+      .map(toCard)
 
-    return { params: { slug: post.id }, props: { post, related } }
+    return { params: { slug: post.id }, props: { post, related, series } }
   })
 }
 
-const { post, related } = Astro.props
+const { post, related, series } = Astro.props
 const { Content, headings, remarkPluginFrontmatter } = await render(post)
 const minutesRead = remarkPluginFrontmatter.minutesRead as number | undefined
 ---
@@ -50,7 +89,9 @@ const minutesRead = remarkPluginFrontmatter.minutesRead as number | undefined
   headings={headings}
   related={related}
   topic={post.data.topic}
+  series={series}
   faq={post.data.faq}
+  ctaNote={post.data.ctaNote}
 >
   <Content components={mdxComponents} />
 </ArticleLayout>

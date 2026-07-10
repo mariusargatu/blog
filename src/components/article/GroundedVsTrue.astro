@@ -1,0 +1,219 @@
+---
+import DiagramLabel from './DiagramLabel.astro'
+
+// Daniel's fee, made switchable. The same question, answered from two sources.
+// Grounded stays green either way (the answer is always faithful to whatever it
+// was given). Truth flips: faithful to the catalogue page, it is false for the
+// plan he is actually on, and a real fee follows. The control is the source the
+// answer is drawn from; the verdicts and the outcome follow from it.
+
+const sources = [
+  {
+    key: 'catalog',
+    label: 'Catalog page',
+    icon: 'material-symbols:description-outline',
+    answer: '“Your plan is contract-free. Cancel any time, no fee.”',
+    grounded: true,
+    groundedWhy: 'faithful to the current plan page it retrieved',
+    trueVal: false,
+    trueWhy: 'his account is on last year’s plan, a 12-month term',
+    outcome: 'He cancels. A $180 early-termination fee lands on his next bill.',
+    outcomeSafe: false,
+  },
+  {
+    key: 'account',
+    label: 'Account record',
+    icon: 'material-symbols:database-outline',
+    answer: '“Your plan has a 12-month term, ending 14 Aug. Leaving early costs $180.”',
+    grounded: true,
+    groundedWhy: 'faithful to the term on his account record',
+    trueVal: true,
+    trueWhy: 'it reads the plan he is actually on',
+    outcome: 'He waits three weeks for the term to end. No fee.',
+    outcomeSafe: true,
+  },
+]
+const initial = sources[0]
+const data = JSON.stringify(Object.fromEntries(sources.map((s) => [s.key, s])))
+---
+
+<div
+  class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden"
+  data-gt
+  data-sources={data}
+>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:rule" label="Grounded is not true" />
+    <div class="flex items-center gap-1 border border-border-dark p-0.5" role="group" aria-label="Where the answer is drawn from">
+      {
+        sources.map((s, i) => (
+          <button
+            type="button"
+            data-gt-src={s.key}
+            class:list={['gt-tab', i === 0 && 'gt-tab-on']}
+            aria-pressed={i === 0 ? 'true' : 'false'}
+          >
+            {s.label}
+          </button>
+        ))
+      }
+    </div>
+  </div>
+
+  <div class="p-5">
+    <p class="m-0 font-mono text-mono-xs text-text-muted uppercase tracking-wider">
+      Daniel asks: is my plan contract-free?
+    </p>
+
+    <blockquote
+      class="gt-answer m-0 mt-3 rounded border border-border-dark bg-surface-container-low px-4 py-3 text-sm text-text-primary"
+      data-gt-answer
+    >
+      {initial.answer}
+    </blockquote>
+
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="gt-verdict rounded border px-4 py-3" data-gt-card="grounded">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-mono text-mono-xs uppercase tracking-wider text-text-muted">Grounded</span>
+          <span class="gt-mark font-mono text-sm" data-gt-mark="grounded" aria-hidden="true"></span>
+        </div>
+        <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed" data-gt-why="grounded"></p>
+      </div>
+      <div class="gt-verdict rounded border px-4 py-3" data-gt-card="true">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-mono text-mono-xs uppercase tracking-wider text-text-muted">True</span>
+          <span class="gt-mark font-mono text-sm" data-gt-mark="true" aria-hidden="true"></span>
+        </div>
+        <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed" data-gt-why="true"></p>
+      </div>
+    </div>
+
+    <p
+      class="gt-outcome m-0 mt-4 flex items-start gap-2 rounded border px-4 py-3 font-mono text-mono-xs leading-relaxed"
+      data-gt-outcome
+      aria-live="polite"
+    >
+      <span data-gt-outcome-text>{initial.outcome}</span>
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-gt] .gt-tab {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    padding: 0.2rem 0.8rem;
+    transition: all 0.2s ease;
+  }
+  [data-gt] .gt-tab-on {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  [data-gt] .gt-tab:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  [data-gt] .gt-verdict {
+    border-color: var(--color-border-dark);
+    transition: border-color 0.25s ease, background-color 0.25s ease;
+  }
+  [data-gt] .gt-verdict.ok {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
+  }
+  [data-gt] .gt-verdict.ok .gt-mark {
+    color: var(--color-success);
+  }
+  [data-gt] .gt-verdict.bad {
+    border-color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 9%, transparent);
+  }
+  [data-gt] .gt-verdict.bad .gt-mark {
+    color: var(--color-error);
+  }
+  [data-gt] .gt-outcome {
+    border-color: var(--color-border-dark);
+    color: var(--color-text-muted);
+    transition: border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
+  }
+  [data-gt] .gt-outcome.safe {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
+    color: var(--color-text-primary);
+  }
+  [data-gt] .gt-outcome.harm {
+    border-color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 9%, transparent);
+    color: var(--color-text-primary);
+  }
+</style>
+
+<script>
+  type Src = {
+    answer: string
+    grounded: boolean
+    groundedWhy: string
+    trueVal: boolean
+    trueWhy: string
+    outcome: string
+    outcomeSafe: boolean
+  }
+  const root = document.querySelector<HTMLElement>('[data-gt]')
+  if (root) {
+    const sources: Record<string, Src> = JSON.parse(root.dataset.sources || '{}')
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-gt-src]')]
+    const answer = root.querySelector<HTMLElement>('[data-gt-answer]')!
+    const cards = {
+      grounded: root.querySelector<HTMLElement>('[data-gt-card="grounded"]')!,
+      true: root.querySelector<HTMLElement>('[data-gt-card="true"]')!,
+    }
+    const marks = {
+      grounded: root.querySelector<HTMLElement>('[data-gt-mark="grounded"]')!,
+      true: root.querySelector<HTMLElement>('[data-gt-mark="true"]')!,
+    }
+    const whys = {
+      grounded: root.querySelector<HTMLElement>('[data-gt-why="grounded"]')!,
+      true: root.querySelector<HTMLElement>('[data-gt-why="true"]')!,
+    }
+    const outcome = root.querySelector<HTMLElement>('[data-gt-outcome]')!
+    const outcomeText = root.querySelector<HTMLElement>('[data-gt-outcome-text]')!
+
+    const setCard = (el: HTMLElement, mark: HTMLElement, ok: boolean) => {
+      el.classList.toggle('ok', ok)
+      el.classList.toggle('bad', !ok)
+      mark.textContent = ok ? '✓ yes' : '✗ no'
+    }
+
+    const apply = (key: string) => {
+      const s = sources[key]
+      if (!s) return
+      answer.textContent = s.answer
+      setCard(cards.grounded, marks.grounded, s.grounded)
+      setCard(cards.true, marks.true, s.trueVal)
+      whys.grounded.textContent = s.groundedWhy
+      whys.true.textContent = s.trueWhy
+      outcomeText.textContent = s.outcome
+      outcome.classList.toggle('safe', s.outcomeSafe)
+      outcome.classList.toggle('harm', !s.outcomeSafe)
+    }
+
+    tabs.forEach((tab) =>
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => {
+          t.classList.remove('gt-tab-on')
+          t.setAttribute('aria-pressed', 'false')
+        })
+        tab.classList.add('gt-tab-on')
+        tab.setAttribute('aria-pressed', 'true')
+        apply(tab.dataset.gtSrc!)
+      }),
+    )
+
+    apply(tabs[0]?.dataset.gtSrc || 'catalog')
+  }
+</script>

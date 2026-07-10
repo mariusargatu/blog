@@ -1,0 +1,221 @@
+---
+import { Icon } from 'astro-icon/components'
+import DiagramLabel from './DiagramLabel.astro'
+
+// The cheapest part with the nastiest bug. Two customers, one semantic cache.
+// Pick the question type and the keying strategy, and watch what the cache
+// serves. Generic policy answers are customer-independent and safe to share.
+// Customer-specific answers must be keyed per customer; key them by question
+// text alone and the cache serves one person's bill to another, the Asana
+// failure rebuilt in your own infrastructure for performance reasons.
+
+const customers = [
+  { key: 'priya', name: 'Sarah', id: '4815', bill: '$40' },
+  { key: 'daniel', name: 'Daniel', id: '5012', bill: '$73' },
+]
+const initialBill = customers[1].bill // Daniel's, the entry written first in the buggy case
+const data = JSON.stringify({ customers, initialBill })
+---
+
+<div class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-ck data-state={data}>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel icon="material-symbols:database-outline" label="The cache key is the whole game" />
+  </div>
+
+  <div class="p-5">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-x-6 gap-y-3 mb-5">
+      <div class="flex flex-col gap-1.5">
+        <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider">Question</span>
+        <div class="flex items-center gap-1 border border-border-dark p-0.5 w-fit" role="group" aria-label="Question type">
+          <button type="button" data-ck-q="generic" class="ck-tab ck-tab-on" aria-pressed="true">Generic policy</button>
+          <button type="button" data-ck-q="bill" class="ck-tab" aria-pressed="false">“My bill”</button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <span class="font-mono text-mono-xs text-text-muted uppercase tracking-wider">Cache key</span>
+        <div class="flex items-center gap-1 border border-border-dark p-0.5 w-fit" role="group" aria-label="Keying strategy">
+          <button type="button" data-ck-key="scoped" class="ck-tab ck-tab-on" aria-pressed="true">Per-customer</button>
+          <button type="button" data-ck-key="shared" class="ck-tab" aria-pressed="false">Buggy: shared</button>
+        </div>
+      </div>
+    </div>
+
+    {/* the computed key */}
+    <div class="mb-5 font-mono text-mono-xs">
+      <span class="text-text-muted uppercase tracking-wider">Cache key</span>
+      <code class="block mt-1 px-3 py-2 bg-code-bg border border-border-dark text-on-surface-variant overflow-x-auto" data-ck-keystr></code>
+    </div>
+
+    {/* the two customers asking */}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {
+        customers.map((c) => (
+          <div class="ck-cust rounded border border-border-dark px-4 py-3" data-ck-cust={c.key}>
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-mono text-mono-xs text-text-primary uppercase tracking-wider inline-flex items-center gap-1.5">
+                <Icon name="material-symbols:person-outline" class="text-[15px]" />
+                {c.name} · #{c.id}
+              </span>
+              <span class="ck-mark font-mono text-sm" aria-hidden="true" />
+            </div>
+            <p class="m-0 mt-2 text-sm text-text-primary" data-ck-served />
+            <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed" data-ck-src />
+          </div>
+        ))
+      }
+    </div>
+
+    <p class="ck-status m-0 mt-4 flex items-start gap-2 px-3 py-2 border font-mono text-mono-xs border-border-dark text-text-muted" data-ck-status aria-live="polite">
+      <span data-ck-status-text></span>
+    </p>
+  </div>
+</div>
+
+<style is:global>
+  [data-ck] .ck-tab {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    padding: 0.2rem 0.8rem;
+    transition: all 0.2s ease;
+  }
+  [data-ck] .ck-tab-on {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  [data-ck] .ck-tab:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  [data-ck] .ck-cust {
+    transition: border-color 0.25s ease, background-color 0.25s ease;
+  }
+  [data-ck] .ck-cust.ok {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
+  }
+  [data-ck] .ck-cust.ok .ck-mark {
+    color: var(--color-success);
+  }
+  [data-ck] .ck-cust.leak {
+    border-color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  }
+  [data-ck] .ck-cust.leak .ck-mark {
+    color: var(--color-error);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-ck] .ck-cust.leak {
+      animation: ckShake 0.4s ease;
+    }
+  }
+  @keyframes ckShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+  }
+  [data-ck] .ck-status.ok {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    color: var(--color-text-primary);
+  }
+  [data-ck] .ck-status.bad {
+    border-color: var(--color-error);
+    color: var(--color-text-primary);
+  }
+</style>
+
+<script>
+  type Customer = { key: string; name: string; id: string; bill: string }
+  const root = document.querySelector<HTMLElement>('[data-ck]')
+  if (root) {
+    const state: { customers: Customer[]; initialBill: string } = JSON.parse(root.dataset.state || '{}')
+    const { customers } = state
+    const qTabs = [...root.querySelectorAll<HTMLButtonElement>('[data-ck-q]')]
+    const keyTabs = [...root.querySelectorAll<HTMLButtonElement>('[data-ck-key]')]
+    const keystr = root.querySelector<HTMLElement>('[data-ck-keystr]')!
+    const status = root.querySelector<HTMLElement>('[data-ck-status]')!
+    const statusText = root.querySelector<HTMLElement>('[data-ck-status-text]')!
+    const cards = customers.map((c) => ({
+      c,
+      el: root.querySelector<HTMLElement>(`[data-ck-cust="${c.key}"]`)!,
+    }))
+    let q = 'generic'
+    let key = 'scoped'
+
+    const setCard = (el: HTMLElement, served: string, src: string, leak: boolean) => {
+      el.classList.toggle('ok', !leak)
+      el.classList.toggle('leak', leak)
+      el.querySelector('.ck-mark')!.textContent = leak ? '✗' : '✓'
+      el.querySelector<HTMLElement>('[data-ck-served]')!.textContent = served
+      el.querySelector<HTMLElement>('[data-ck-src]')!.textContent = src
+    }
+
+    const render = () => {
+      // who wrote the cache entry first, in the buggy shared-key case
+      const owner = customers[1] // Daniel
+      if (q === 'generic') {
+        keystr.textContent = 'policy:contract-terms'
+        cards.forEach(({ el }) =>
+          setCard(
+            el,
+            '“Early termination fees are set per plan term.”',
+            'one shared entry · no customer data, safe to share',
+            false,
+          ),
+        )
+        status.classList.add('ok')
+        status.classList.remove('bad')
+        statusText.textContent =
+          'Generic, customer-independent answer. One cache entry serves everyone, and nothing private crosses.'
+        return
+      }
+      // "my bill"
+      if (key === 'scoped') {
+        keystr.textContent = 'bill:{customer_id}'
+        cards.forEach(({ c, el }) =>
+          setCard(el, `“Your bill this month is ${c.bill}.”`, `keyed bill:${c.id} · isolated`, false),
+        )
+        status.classList.add('ok')
+        status.classList.remove('bad')
+        statusText.textContent =
+          'Keyed per customer. Each lookup hits its own entry; one bill can never be served to another customer.'
+      } else {
+        keystr.textContent = 'bill   ← no customer in the key'
+        cards.forEach(({ c, el }) => {
+          const leak = c.key !== owner.key
+          setCard(
+            el,
+            `“Your bill this month is ${owner.bill}.”`,
+            leak ? `served ${owner.name}'s entry · WRONG` : `wrote the entry first`,
+            leak,
+          )
+        })
+        status.classList.add('bad')
+        status.classList.remove('ok')
+        statusText.textContent =
+          `Keyed by question text alone. ${owner.name} wrote the entry; ${customers[0].name} is served ${owner.name}'s bill. This is the Asana cross-tenant leak.`
+      }
+    }
+
+    const wire = (tabs: HTMLButtonElement[], attr: string, set: (v: string) => void) =>
+      tabs.forEach((tab) =>
+        tab.addEventListener('click', () => {
+          tabs.forEach((t) => {
+            t.classList.remove('ck-tab-on')
+            t.setAttribute('aria-pressed', 'false')
+          })
+          tab.classList.add('ck-tab-on')
+          tab.setAttribute('aria-pressed', 'true')
+          set(tab.dataset[attr]!)
+          render()
+        }),
+      )
+    wire(qTabs, 'ckQ', (v) => (q = v))
+    wire(keyTabs, 'ckKey', (v) => (key = v))
+
+    render()
+  }
+</script>

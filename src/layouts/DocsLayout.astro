@@ -9,9 +9,11 @@ interface Props {
   description: string
   /** 'Home' or a category name — highlights the matching nav item. */
   active?: string
+  /** A series name — highlights the matching nested series sub-item. */
+  activeSeries?: string
 }
 
-const { title, description, active = 'Home' } = Astro.props
+const { title, description, active = 'Home', activeSeries } = Astro.props
 
 const mobileNav = [
   { label: 'Home', href: homeUrl(), key: 'Home' },
@@ -23,7 +25,7 @@ const chip =
 
 <BaseLayout title={title} description={description}>
   <div class="flex max-w-container-max mx-auto mt-16">
-    <Sidebar active={active} />
+    <Sidebar active={active} activeSeries={activeSeries} />
     <main
       class="flex-1 min-w-0 px-margin-mobile md:px-gutter py-12 lg:ml-8"
       data-pagefind-body

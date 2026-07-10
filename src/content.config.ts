@@ -39,9 +39,20 @@ const blog = defineCollection({
       ogImage: image().optional(),
       draft: z.boolean().default(false),
       featured: z.boolean().default(false),
+      // Optional ordered series membership. The series lives under the post's
+      // `topic` category; `order` is the 1-based part number within the series.
+      series: z
+        .object({
+          name: z.string(),
+          order: z.number().int().positive(),
+        })
+        .optional(),
       // Optional FAQ pairs: rendered visibly in-article and emitted as FAQPage
       // JSON-LD. Keep the visible copy in sync with these strings.
       faq: z.array(z.object({ q: z.string(), a: z.string() })).optional(),
+      // Optional one-line CTA bridge shown above the hire card at the article's
+      // end, tailored to what this specific post just argued.
+      ctaNote: z.string().optional(),
     }),
 })
 

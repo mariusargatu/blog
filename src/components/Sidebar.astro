@@ -1,21 +1,39 @@
 ---
 import { Icon } from 'astro-icon/components'
-import { homeUrl, categoryUrl } from '../lib/url'
+import { getCollection } from 'astro:content'
+import { homeUrl, categoryUrl, seriesUrl } from '../lib/url'
 import { CATEGORIES } from '../lib/categories'
+import { seriesNamesInCategory } from '../lib/series'
 
 interface Props {
   /** 'Home' or a category name, marks the active item. */
   active?: string
+  /** A series name, marks the active nested series sub-item. */
+  activeSeries?: string
 }
 
-const { active = 'Home' } = Astro.props
+const { active = 'Home', activeSeries } = Astro.props
 const home = homeUrl()
+
+// Derive each category's series from post frontmatter so the nav reflects what
+// actually exists. Empty categories simply render no sub-items.
+const posts = await getCollection('blog', ({ data }) =>
+  import.meta.env.PROD ? !data.draft : true,
+)
+const categories = CATEGORIES.map((c) => ({
+  ...c,
+  series: seriesNamesInCategory(posts, c.name),
+}))
 
 const item =
   'flex items-center gap-3 py-2 px-3 rounded-sm transition-all duration-200'
 const activeCls = 'text-primary font-bold bg-surface-hover'
 const idleCls =
   'text-text-muted font-normal hover:text-text-primary hover:bg-surface-hover'
+const subItem =
+  'block py-1.5 pl-11 pr-3 rounded-sm font-mono text-mono-xs transition-all duration-200'
+const subActiveCls = 'text-primary font-bold bg-surface-hover'
+const subIdleCls = 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
 ---
 
 <aside
@@ -36,14 +54,31 @@ const idleCls =
     </h2>
     <nav class="flex flex-col gap-y-1">
       {
-        CATEGORIES.map((c) => (
-          <a
-            href={categoryUrl(c.name)}
-            class:list={[item, active === c.name ? activeCls : idleCls]}
-          >
-            <Icon name={c.icon} class="text-[18px]" />
-            <span class="font-mono text-mono-label">{c.name}</span>
-          </a>
+        categories.map((c) => (
+          <Fragment>
+            <a
+              href={categoryUrl(c.name)}
+              class:list={[
+                item,
+                active === c.name && !activeSeries ? activeCls : idleCls,
+              ]}
+            >
+              <Icon name={c.icon} class="text-[18px]" />
+              <span class="font-mono text-mono-label">{c.name}</span>
+            </a>
+            {c.series.length > 0 && (
+              <div class="flex flex-col gap-y-0.5">
+                {c.series.map((s) => (
+                  <a
+                    href={seriesUrl(s)}
+                    class:list={[subItem, activeSeries === s ? subActiveCls : subIdleCls]}
+                  >
+                    {s}
+                  </a>
+                ))}
+              </div>
+            )}
+          </Fragment>
         ))
       }
     </nav>

@@ -1,10 +1,13 @@
 ---
 title: 'Your Evals Are Checks, Not Tests'
 description: >-
-  Air Canada's chatbot cost CAD $812 for an answer evals scored as faithful.
-  Five classical testing patterns catch what your eval dashboard cannot.
+  Air Canada's chatbot cost CAD $812 for an answer its evals scored as faithful.
+  Five classical software-testing patterns catch what your eval dashboard misses.
 kicker: GENAI_TESTING
-topic: LLM Apps
+topic: GenAI
+series:
+  name: Evals Are Checks, Not Tests
+  order: 1
 author: Marius Argatu
 pubDate: 2026-06-11
 tags: [llm, evals, rag, testing, agentic]
@@ -58,6 +61,8 @@ Evals score consistency with retrieved context, not truth. Five classical testin
 
 ## Air Canada's $812 Lesson
 
+An answer can be faithful to what a system retrieved, score well on every eval a team runs, and still be wrong enough to create legal liability. That gap, faithful but wrong, is what a tribunal made Air Canada pay for, and it is what this article is about. Here is how it happened.
+
 Jake Moffatt's grandmother died on a Saturday in November 2022. He needed to get from Vancouver to Toronto for the funeral, so he went to Air Canada's website to figure out how the bereavement fare worked. He opened the chat widget in the corner of the page, because that's what the page invited him to do, and he asked.
 
 The chatbot told him to book at the regular fare, fly to Toronto, and submit a refund request within ninety days for the bereavement difference. It included a link to Air Canada's bereavement policy page for the details.
@@ -90,7 +95,7 @@ The bug lived in the gap between "consistent with retrieved context" and "consis
 
 The discipline that does see it is older than most engineers' careers. You have an independent source of truth, separate from the system you're testing, and you check the system's output against it. The independent source answers the question "what should the system have said here?" In Air Canada's case, that independent source is the canonical bereavement policy document. The system under test is the chatbot. The missing check is whether the chatbot's answer, on every customer-facing policy question, agrees with the canonical policy, independent of what the retriever happened to surface that turn.
 
-This is the same shape as a classical consistency bug: the price on the product page disagreeing with the price in the cart. Neither value is wrong in isolation. The bug is the disagreement between two artifacts that are both supposed to represent the same underlying truth. An SDET who has shipped multi-currency e-commerce catches this in the first sprint of any new contract. The pattern is thirty years old. The chatbot context made the industry forget it applies.
+This is the same shape as a classical consistency bug: the price on the product page disagreeing with the price in the cart. Neither value is wrong in isolation. The bug is the disagreement between two artifacts that are both supposed to represent the same underlying truth. [An SDET who has shipped multi-currency e-commerce](/about) catches this in the first sprint of any new contract. The pattern is thirty years old. The chatbot context made the industry forget it applies.
 
 ## Three Cases, Three Failures
 
@@ -150,7 +155,7 @@ Three structural limits of evals are worth understanding before getting to what 
 
 **Construct validity.** When you define a metric, you are implicitly claiming the metric measures the thing you care about. When you ship that metric and treat its score as a signal, you are betting the implicit claim holds. A November 2025 systematic review of 445 LLM benchmarks ([*Measuring what Matters: Construct Validity in Large Language Model Benchmarks*](https://arxiv.org/abs/2511.04703)) found that almost every paper reviewed had weaknesses in phenomena definition, task operationalization, metric appropriateness, or validity of claims. Key concepts were often poorly defined in ways that limited the reliability of conclusions.
 
-In practice this means RAGAS faithfulness measures whether claims are entailed by retrieved context, not whether they are true, policy-compliant, or safe. LLM-as-judge helpfulness scores measure whether a judge model thinks the answer is helpful, not whether it actually helps. BLEU and ROUGE measure n-gram overlap with reference texts, which has been known since approximately 2010 to correlate weakly with human judgments of quality, and which is still shipped as a quality signal in production pipelines.
+In practice this means RAGAS faithfulness measures whether claims are entailed by retrieved context, not whether they are true, policy-compliant, or safe. LLM-as-judge helpfulness scores measure whether a judge model thinks the answer is helpful, not whether it actually helps. BLEU and ROUGE measure n-gram overlap with reference texts, which has been known since the mid-2000s to [correlate weakly with human judgments of quality](https://aclanthology.org/E06-1032/), and which is still shipped as a quality signal in production pipelines.
 
 The question for any metric in your eval suite: does this actually measure the thing we will be held accountable for if it goes wrong in production? "Approximately, in most cases" means the metric does useful work but cannot be the only test that gates deploy. "We have not really thought about that" means the metric is a dashboard ornament.
 
@@ -169,6 +174,12 @@ Any LLM-as-judge pipeline shipping today needs three protections most do not hav
 These three limits are not flaws in any particular eval framework. They are properties of the kind of measurement evals are. No refinement eliminates them. The argument is not that evals are bad. The argument is that evals are one layer, and a complete testing program needs more layers.
 
 What follows are five patterns to add. Each is well-understood in classical software testing. Each requires re-pointing at LLM-specific failure modes. None requires new research or new tooling. All are implementable with what you already have.
+
+1. **Independent source-of-truth testing** — check the system's answer against a canonical artifact outside the LLM, not against the chunks it retrieved.
+2. **Output validation before delivery** — treat the model's output as untrusted and verify it after generation, before it reaches the customer.
+3. **Adversarial regression suite** — maintain every known attack as a gated test that blocks deploy on regression.
+4. **Multi-turn trajectory tests** — assert on the path a conversation takes, not just on single responses.
+5. **Reading real production transcripts** — read what actually happened, to generate the questions the other four patterns should be asking.
 
 To make the patterns concrete, examples throughout use a single capability you can imagine in any LLM customer support agent: answering customer questions about a refund policy. The capability has a canonical policy document, retrieval over that document, and an LLM that generates the response. The patterns transfer to any other capability your system has.
 
@@ -266,7 +277,7 @@ A team running Pattern 5 for the first time often discovers that its actual fail
 
 <CoverageGap />
 
-## Architecture Is a Lever, Not a Constraint
+## Why Is Architecture a Testing Lever?
 
 The five patterns above scale with the surface area of the LLM in your system. The architectural choices that determine surface area are the single biggest lever an engineering team has for making the testing job manageable.
 
@@ -282,13 +293,15 @@ The first is to take the LLM out of consequential paths where possible. If your 
 
 The second is to enforce real boundaries around what the LLM can access. The Asana MCP incident is the case in point. The agent did exactly what it was asked to do; the system around the agent failed to enforce tenant isolation. The lesson is that giving an LLM-integrated system access to data implies enforcing every boundary the surrounding data system normally enforces, plus a few that are specific to AI: identity propagation through the agent, session isolation across requests, cross-tenant test scenarios in QA, audit trails that survive the agent's reasoning steps. Most teams shipping AI-integrated features today are skipping at least one of those, and the Asana case shows what the bill looks like when the missing piece is the one that matters.
 
-The third is to apply least privilege to tool authorization. Every tool the LLM can call has an authorization context that determines what the tool will accept. A refund policy capability has information-only authorization; the issue-refund tool refuses to execute when called from an information-only context, regardless of what the LLM tries. Destructive operations require a different authorization context than read-only ones, and the context for the current conversation does not grant that authorization unless the conversation explicitly required it. This is what makes the PocketOS pattern harder to execute. An AI coding agent operating in a staging environment should not have credentials that work against production. An AI assistant fixing a small bug in Cost Explorer should not have permissions to delete and recreate the environment. These are not exotic security ideas. They are the same least-privilege principles that have governed access control for decades, applied to a new kind of principal.
+The third is to apply least privilege to tool authorization. Every tool the LLM can call has an authorization context that determines what the tool will accept. A refund policy capability has information-only authorization; the issue-refund tool refuses to execute when called from an information-only context, regardless of what the LLM tries. Destructive operations require a different authorization context than read-only ones, and the context for the current conversation does not grant that authorization unless the conversation explicitly required it.
+
+This is what makes the PocketOS pattern harder to execute. An AI coding agent operating in a staging environment should not have credentials that work against production. An AI assistant fixing a small bug in Cost Explorer should not have permissions to delete and recreate the environment. These are not exotic security ideas. They are the same least-privilege principles that have governed access control for decades, applied to a new kind of principal.
 
 In each example, the architectural move does not eliminate the need for testing. It changes what needs to be tested and how much. The high-consequence paths are no longer LLM-authoritative, and the testing budget can be re-allocated toward the LLM-touched paths that actually remain.
 
 The architectural work and the testing work are the same work, viewed from different angles. Investment in architecture reduces the testing burden. Investment in testing surfaces the architectural changes that would reduce the burden further. A team that takes both seriously ends up with a smaller, more confident system. A team that treats them as separate phases ends up with a larger system that nobody trusts.
 
-## The Work That Moves the Needle
+## What Work Actually Moves the Needle?
 
 The five patterns and the architectural lever are not equally valuable. Some are infrastructure investments. Others are ongoing habits. The ones that actually move the needle on production incidents are concentrated in three places.
 
@@ -316,7 +329,7 @@ The eval suite is still there. It still runs in CI, still scores faithfulness, s
 
 Take the LLM application you are working on, or the one you are responsible for, and list its top five customer-facing capabilities. For each capability, write one sentence describing the worst plausible outcome if that capability produces a wrong answer in production. Sort the list by consequence.
 
-The top three on the sorted list are where your testing program needs to start. The bottom two are where evals plus monitoring are probably sufficient. The exercise takes about ten minutes. The artifact it produces is your draft risk register, and it is the document that determines which of the five patterns above to apply where.
+The top three on the sorted list are where your testing program needs to start. The bottom two are where evals plus monitoring are probably sufficient. The exercise takes about ten minutes. The artifact it produces is your draft risk register, and it is the document that determines which of the five patterns above to apply where. This is [risk-first testing](/philosophy): model what can break before you write a test, applied to LLM capabilities.
 
 <Foldable label="Rank your capabilities by consequence" open>
 <CapabilityRanker />
@@ -329,6 +342,8 @@ The LLM industry has built one half of software testing well: the half that runs
 Build the canonical facts. Run the validators. Read the transcripts. Test the trajectories. Move the LLM out of the high-consequence paths where you can.
 
 Your evals are checks. The testing job is what surrounds them.
+
+Next in the series: [The System Under Test](/blog/the-system-under-test/) builds the authenticated broadband support agent that the rest of these patterns are tested against, named part by part by how each one breaks.
 
 ## Frequently Asked Questions
 
@@ -362,3 +377,4 @@ Start by reading real production transcripts (Pattern 5), then build an independ
 - The Markup, "NYC's AI Chatbot Tells Businesses to Break the Law" — [The Markup](https://themarkup.org/artificial-intelligence/2024/03/29/nycs-ai-chatbot-tells-businesses-to-break-the-law) (retrieved 2026-06-09)
 - "Incident 1442: Kiro AI Coding Tool Implicated in 13-Hour AWS Cost Explorer Outage" — [AI Incident Database](https://incidentdatabase.ai/cite/1442/) (retrieved 2026-06-09)
 - Tom's Hardware, "AI coding agent deletes entire company database in 9 seconds" (PocketOS) — [Tom's Hardware](https://www.tomshardware.com/tech-industry/artificial-intelligence/claude-powered-ai-coding-agent-deletes-entire-company-database-in-9-seconds-backups-zapped-after-cursor-tool-powered-by-anthropics-claude-goes-rogue) (retrieved 2026-06-09)
+- Callison-Burch, Osborne, Koehn, "Re-evaluating the Role of Bleu in Machine Translation Research," EACL 2006 — [ACL Anthology](https://aclanthology.org/E06-1032/) (retrieved 2026-06-12)

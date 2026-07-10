@@ -1,0 +1,260 @@
+---
+import { Icon } from 'astro-icon/components'
+import BaseLayout from '../layouts/BaseLayout.astro'
+import { withBase, homeUrl } from '../lib/url'
+
+const email = 'mailto:contact@mariusargatu.com?subject=Testing%20my%20AI%20system'
+const linkedin = 'https://www.linkedin.com/in/mariusargatu'
+
+// BOFU page: the conversion surface the authority articles route to. Turns an
+// impressed senior-eng reader into a scoped inquiry. WebPage + Service JSON-LD,
+// provider resolves to the same Person @id the article/about schema uses.
+const pageUrl = new URL('work/', Astro.site).href
+const personId = `${new URL('about/', Astro.site).href}#person`
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': pageUrl,
+      url: pageUrl,
+      name: 'Work with me, AI quality engineering',
+      mainEntity: { '@id': `${pageUrl}#service` },
+    },
+    {
+      '@type': 'Service',
+      '@id': `${pageUrl}#service`,
+      serviceType: 'AI quality engineering and testing',
+      provider: { '@id': personId },
+      areaServed: 'Remote (EU timezone)',
+      description:
+        'Test architecture and evaluation for LLM, RAG, and agentic systems: golden-dataset regression, retrieval and faithfulness metrics, trajectory and adversarial suites, wired into CI.',
+    },
+  ],
+}
+
+const ctaPrimary =
+  'inline-flex items-center gap-2 bg-primary text-on-primary font-mono text-mono-label px-5 py-2.5 rounded-full hover:opacity-90 active:scale-95 transition-all'
+const ctaGhost =
+  'inline-flex items-center gap-2 font-mono text-mono-label text-text-primary border border-border-dark px-5 py-2.5 rounded-full hover:border-primary transition-all'
+
+// What I build: the deliverables, in the language a hiring engineer searches in.
+const builds = [
+  {
+    title: 'Golden-dataset regression',
+    body: 'Hand-labelled cases that pin behaviour against an independent source of truth, not just the retrieved context. Versioned, reviewed, gated in CI.',
+  },
+  {
+    title: 'Retrieval + generation metrics',
+    body: 'Retrieval scored separately from generation: hit rate, precision/recall@k, MRR for the index; faithfulness, answer relevancy, hallucination for the output (DeepEval, RAGAS, Langfuse).',
+  },
+  {
+    title: 'Trajectory + tool-call testing',
+    body: 'The agent tested as a path, not a last message: tool calls, ordering, confirmation gates, budgets, and the write surface where a mistake changes an account.',
+  },
+  {
+    title: 'Adversarial + security suites',
+    body: 'Prompt injection, jailbreaks, cross-tenant isolation, social-engineered actions. Every landed attack becomes a committed regression.',
+  },
+  {
+    title: 'Architecture for testability',
+    body: 'Per-intent capability binding, fail-closed guards, session-bound identity: the design choices that make a system testable at all, reviewed against the OWASP LLM and Agentic Top 10.',
+  },
+  {
+    title: 'Production evaluation',
+    body: 'Tracing and online metrics in Langfuse, drift watch as real traffic arrives, and a loop that feeds real failures back into the dataset.',
+  },
+]
+
+const faqs = [
+  {
+    q: 'Is testing premature for us?',
+    a: 'If the system can read or change a customer record, the failure already has a number attached. The cheapest time to build the harness is before the first incident, not after the tribunal ruling.',
+  },
+  {
+    q: "Can't we do this in-house?",
+    a: 'Often yes, eventually. I build the harness and the practices with your engineers so they own it, then hand it over. The goal is a team that tests its own agents, not a dependency on me.',
+  },
+  {
+    q: 'Is this just evals?',
+    a: 'No. Evals are checks that score consistency with retrieved context. The testing job is what surrounds them: an independent source of truth, output validation, adversarial regression, trajectory tests, and reading real production transcripts.',
+  },
+  {
+    q: 'What do you need from us to start?',
+    a: 'Access to the system, the docs and data it answers from, and one conversation about where a wrong answer or a wrong action costs the most. I scope the first suite around the highest-consequence capability.',
+  },
+  {
+    q: 'How do engagements run?',
+    a: 'Contract, remote, EU timezone. Embedded with your engineering team, scoped to a capability or a quarter. We start with the highest-consequence path and expand outward.',
+  },
+]
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${pageUrl}#faq`,
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
+---
+
+<BaseLayout
+  title="Work with me, AI quality engineering"
+  description="I test LLM, RAG, and agentic systems: golden-dataset regression, retrieval and faithfulness metrics, trajectory and adversarial suites, wired into CI. Contractor, remote, EU timezone."
+>
+  <script
+    type="application/ld+json"
+    slot="head"
+    is:inline
+    set:html={JSON.stringify({ '@context': 'https://schema.org', '@graph': [jsonLd['@graph'], faqJsonLd].flat() })}
+  />
+
+  <main
+    class="max-w-container-max mx-auto px-margin-mobile md:px-gutter pt-32 pb-section-gap"
+    data-pagefind-body
+  >
+    <!-- Header / offer -->
+    <header class="mb-section-gap max-w-3xl" data-reveal>
+      <div class="flex items-center gap-2 mb-5">
+        <span class="font-mono text-mono-label text-primary text-xs tracking-tighter">WORK WITH ME</span>
+        <div class="h-px flex-1 bg-border-dark"></div>
+      </div>
+      <h1 class="font-sans text-display-xl-mobile md:text-display-xl text-text-primary mb-4">
+        Testing for LLM, RAG, and agentic systems
+      </h1>
+      <p class="text-body-lg text-text-muted mb-6">
+        A faithful, well-retrieved answer about a fee can still be false and cost a real
+        person money. I build the test harness that catches the failures your eval
+        dashboard cannot, and wire it into CI so it keeps catching them.
+      </p>
+      <div class="flex flex-wrap items-center gap-3">
+        <span
+          class="font-mono text-mono-xs text-text-muted inline-flex items-center gap-2 border border-border-dark rounded-full px-3 py-1"
+        >
+          <span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+          CONTRACTOR · REMOTE · EU TIMEZONE
+        </span>
+        <a href={email} class={ctaPrimary} data-cta="work-hero-email">
+          <Icon name="material-symbols:mail" class="text-[18px]" />
+          Scope a project
+        </a>
+        <a href={linkedin} target="_blank" rel="noopener noreferrer" class={ctaGhost} data-cta="work-hero-linkedin">
+          <Icon name="material-symbols:link" class="text-[18px]" />
+          LinkedIn
+        </a>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div class="lg:col-span-8 flex flex-col gap-12">
+        <!-- The problem -->
+        <section data-reveal>
+          <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4">_THE PROBLEM</h2>
+          <p class="text-body-md text-text-muted leading-relaxed">
+            LLM, RAG, and agentic features fail in ways a green eval dashboard does not see.
+            Air Canada's chatbot promised a refund its own policy refused, and a tribunal held
+            the airline liable. Asana's MCP layer served one tenant's data to another. The
+            answer is fluent, grounded in a real retrieved document, and still wrong, and when
+            the system can change an account, the mistake stops being embarrassing and starts
+            being expensive. Evals score consistency with retrieved context. They do not test
+            truth, isolation, authorization, or what the agent actually did.
+          </p>
+        </section>
+
+        <!-- What I build -->
+        <section data-reveal>
+          <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4">_WHAT I BUILD</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {
+              builds.map((b) => (
+                <div class="p-4 border border-border-dark bg-surface-container-low rounded">
+                  <h3 class="text-text-primary font-medium mb-1">{b.title}</h3>
+                  <p class="m-0 font-mono text-mono-xs text-text-muted leading-relaxed">{b.body}</p>
+                </div>
+              ))
+            }
+          </div>
+        </section>
+
+        <!-- Proof -->
+        <section data-reveal>
+          <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4">_PROOF</h2>
+          <p class="text-body-md text-text-muted leading-relaxed mb-4">
+            Ten years building test infrastructure where reliability matters: airline payments,
+            multi-tenant healthcare SaaS, fintech, financial market data. On a healthcare RAG
+            assistant I separated retrieval from generation with RAGAS, ran golden datasets in
+            Langfuse, and gated evaluation in CI. I write about the method in depth and back it
+            with a runnable reference system.
+          </p>
+          <div class="flex flex-wrap gap-3">
+            <a href={withBase('blog/series/evals-are-checks-not-tests/')} class={ctaGhost} data-cta="work-proof-series">
+              <Icon name="material-symbols:stacks-outline" class="text-[18px]" />
+              The series: Evals Are Checks, Not Tests
+            </a>
+            <a href={withBase('about')} class={ctaGhost} data-cta="work-proof-about">
+              <Icon name="material-symbols:description-outline" class="text-[18px]" />
+              Full CV
+            </a>
+          </div>
+        </section>
+
+        <!-- FAQ -->
+        <section data-reveal>
+          <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4">_QUESTIONS</h2>
+          <div class="flex flex-col divide-y divide-border-dark">
+            {
+              faqs.map((f) => (
+                <div class="py-4 first:pt-0">
+                  <h3 class="text-text-primary font-medium mb-1">{f.q}</h3>
+                  <p class="m-0 text-body-md text-text-muted leading-relaxed">{f.a}</p>
+                </div>
+              ))
+            }
+          </div>
+        </section>
+      </div>
+
+      <!-- Sticky contact rail -->
+      <aside class="lg:col-span-4">
+        <div class="lg:sticky lg:top-28 border border-border-dark bg-surface rounded-lg p-6" data-reveal>
+          <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-3">_START HERE</h2>
+          <p class="text-body-md text-text-primary m-0 mb-2">Tell me what you're shipping and where the testing gap is.</p>
+          <p class="font-mono text-mono-xs text-text-muted leading-relaxed m-0 mb-5">
+            One line on the system and the highest-consequence wrong answer or action it could
+            give. I reply with how I'd scope the first suite.
+          </p>
+          <a href={email} class={`${ctaPrimary} w-full justify-center`} data-cta="work-rail-email">
+            <Icon name="material-symbols:mail" class="text-[18px]" />
+            Get in touch
+          </a>
+          <a
+            href={homeUrl()}
+            class="mt-3 inline-flex items-center gap-1 font-mono text-mono-xs text-text-muted hover:text-primary transition-colors"
+          >
+            <Icon name="material-symbols:arrow-back" class="text-[15px]" />
+            Read the blog first
+          </a>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    // Provider-agnostic CTA measurement. Fires into Plausible / GA4 / dataLayer
+    // if any is present, no-op otherwise, so conversions are countable the
+    // moment an analytics provider is wired, with no code change here.
+    document.querySelectorAll<HTMLElement>('[data-cta]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const id = el.dataset.cta || 'unknown'
+        ;(window as any).plausible?.('CTA Click', { props: { cta: id } })
+        ;(window as any).gtag?.('event', 'cta_click', { cta_id: id })
+        ;((window as any).dataLayer = (window as any).dataLayer || []).push({
+          event: 'cta_click',
+          cta_id: id,
+        })
+      })
+    })
+  </script>
+</BaseLayout>

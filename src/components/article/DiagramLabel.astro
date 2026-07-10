@@ -1,0 +1,24 @@
+---
+import { Icon } from 'astro-icon/components'
+
+// The diagram kicker: mono uppercase, tracked, optional leading icon. The
+// recurring header label across every bespoke explainer figure (figcaption on
+// the static ones, header-bar label on the interactive ones). Distinct from
+// the page-level `Kicker.astro` pill, which labels the article header.
+interface Props {
+  label: string
+  icon?: string
+  class?: string
+}
+const { label, icon, class: className = '' } = Astro.props
+---
+
+<span
+  class:list={[
+    'font-mono text-mono-xs text-primary uppercase tracking-widest inline-flex items-center gap-2',
+    className,
+  ]}
+>
+  {icon && <Icon name={icon} class="text-[16px]" />}
+  {label}
+</span>
