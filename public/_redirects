@@ -1,6 +1,12 @@
 # Cloudflare Pages redirects. https://developers.cloudflare.com/pages/configuration/redirects/
 # The site root has no page of its own; send it to the blog landing.
-/ /blog 301
+# Trailing slash matches the actual asset path (/blog/index.html) so this is a
+# single 301 — without it Cloudflare adds a second 307 /blog -> /blog/.
+/ /blog/ 301
+
+# Bare /blog -> /blog/ as a permanent 301. Cloudflare otherwise serves its
+# automatic 307 auto-slash, which Google will not treat as canonical.
+/blog /blog/ 301
 
 # Category renamed: LLM Apps -> GenAI.
 /blog/category/llm-apps/ /blog/category/genai/ 301

@@ -1,5 +1,7 @@
 // @ts-check
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { defineConfig } from 'astro/config'
 import mdx from '@astrojs/mdx'
@@ -45,6 +47,60 @@ function readPostLastmod() {
 }
 const { map: POST_LASTMOD, latest: SITE_LASTMOD } = readPostLastmod()
 
+// Emit dist/_headers (Cloudflare) with a strict CSP. Astro inlines a few small
+// scripts from shared layout components; their hashes are computed from the
+// built HTML so the policy never drifts out of sync when those components
+// change. Runs at build:done over the final dist/ (after every integration).
+function securityHeaders() {
+  const INLINE_SCRIPT = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g
+  function collectHashes(dir, hashes) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) collectHashes(full, hashes)
+      else if (entry.name.endsWith('.html')) {
+        const html = readFileSync(full, 'utf8')
+        for (const m of html.matchAll(INLINE_SCRIPT)) {
+          const digest = createHash('sha256').update(m[1], 'utf8').digest('base64')
+          hashes.add(`'sha256-${digest}'`)
+        }
+      }
+    }
+    return hashes
+  }
+  return {
+    name: 'security-headers',
+    hooks: {
+      'astro:build:done': ({ dir }) => {
+        const out = fileURLToPath(dir)
+        const scriptHashes = [...collectHashes(out, new Set())].sort()
+        // Cloudflare Web Analytics beacon is the only cross-origin script.
+        const csp = [
+          "default-src 'self'",
+          `script-src 'self' https://static.cloudflareinsights.com ${scriptHashes.join(' ')}`,
+          "style-src 'self' 'unsafe-inline'",
+          "img-src 'self' data:",
+          "font-src 'self'",
+          "connect-src 'self' https://cloudflareinsights.com",
+          "frame-ancestors 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+          "object-src 'none'",
+        ].join('; ')
+        const headers = [
+          '/*',
+          `  Content-Security-Policy: ${csp}`,
+          '  X-Content-Type-Options: nosniff',
+          '  Referrer-Policy: strict-origin-when-cross-origin',
+          '  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload',
+          '  Permissions-Policy: geolocation=(), camera=(), microphone=()',
+          '',
+        ].join('\n')
+        writeFileSync(path.join(out, '_headers'), headers)
+      },
+    },
+  }
+}
+
 // https://astro.build/config
 export default defineConfig({
   site: SITE,
@@ -57,7 +113,7 @@ export default defineConfig({
   // static `/index.html` so `/` resolves to the blog in dev, `astro preview`,
   // and any host. In production, Cloudflare's `dist/_redirects` (a real 301)
   // is evaluated first; this is the universal fallback for everywhere else.
-  redirects: { '/': '/blog' },
+  redirects: { '/': '/blog/' },
   // Tailwind v4 is wired via postcss.config.mjs (@tailwindcss/postcss).
   markdown: {
     remarkPlugins: [remarkReadingTime],
@@ -85,5 +141,7 @@ export default defineConfig({
     icon(),
     // MUST be last: indexes the produced dist/ after every other integration.
     pagefind(),
+    // After pagefind so the CSP hashes cover the final emitted HTML.
+    securityHeaders(),
   ],
 })

@@ -59,7 +59,7 @@ import EvalHarness from '../../../components/article/EvalHarness.astro'
 import DriftDecision from '../../../components/article/DriftDecision.astro'
 
 <Callout variant="info" title="tl;dr">
-The teams shipping agents are not the ones with the best model. Models are a commodity; the harness around them is not, and the engineering blogs have started saying so out loud. This article splits the two machines the word "harness" hides, the agent harness that lets the model act and the eval harness that measures whether it works. It names the five properties that make a harness trustworthy, shows that determinism means pinning more than the model (the clock, the ids, the ordering, and the framework's checkpointer too), and draws the line [the whole series](/blog/series/evals-are-checks-not-tests/) rests on, between a regression suite that must never flicker and an eval that must measure variance. The flaky LLM suite is not a model problem. It is an engineering problem you already know how to solve.
+The teams shipping agents don't have a better model; they have a better harness. The word hides two machines: an agent harness that lets the model act and an [eval harness](/blog/series/evals-are-checks-not-tests/) that measures it. Determinism means pinning the clock, ids, ordering, and checkpointer, not just the model. The flaky LLM suite is an engineering problem you already know how to solve.
 </Callout>
 
 ## It wasn't the model. It was the clock.
@@ -72,6 +72,8 @@ Here is the part that should reassure anyone who came up through classical QA. T
 
 ## Which part do you rent, and which do you own?
 
+You rent the model and own the harness. A frontier model is an API key away for you and every competitor, and Andreessen Horowitz forecast that winning systems would blend interchangeable models rather than treat any one as a moat ([a16z](https://a16z.com/big-ideas-in-tech-2025/)). The dataset, gateway, fakes, traces, and gate are the parts that are yours.
+
 Models are a commodity, and they behave like one. A frontier model is a few lines and an API key away, for you and for everyone you compete with. It changes under you without asking, sometimes without changing the version string you pinned against. You do not own it, you do not control it, and you cannot make it sit still. The market has priced this in: in its *Big Ideas in Tech for 2025*, Andreessen Horowitz forecast that winning systems would "blend together multiple large models and self-trained small models," the model as an interchangeable layer rather than a moat ([a16z](https://a16z.com/big-ideas-in-tech-2025/)). Anything you build that depends on the model being special is built on rented land.
 
 What is not a commodity is the apparatus that tells you whether the model is doing its job. The dataset that says what correct means. The gateway that makes a decision reproducible. The fakes that let you attempt a thousand account changes without touching a real account. The traces you assert against. The gate that stops a regression at the pull request instead of at a customer. None of that comes in the box with the model. All of it is yours, and it is the difference between a team that demos and a team that ships.
@@ -81,6 +83,8 @@ The shift has a vocabulary now. In January 2026, Anthropic's engineering team, i
 The model is rented. The harness is yours. Build the part you own.
 
 ## Why two harnesses, not one?
+
+Because "harness" names two different machines: the **agent harness** that lets the model act in production, and the **eval harness** that measures whether it works in CI. They share one language, the trace, but conflating them is like confusing your production servers with your build system. Same vocabulary, opposite jobs.
 
 There is a confusion baked into the word, and it is worth clearing before it costs you an argument in a design review. "Harness" names two different machines.
 
@@ -96,7 +100,15 @@ In the Atlas repo the seam is physical, and you can read it as a folder tree. Th
 
 ## What makes a harness you can trust?
 
-A harness you can trust has five properties. Miss one and you will discover which one on the day you most needed the suite to be honest.
+A harness you can trust has five properties, each borrowed from classical testing rather than invented for LLMs ([VCR](https://github.com/vcr/vcr)):
+
+1. Recorded and replayed model calls.
+2. Seeded fakes for every external dependency.
+3. Tracing from the first commit.
+4. Eval-gated CI with release gates.
+5. A clean separation between the two harnesses.
+
+Miss one and you will discover which one on the day you most needed the suite to be honest.
 
 **Recorded and replayed model calls.** The model is the only nondeterministic part of the whole system. So you put a gateway in front of it, and the clever move is to implement that gateway as the chat model the LangGraph graph already calls. The pattern is borrowed, not invented: classical test suites have recorded and replayed their HTTP dependencies for years through libraries like VCR, which captures a live interaction once into a "cassette" and replays it forever after ([VCR](https://github.com/vcr/vcr)). Point the same idea at the model. The gateway has three modes, and the mode is the whole story:
 
@@ -114,6 +126,8 @@ A test you have to rerun to believe is not a test. In `REPLAY` the run is determ
 
 ## Why is determinism more than the model?
 
+Determinism is a property of the whole run, not just the model. The clock, the RNG, id and reference generation, result ordering, and the framework's checkpointer all leak variance; LangGraph stamps every checkpoint with a UUIDv6 id and a wall-clock timestamp by default ([LangGraph](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint/langgraph/checkpoint/base/__init__.py)). You pin the agent by pinning its ports.
+
 Pinning the model removes the loudest source of noise. It does not remove the rest, and the rest is where a suite stays subtly flaky long after the team is sure it solved flakiness. Determinism is a property of the whole run. Every unpinned source of variation is a red that comes and goes and teaches people to stop believing reds.
 
 In Atlas, every nondeterministic source is pinned behind an injectable fixture, and the CI lane wires the frozen ones while dev and prod inject real ones at the same call sites.
@@ -128,6 +142,8 @@ One port deserves its own line. MCP is transport-agnostic: the November 2025 spe
 
 ## Why are regression and evaluation two machines?
 
+Regression testing and evaluation answer opposite questions and have opposite relationships with nondeterminism. Regression asks whether a change broke a pinned behaviour: it runs on the replayed model, must eliminate variance, and gates the merge. Evaluation asks how good the agent is: it runs live, embraces variance, and reads as a trend. One machine cannot do both honestly.
+
 Underneath the five properties is one distinction the whole series rests on, and it is the one teams collapse most often and most expensively. Regression testing and evaluation are two different machineries, and they answer two different questions.
 
 **Regression testing** asks: did this change break a behaviour we had pinned. It runs on the replayed model, so it is deterministic and fast. A red means a regression, full stop. It is binary, it gates the merge, and it flickers never. In Atlas it is one command, and it makes no live call: the gateway runs in `REPLAY` and the provider SDK is not even installed, so a cassette miss hard-fails instead of going to the network.
@@ -141,6 +157,8 @@ These need different machines because they have opposite relationships with nond
 So you keep them apart, deliberately. Same dataset, same traces, two readings. One asks did it change. The other asks is it good. Ask a single machine both questions and it will lie to you about both.
 
 ## The eval harness, drawn
+
+The eval harness is the second machine: it runs seeded tasks at scale, drives the agent, captures each trace, grades the outputs against an oracle, and reports a pass rate. It is built from three roles, a planner, a generator, and an evaluator, plus one grader stack, and lives in its own package the agent harness may never import.
 
 The eval harness is the second machine, built from the same parts as the first but read differently. It lives in its own package, `testing/harness/evals/evalkit`, that the agent harness may never import. The shape is small on purpose: three roles, one grader stack, one rate.
 
@@ -162,6 +180,8 @@ In the Atlas repo this is a spike, runnable as `task drift` and tested hermetica
 
 ## What did 2026 name?
 
+2026 added names and habits, not new physics: eval-driven development, starting small with a few dozen hand-read traces, multi-trial sampling, and the three-agent harness. Anthropic now puts evals first, building them to define a capability before the agent can fulfill it ([Anthropic](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). The discipline underneath is old.
+
 The fundamentals above are old. What the last couple of years added is not new physics but a set of names and habits, and a few are worth stating because they change how a team spends its first month.
 
 **Eval-driven development, and the argument about it.** Test-driven development, pointed at agents: you write the evaluator before or alongside the feature, not after it ships and breaks. Anthropic puts this first, build the evals that define a capability before the agent can fulfill it. But there is a live disagreement worth holding, because it decides what you do on day one. In July 2025, Hamel Husain pushed back in his eval FAQ: "Write evaluators for errors you discover, not errors you imagine" ([hamel.dev](https://hamel.dev/blog/posts/evals-faq/should-i-practice-eval-driven-development.html)). The synthesis is not a compromise. Write the structural evals up front, the ones any version of the feature must pass, and let error analysis on real traces write the rest.
@@ -175,6 +195,8 @@ The fundamentals above are old. What the last couple of years added is not new p
 The tools got names in 2026. The discipline did not change. Measure honestly, against an oracle you trust, with the variance shown rather than hidden, or do not claim to be measuring at all.
 
 ## Where does this live in the series?
+
+This article is the foundation layer of the series: the test harness and the tracing every other article runs on. The dataset article's cases execute in it, the metrics article's judge runs through its recorded gateway, and the retrieval and agent articles assert on its traces. It is the part you own, backed by a runnable reference system ([Atlas](https://github.com/mariusargatu/Atlas)).
 
 On the Atlas map, this article is the unglamorous block at the bottom of the diagram, the test harness and the tracing the whole system stands on. It is the layer every other article runs on. The dataset article's cases need this harness to execute in. The metrics article's judge runs through this gateway, recorded and replayed, so even the grading is reproducible. The retrieval and agent articles assert on these traces. The production article is this same harness moved to where the customers are.
 

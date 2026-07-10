@@ -99,6 +99,8 @@ This is the same shape as a classical consistency bug: the price on the product 
 
 ## Three Cases, Three Failures
 
+**Three 2025 incidents, Asana's MCP cross-tenant leak, Salesforce's CVSS 9.4 ForcedLeak injection ([Noma Security](https://noma.security/blog/forcedleak-agent-risks-exposed-in-salesforce-agentforce/)), and Lenovo's Lena XSS, were classical testing gaps in the system around the model: tenant isolation, input validation, output encoding. No eval framework can see them, because none lives inside the LLM.**
+
 Air Canada is not unusual. Three more cases from 2025 alone, each in a different shape, each in a place where eval suites had nothing to say.
 
 ### Asana MCP, June 2025
@@ -142,6 +144,8 @@ Every incident here was a classical testing gap (consistency, tenant isolation, 
 </Callout>
 
 ## What Do Evals Actually Measure (and Not)?
+
+**Evals carry three structural limits no refinement removes: weak construct validity (a review of 445 benchmarks found almost all had definition or metric flaws, [arXiv:2511.04703](https://arxiv.org/abs/2511.04703)), LLM-as-judge biases, and single-turn blind spots. They measure consistency with retrieved context, not truth.**
 
 Three structural limits of evals are worth understanding before getting to what to do, because they explain why no amount of eval refinement closes the gap. The distinction underneath all three is the difference between a check and a test:
 
@@ -205,7 +209,7 @@ The architectural property that makes this pattern work is putting the canonical
 
 ## Pattern 2: How Do You Validate Output Before It Ships?
 
-Pattern 1 catches drift in CI before the change reaches production. Pattern 2 catches the failures that slip past CI by inspecting every response after generation and before delivery.
+Output validation inspects every model response after generation and before it reaches the customer, treating the LLM as an untrusted source whose output must pass deterministic checks. Pattern 1 catches drift in CI before the change reaches production. Pattern 2 catches the failures that slip past CI by inspecting every response after generation and before delivery.
 
 The architectural pattern is identical to input validation in classical web security. The LLM is treated as an untrusted source. Its output passes through a sequence of validators that can block, flag, or annotate the response. The validators are not part of the LLM. They are separate components, deterministic where possible, and they run on the response before it reaches the customer.
 
@@ -263,7 +267,7 @@ The infrastructure to run trajectory tests is the one place in this list where e
 
 ## Pattern 5: Why Read Real Production Conversations?
 
-Patterns 1 through 4 catch known categories of failure. Pattern 5 is what generates the questions the other patterns should be asking. Without it, the test suites answer only the questions you happened to think of when you built them.
+Reading real production transcripts means studying actual conversations between users and the system on a regular cadence, to discover failure modes no test was written to catch. Patterns 1 through 4 catch known categories of failure. Pattern 5 is what generates the questions the other patterns should be asking. Without it, the test suites answer only the questions you happened to think of when you built them.
 
 The work is reading actual production transcripts on a regular cadence. Not metrics. Not dashboards. Not eval scores. Real conversations between real users and the system. Sample to over-represent edge cases: sessions where the user expressed frustration, asked for human handoff, gave low satisfaction ratings, or triggered tool calls that touched financial or account state. Read with intent. Tag anything that surprised you.
 
@@ -303,7 +307,7 @@ The architectural work and the testing work are the same work, viewed from diffe
 
 ## What Work Actually Moves the Needle?
 
-The five patterns and the architectural lever are not equally valuable. Some are infrastructure investments. Others are ongoing habits. The ones that actually move the needle on production incidents are concentrated in three places.
+A team starting from an eval-only setup should prioritize the testing work that prevents the most production incidents per hour invested, not adopt every discipline at once. The five patterns and the architectural lever are not equally valuable. Some are infrastructure investments. Others are ongoing habits. The ones that actually move the needle on production incidents are concentrated in three places.
 
 | Pattern | Initial build | Maintenance | Catches |
 |---|---|---|---|
