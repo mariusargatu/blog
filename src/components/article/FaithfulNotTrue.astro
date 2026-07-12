@@ -1,0 +1,164 @@
+---
+import DiagramLabel from './DiagramLabel.astro'
+
+// Grounded is not true, on the cold-open answer. One fixed answer, graded on
+// two axes. Faithfulness asks whether the answer is supported by the retrieved
+// document: it is, a clean 1.0, every claim backed by the current-plan page.
+// Correctness asks whether it is true, checked against the oracle, the account
+// and catalog: the account is legacy, a hard cap and throttling, so it fails.
+// The toggle is what the suite grades: faithfulness only signs the wrong answer
+// off green; adding correctness catches it. Same answer, one axis green and one
+// red, and the red one is the one that throttled a real customer for three
+// weeks.
+
+const answer = 'No cap. Unlimited data, with a fair use policy that only bites above a threshold you will never reach.'
+const axes = [
+  {
+    key: 'faithful',
+    name: 'Faithfulness',
+    vs: 'vs retrieved document',
+    mark: '1.0',
+    ok: true,
+    why: 'every claim is supported by the current plan page the retriever found',
+  },
+  {
+    key: 'true',
+    name: 'Correctness',
+    vs: 'vs oracle (account + catalog)',
+    mark: 'fail',
+    ok: false,
+    why: 'the account is on a legacy plan with a hard cap and throttling',
+  },
+]
+---
+
+{/* Statically rendered in "faithfulness + correctness" mode, the honest gate,
+    so a no-JS render never quotes "signed off" without the correctness check
+    that catches it. The script flips the interactive view back to
+    "faithfulness only" on init so the toggle pedagogy is unchanged. */}
+<figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-ft data-pass="false" data-inview>
+  <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
+    <DiagramLabel label="Grounded is not true" />
+    <div class="flex flex-wrap items-center gap-2" role="group" aria-label="What the suite grades">
+      <span class="font-mono text-mono-xs text-text-muted" aria-hidden="true">Suite grades:</span>
+      <button type="button" class="ft-toggle inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark text-text-muted transition-colors" data-ft-mode="faith" aria-pressed="false">
+        faithfulness only
+      </button>
+      <button type="button" class="ft-toggle on inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark transition-colors" data-ft-mode="both" aria-pressed="true">
+        + correctness
+      </button>
+    </div>
+  </div>
+
+  <div class="p-5">
+    <p class="m-0 font-mono text-mono-xs text-text-muted uppercase tracking-wider">
+      The legacy customer asks: is there a cap on my data?
+    </p>
+    <blockquote class="m-0 mt-3 rounded border border-border-dark bg-surface-container-low px-4 py-3 text-sm text-text-primary">
+      {answer}
+    </blockquote>
+
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {
+        axes.map((a) => (
+          <div
+            class:list={['ft-axis rounded border px-4 py-3', a.ok ? 'ok' : 'bad', a.key === 'true' && 'ft-dim']}
+            data-ft-axis={a.key}
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-mono text-mono-xs uppercase tracking-wider text-text-muted">{a.name}</span>
+              <span class="ft-mark font-mono text-sm" aria-hidden="true">{a.ok ? `✓ ${a.mark}` : `✗ ${a.mark}`}</span>
+            </div>
+            <p class="m-0 mt-1 font-mono text-mono-xs text-text-muted leading-relaxed">{a.vs}</p>
+            <p class="m-0 mt-1 text-sm text-text-primary leading-snug">{a.why}</p>
+          </div>
+        ))
+      }
+    </div>
+
+    <p
+      class="ft-verdict m-0 mt-4 flex items-start gap-2 rounded border px-4 py-3 font-mono text-mono-xs leading-relaxed"
+      data-ft-verdict
+      aria-live="polite"
+    >
+      A suite that grades faithfulness and correctness fails the answer: correctness against the oracle catches what faithfulness signed off. Faithful to the wrong document is still wrong.
+    </p>
+  </div>
+</figure>
+
+<style is:global>
+  [data-ft] .ft-toggle.on {
+    border-color: var(--color-text-primary);
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  }
+  [data-ft] .ft-axis {
+    border-color: var(--color-border-dark);
+    transition: border-color 0.25s ease, background-color 0.25s ease, opacity 0.25s ease;
+  }
+  [data-ft] .ft-axis.ok {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
+  }
+  [data-ft] .ft-axis.ok .ft-mark {
+    color: var(--color-success);
+  }
+  [data-ft] .ft-axis.bad {
+    border-color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 9%, transparent);
+  }
+  [data-ft] .ft-axis.bad .ft-mark {
+    color: var(--color-error);
+  }
+  /* in "faithfulness only" mode the correctness axis is never run: dim it out */
+  [data-ft].show-faith .ft-dim {
+    opacity: 0.35;
+    filter: grayscale(1);
+  }
+  [data-ft] .ft-verdict {
+    border-color: var(--color-border-dark);
+    color: var(--color-text-muted);
+    transition: border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
+  }
+  [data-ft][data-pass='true'] .ft-verdict {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
+    color: var(--color-text-primary);
+  }
+  [data-ft][data-pass='false'] .ft-verdict {
+    border-color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 9%, transparent);
+    color: var(--color-text-primary);
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-ft]')
+  if (root) {
+    const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-ft-mode]')]
+    const verdictEl = root.querySelector<HTMLElement>('[data-ft-verdict]')!
+
+    const captions: Record<string, string> = {
+      faith:
+        'A suite that grades faithfulness only signs this answer off: 1.0, green, next case. The false answer ships, and the correctness axis that would have caught it was never run.',
+      both:
+        'A suite that grades faithfulness and correctness fails the answer: correctness against the oracle catches what faithfulness signed off. Faithful to the wrong document is still wrong.',
+    }
+
+    const render = (mode: string) => {
+      const both = mode === 'both'
+      // "signed off green, wrong" when faithfulness-only; "caught" when both.
+      root.dataset.pass = both ? 'true' : 'false'
+      root.classList.toggle('show-faith', !both)
+      verdictEl.textContent = captions[mode]
+      toggles.forEach((t) => {
+        const on = t.dataset.ftMode === mode
+        t.classList.toggle('on', on)
+        t.setAttribute('aria-pressed', String(on))
+      })
+    }
+
+    toggles.forEach((t) => t.addEventListener('click', () => render(t.dataset.ftMode!)))
+    render('faith')
+  }
+</script>

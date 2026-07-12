@@ -1,0 +1,112 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// Retrieval graded before any answer exists. The legacy customer's data-cap
+// question needs two chunks to answer correctly: the cap term and the
+// throttling clause that governs it. A single vector lookup returns the cap
+// term at rank 1 and an unlimited-plan doc at rank 2, burying the throttling
+// clause at rank 3. Read the ranked list and the classical IR metrics fall
+// out as closed-form arithmetic over chunk ids, no model required. The number
+// that matters later: recall at rank 1 is 0.50, one relevant chunk of two.
+// Ranked list is illustrative; the recall@1 = 0.50 finding is the real one
+// the retrieval slice reports on the two-chunk questions.
+
+const query = 'is there a cap on my data?'
+const results = [
+  { rank: 1, id: 'cap-term', label: 'legacy plan: 500GB hard cap', gold: true },
+  { rank: 2, id: 'unlimited-fairuse', label: 'current plans: uncapped, fair use', gold: false },
+  { rank: 3, id: 'throttle-clause', label: 'throttling once the cap is crossed', gold: true },
+  { rank: 4, id: 'plan-compare', label: 'plan comparison table', gold: false },
+  { rank: 5, id: 'billing-faq', label: 'billing cycle FAQ', gold: false },
+]
+const goldTotal = results.filter((r) => r.gold).length
+const foundAt1 = results.filter((r) => r.rank <= 1 && r.gold).length
+
+const metrics = [
+  { name: 'Precision@5', value: '0.40', note: '2 of 5 retrieved were relevant' },
+  { name: 'Recall@1', value: '0.50', note: '1 of 2 relevant chunks in the top result', flag: true },
+  { name: 'Hit rate', value: '1.00', note: 'at least one relevant chunk came back' },
+  { name: 'NDCG@5', value: '0.77', note: 'a relevant chunk sits at rank 3, not the top' },
+]
+
+const ariaLabel =
+  'A ranked list of five retrieved chunks for the question "is there a cap on my data?". Rank 1 is the legacy 500GB cap term, relevant. Rank 2 is a current plans uncapped doc, not relevant. Rank 3 is the throttling clause, relevant. Ranks 4 and 5 are not relevant. Two chunks are needed to answer correctly, so recall at rank 1 is 0.50: one of two relevant chunks reached the top result. Precision at 5 is 0.40, hit rate is 1.00, and NDCG at 5 is 0.77 because a relevant chunk sits at rank 3 rather than the top.'
+---
+
+<DiagramFigure label="Grade retrieval before the answer exists" ariaLabel={ariaLabel} data-rm>
+  <p class="m-0 mb-4 font-mono text-mono-xs text-text-muted uppercase tracking-wider">
+    Query: {query} <span class="text-text-primary">· needs {goldTotal} chunks</span>
+  </p>
+
+  <ol class="m-0 list-none space-y-1.5 p-0">
+    {
+      results.map((r) => (
+        <li
+          class:list={[
+            'rm-row flex items-center gap-3 rounded border px-3 py-2',
+            r.gold ? 'rm-gold' : 'rm-noise',
+          ]}
+        >
+          <span class="rm-rank font-mono text-mono-xs text-text-muted w-6 shrink-0">#{r.rank}</span>
+          <code class="font-mono text-mono-xs text-text-muted shrink-0 hidden sm:inline">{r.id}</code>
+          <span class="flex-1 text-sm text-text-primary">{r.label}</span>
+          <span class="rm-tag font-mono text-mono-xs shrink-0">{r.gold ? 'relevant' : 'noise'}</span>
+        </li>
+      ))
+    }
+  </ol>
+
+  <p class="m-0 mt-3 font-mono text-mono-xs text-text-muted">
+    Relevance matched by exact chunk id, so every metric below is closed form arithmetic over
+    this list. No model in the loop.
+  </p>
+
+  <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+    {
+      metrics.map((m) => (
+        <div class:list={['rm-metric rounded border px-3 py-3', m.flag && 'is-flag']}>
+          <span class="block font-mono text-mono-xs text-text-muted">{m.name}</span>
+          <span class="rm-value block font-mono text-2xl leading-tight mt-0.5">{m.value}</span>
+          <span class="block font-mono text-mono-xs text-text-muted leading-tight mt-1">{m.note}</span>
+        </div>
+      ))
+    }
+  </div>
+
+  <Fragment slot="note">
+    {foundAt1} of {goldTotal} relevant chunks reached rank 1, so recall@1 is 0.50: a single lookup
+    gets one hop and misses the other. Grade only the answer and that miss is invisible. Grade the
+    retrieval and it is the first number on the page.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-rm] .rm-row {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-rm] .rm-gold {
+    border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+  }
+  [data-rm] .rm-gold .rm-tag {
+    color: var(--color-primary);
+  }
+  [data-rm] .rm-noise .rm-tag {
+    color: var(--color-text-muted);
+  }
+  [data-rm] .rm-metric {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-rm] .rm-metric .rm-value {
+    color: var(--color-text-primary);
+  }
+  [data-rm] .rm-metric.is-flag {
+    border-color: color-mix(in srgb, var(--color-error) 45%, transparent);
+    background: color-mix(in srgb, var(--color-error) 8%, transparent);
+  }
+  [data-rm] .rm-metric.is-flag .rm-value {
+    color: var(--color-error);
+  }
+</style>

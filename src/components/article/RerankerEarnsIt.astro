@@ -1,0 +1,126 @@
+---
+import DiagramLabel from './DiagramLabel.astro'
+
+// The reranker has to earn its latency. Run the same query set with it and
+// without it and read what NDCG does. Here it climbs, 0.71 to 0.78, a +0.07
+// lift that looks like a win at a glance. But a with-and-without comparison
+// over seven queries is a statistical claim, not a glance at two averages: the
+// paired permutation test comes back p = 0.23, so the lift is directional and
+// not yet claimable. A guardrail rides along: recall must not drop while top
+// precision rises, and here it holds at 1.00. Numbers are illustrative of the
+// honest report shape; the discipline (paired test, recall guardrail) is the
+// real one from the reranker slice.
+
+const RUNS = {
+  off: { ndcg: 0.71, recall: 1.0 },
+  on: { ndcg: 0.78, recall: 1.0 },
+}
+const LIFT = +(RUNS.on.ndcg - RUNS.off.ndcg).toFixed(2)
+const N = 7
+const P = 0.23
+const pct = (x: number) => `${(x * 100).toFixed(0)}%`
+---
+
+{/* Statically rendered with the reranker ON and the honest verdict, so a no-JS
+    render or an extracted snapshot never quotes the +0.07 lift without the
+    "p = 0.23, cannot claim yet" reading that is the whole point. The script
+    flips the interactive view back to OFF on init so the toggle pedagogy is
+    unchanged. */}
+<figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-5 rk-on" data-rk data-inview>
+  <div class="mb-4 flex items-center gap-2">
+    <DiagramLabel label="The reranker has to earn its place" />
+    <div class="h-px flex-1 bg-border-dark"></div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 mb-6" role="group" aria-label="Run the query set with or without the reranker">
+    <span class="font-mono text-mono-xs text-text-muted mr-1" aria-hidden="true">Reranker:</span>
+    <button type="button" class="rk-toggle inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark text-text-muted transition-colors" data-rk-mode="off" aria-pressed="false">
+      off
+    </button>
+    <button type="button" class="rk-toggle on inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark transition-colors" data-rk-mode="on" aria-pressed="true">
+      on
+    </button>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" aria-hidden="true">
+    <div class="rk-panel rounded border border-border-dark bg-surface-container-low px-4 py-4">
+      <span class="block font-mono text-mono-xs text-text-muted uppercase tracking-wider">NDCG@10</span>
+      <span class="rk-ndcg block font-mono text-4xl text-text-primary leading-none mt-1" data-rk-ndcg>{RUNS.on.ndcg.toFixed(2)}</span>
+      <div class="rk-track relative h-2 w-full mt-3">
+        <div class="rk-fill absolute inset-y-0 left-0" data-rk-fill style={`width:${pct(RUNS.on.ndcg)}`}></div>
+      </div>
+      <span class="block font-mono text-mono-xs text-text-muted mt-2" data-rk-delta>lift +{LIFT.toFixed(2)} over off</span>
+    </div>
+    <div class="rk-panel rounded border border-border-dark bg-surface-container-low px-4 py-4">
+      <span class="block font-mono text-mono-xs text-text-muted uppercase tracking-wider">Recall guardrail</span>
+      <span class="rk-recall block font-mono text-4xl leading-none mt-1" data-rk-recall>{RUNS.on.recall.toFixed(2)}</span>
+      <span class="block font-mono text-mono-xs text-text-muted mt-3 leading-relaxed">
+        top precision can rise while a relevant chunk drops out of the kept set, so the
+        with and without check watches recall too. Here it holds.
+      </span>
+    </div>
+  </div>
+
+  <figcaption class="m-0 mt-5 border-t border-border-dark pt-4 font-mono text-mono-xs text-text-muted" data-rk-caption aria-live="polite">
+    On {N} queries the lift is +{LIFT.toFixed(2)}, but the paired permutation test returns p = {P.toFixed(2)}: directional, not yet claimable. The honest report is "helps directionally, and on this evidence you cannot claim it, so size the set to the effect you care about."
+  </figcaption>
+</figure>
+
+<style is:global>
+  [data-rk] .rk-toggle.on {
+    border-color: var(--color-text-primary);
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  }
+  [data-rk] .rk-track {
+    background: var(--color-surface-container-high);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+  [data-rk] .rk-fill {
+    background: color-mix(in srgb, var(--color-primary) 55%, transparent);
+    border-radius: var(--radius-full);
+    transition: width 0.45s var(--ease-out-quint);
+  }
+  [data-rk] [data-rk-recall] {
+    color: var(--color-primary);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-rk] .rk-fill {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-rk]')
+  if (root) {
+    const RUNS: Record<string, { ndcg: number; recall: number }> = {
+      off: { ndcg: 0.71, recall: 1.0 },
+      on: { ndcg: 0.78, recall: 1.0 },
+    }
+    const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-rk-mode]')]
+    const ndcgEl = root.querySelector<HTMLElement>('[data-rk-ndcg]')!
+    const fillEl = root.querySelector<HTMLElement>('[data-rk-fill]')!
+    const deltaEl = root.querySelector<HTMLElement>('[data-rk-delta]')!
+    const recallEl = root.querySelector<HTMLElement>('[data-rk-recall]')!
+
+    const render = (mode: string) => {
+      const run = RUNS[mode]
+      ndcgEl.textContent = run.ndcg.toFixed(2)
+      fillEl.style.width = `${(run.ndcg * 100).toFixed(0)}%`
+      recallEl.textContent = run.recall.toFixed(2)
+      deltaEl.textContent =
+        mode === 'on' ? `lift +${(RUNS.on.ndcg - RUNS.off.ndcg).toFixed(2)} over off` : 'baseline, no reranker'
+      root.classList.toggle('rk-on', mode === 'on')
+      toggles.forEach((t) => {
+        const on = t.dataset.rkMode === mode
+        t.classList.toggle('on', on)
+        t.setAttribute('aria-pressed', String(on))
+      })
+    }
+
+    toggles.forEach((t) => t.addEventListener('click', () => render(t.dataset.rkMode!)))
+    render('off')
+  }
+</script>

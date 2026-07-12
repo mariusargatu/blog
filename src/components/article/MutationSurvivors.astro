@@ -1,0 +1,78 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// Semantic mutation: the survivors are the missing tests. A semantic mutant is
+// a plausible human mistake, not a syntax flip. Write them, run them against
+// the suite, and read the survivors: a realistic mutant that no test kills is a
+// bug the suite would ship, the exact test you are missing. Pointed at the
+// retrieval metrics in Atlas, this found three. Each surviving mutant became one
+// added assertion, three real gaps closed. Mutation testing did not grade the
+// suite, it improved it. These are the three the mutation slice reports.
+
+const mutants = [
+  {
+    metric: 'Precision@k',
+    mutation: 'divides by the list length, not by k',
+    survived: 'the test never checked a list shorter than k',
+    fix: 'assert a short retrieved list still divides by k',
+  },
+  {
+    metric: 'Reciprocal rank',
+    mutation: 'keeps the last relevant position, not the first',
+    survived: 'the test only ever had one relevant chunk',
+    fix: 'add a case with two relevant chunks, first vs last',
+  },
+  {
+    metric: 'Average precision',
+    mutation: 'divides by hits, not by the relevant count',
+    survived: 'the test never included a miss',
+    fix: 'add a case where a relevant chunk is missed',
+  },
+]
+
+const ariaLabel =
+  'Three semantic mutants that survived the retrieval metric suite in Atlas. First, a Precision@k that divides by the list length instead of by k survived because no test checked a list shorter than k; the fix asserts a short list still divides by k. Second, a reciprocal rank that keeps the last relevant position instead of the first survived because every test had only one relevant chunk; the fix adds a case with two relevant chunks. Third, an average precision that divides by hits instead of the relevant count survived because no test included a miss; the fix adds a case where a relevant chunk is missed. Three survivors, three assertions added, three real gaps closed.'
+---
+
+<DiagramFigure label="Semantic mutation: the survivors are the missing tests" ariaLabel={ariaLabel} data-ms>
+  <div class="space-y-3">
+    {
+      mutants.map((m) => (
+        <div class="ms-row rounded border border-border-dark bg-surface-container-low overflow-hidden">
+          <div class="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border-dark">
+            <code class="font-mono text-mono-xs text-text-primary">{m.metric}</code>
+            <span class="ms-survived font-mono text-mono-xs px-2 py-0.5 sm:ml-auto">survived</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-px bg-border-dark">
+            <div class="bg-surface px-4 py-3">
+              <span class="block font-mono text-mono-xs uppercase tracking-wider text-error">the mutant</span>
+              <span class="block text-sm text-text-primary mt-1 leading-snug">{m.mutation}</span>
+            </div>
+            <div class="bg-surface px-4 py-3">
+              <span class="block font-mono text-mono-xs uppercase tracking-wider text-text-muted">why no test killed it</span>
+              <span class="block text-sm text-text-primary mt-1 leading-snug">{m.survived}</span>
+            </div>
+            <div class="bg-surface px-4 py-3">
+              <span class="block font-mono text-mono-xs uppercase tracking-wider text-primary">assertion added</span>
+              <span class="block text-sm text-text-primary mt-1 leading-snug">{m.fix}</span>
+            </div>
+          </div>
+        </div>
+      ))
+    }
+  </div>
+
+  <Fragment slot="note">
+    Three surviving mutants, three assertions added, three real gaps closed. A realistic mutant
+    that no test kills is a bug the suite would ship. Mutation testing did not grade the suite. It
+    improved it.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-ms] .ms-survived {
+    color: var(--color-error);
+    border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
+    background: color-mix(in srgb, var(--color-error) 8%, transparent);
+  }
+</style>

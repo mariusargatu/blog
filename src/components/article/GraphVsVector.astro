@@ -1,0 +1,184 @@
+---
+import DiagramLabel from './DiagramLabel.astro'
+
+// Make graph RAG earn its cost. Split the query set into flat lookups and
+// genuinely relational, multi-hop questions, run both strategies over both
+// slices, and adopt the graph only where it wins. On the flat slice the vector
+// retriever is already perfect and the graph adds only indexing and token cost.
+// On the relational slice the split is stark: the vector recovers only 0.50
+// even at the deployed retrieval budget (k=3) because the linking fact is a
+// graph edge, not co-occurring text, while the graph's path recall comes back
+// at 1.00. Adopt it because the study came back yes at a FAIR budget on the
+// queries that need it, not because graphs are fashionable. Numbers are the
+// ones the Atlas relational split reports.
+
+const SLICES = {
+  flat: {
+    label: 'Flat lookups',
+    q: '“what is the fair use threshold?”',
+    vector: 1.0,
+    graph: 1.0,
+    verdict: 'skip the graph',
+    win: false,
+    why: 'the vector retriever is already perfect; the graph adds only cost.',
+  },
+  relational: {
+    label: 'Relational / multi hop',
+    q: '“will the account holder’s line be throttled?”',
+    vector: 0.5,
+    graph: 1.0,
+    verdict: 'adopt the graph',
+    win: true,
+    why: 'the link the answer needs is a graph edge, not co-occurring text, so no lookup finds it at any k; the traversal resolves the customer and collects every hop.',
+  },
+}
+const pct = (x: number) => `${(x * 100).toFixed(0)}%`
+---
+
+{/* Statically rendered on the relational slice, where the graph earns its cost
+    and the 0.50-vs-1.00 split is the committed finding, so a no-JS render never
+    implies "adopt the graph" without the slice it actually wins on. The script
+    flips the interactive view to the flat slice on init, where the graph adds
+    only cost, so the "prove it per slice" lesson is intact. */}
+<figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-5" data-gv data-win="true" data-inview>
+  <div class="mb-4 flex items-center gap-2">
+    <DiagramLabel label="Make graph RAG earn its cost, per slice" />
+    <div class="h-px flex-1 bg-border-dark"></div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 mb-5" role="group" aria-label="Which slice of the query set">
+    <span class="font-mono text-mono-xs text-text-muted mr-1" aria-hidden="true">Query slice:</span>
+    <button type="button" class="gv-toggle inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark text-text-muted transition-colors" data-gv-mode="flat" aria-pressed="false">
+      flat lookups
+    </button>
+    <button type="button" class="gv-toggle on inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark transition-colors" data-gv-mode="relational" aria-pressed="true">
+      relational
+    </button>
+  </div>
+
+  <p class="m-0 mb-4 font-mono text-mono-xs text-text-muted" data-gv-q>{SLICES.relational.q}</p>
+
+  <div class="space-y-4" aria-hidden="true">
+    <div>
+      <div class="flex items-baseline justify-between mb-1.5 font-mono text-mono-xs">
+        <span class="text-text-primary">Vector recall@3</span>
+        <span class="text-text-muted" data-gv-vec-label>{SLICES.relational.vector.toFixed(2)}</span>
+      </div>
+      <div class="gv-track relative h-3 w-full">
+        <div class="gv-fill gv-vec absolute inset-y-0 left-0" data-gv-vec style={`width:${pct(SLICES.relational.vector)}`}></div>
+      </div>
+    </div>
+    <div>
+      <div class="flex items-baseline justify-between mb-1.5 font-mono text-mono-xs">
+        <span class="text-text-primary">Graph path recall</span>
+        <span class="text-text-muted" data-gv-graph-label>{SLICES.relational.graph.toFixed(2)}</span>
+      </div>
+      <div class="gv-track relative h-3 w-full">
+        <div class="gv-fill gv-graph absolute inset-y-0 left-0" data-gv-graph style={`width:${pct(SLICES.relational.graph)}`}></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-5 flex items-center gap-2">
+    <span class="gv-verdict font-mono text-mono-xs uppercase tracking-wider px-2 py-1 border" data-gv-verdict>{SLICES.relational.verdict}</span>
+  </div>
+
+  <figcaption class="m-0 mt-4 border-t border-border-dark pt-4 font-mono text-mono-xs text-text-muted" data-gv-caption aria-live="polite">
+    On the relational slice the split is stark: the vector recovers only 0.50 even at the deployed budget (k=3), while graph path recall is 1.00, every hop. {SLICES.relational.why} Adopt the graph here.
+  </figcaption>
+</figure>
+
+<style is:global>
+  [data-gv] .gv-toggle.on {
+    border-color: var(--color-text-primary);
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  }
+  [data-gv] .gv-track {
+    background: var(--color-surface-container-high);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+  [data-gv] .gv-fill {
+    border-radius: var(--radius-full);
+    transition: width 0.45s var(--ease-out-quint);
+  }
+  [data-gv] .gv-vec {
+    background: color-mix(in srgb, var(--color-text-muted) 45%, transparent);
+  }
+  [data-gv] .gv-graph {
+    background: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  }
+  [data-gv] .gv-verdict {
+    border-color: var(--color-border-dark);
+    color: var(--color-text-muted);
+  }
+  [data-gv][data-win='true'] .gv-verdict {
+    border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+    color: var(--color-primary);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-gv] .gv-fill {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-gv]')
+  if (root) {
+    const SLICES: Record<string, { q: string; vector: number; graph: number; verdict: string; win: boolean; why: string }> = {
+      flat: {
+        q: '“what is the fair use threshold?”',
+        vector: 1.0,
+        graph: 1.0,
+        verdict: 'skip the graph',
+        win: false,
+        why: 'the vector retriever is already perfect; the graph adds only cost.',
+      },
+      relational: {
+        q: '“will the account holder’s line be throttled?”',
+        vector: 0.5,
+        graph: 1.0,
+        verdict: 'adopt the graph',
+        win: true,
+        why: 'the link the answer needs is a graph edge, not co-occurring text, so no lookup finds it at any k; the traversal resolves the customer and collects every hop.',
+      },
+    }
+    const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-gv-mode]')]
+    const qEl = root.querySelector<HTMLElement>('[data-gv-q]')!
+    const vec = root.querySelector<HTMLElement>('[data-gv-vec]')!
+    const vecLabel = root.querySelector<HTMLElement>('[data-gv-vec-label]')!
+    const graph = root.querySelector<HTMLElement>('[data-gv-graph]')!
+    const graphLabel = root.querySelector<HTMLElement>('[data-gv-graph-label]')!
+    const verdictEl = root.querySelector<HTMLElement>('[data-gv-verdict]')!
+    const captionEl = root.querySelector<HTMLElement>('[data-gv-caption]')!
+
+    const captions: Record<string, string> = {
+      flat: 'On the flat slice both strategies land at 1.00. The vector retriever is already perfect, so the graph adds only indexing and token cost. Skip it here.',
+      relational:
+        'On the relational slice the split is stark: the vector recovers only 0.50 even at the deployed budget (k=3), while graph path recall is 1.00, every hop. The link the answer needs is a graph edge, not co-occurring text, so no lookup finds it at any k; the traversal resolves the customer and collects every hop. Adopt the graph here.',
+    }
+
+    const render = (mode: string) => {
+      const s = SLICES[mode]
+      qEl.textContent = s.q
+      vec.style.width = `${(s.vector * 100).toFixed(0)}%`
+      vecLabel.textContent = s.vector.toFixed(2)
+      graph.style.width = `${(s.graph * 100).toFixed(0)}%`
+      graphLabel.textContent = s.graph.toFixed(2)
+      verdictEl.textContent = s.verdict
+      root.dataset.win = String(s.win)
+      captionEl.textContent = captions[mode]
+      toggles.forEach((t) => {
+        const on = t.dataset.gvMode === mode
+        t.classList.toggle('on', on)
+        t.setAttribute('aria-pressed', String(on))
+      })
+    }
+
+    toggles.forEach((t) => t.addEventListener('click', () => render(t.dataset.gvMode!)))
+    render('flat')
+  }
+</script>

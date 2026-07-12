@@ -1,0 +1,112 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// Test the layers, not the box. Grade the pipeline as a single black box and
+// score only the final text, and you ship the cold-open bug, because the text
+// is the part that always looks healthy: a fluent, well-supported paragraph
+// drawn from the wrong document. Take the pipeline apart instead. Each layer
+// fails on its own terms and hides the others behind a fluent paragraph, so
+// each gets its own verdict. On the cold open the box reads green while the
+// retrieval layer is quietly red: it found a real document that was wrong for
+// this customer.
+
+const boxLayers = [
+  { name: 'Retrieval', check: 'did the right chunks come back', ok: false, note: 'found the current plan doc, wrong for a legacy account' },
+  { name: 'Reranking', check: 'did reordering help, not hurt', ok: true, note: '' },
+  { name: 'Faithfulness', check: 'answer supported by its source', ok: true, note: 'faithful to the wrong document' },
+  { name: 'Correctness', check: 'answer true against the oracle', ok: false, note: 'false for the plan she is actually on' },
+  { name: 'Traversal', check: 'every hop collected', ok: false, note: 'stopped one edge short' },
+  { name: 'Guard', check: 'retrieved text treated as data', ok: true, note: '' },
+]
+
+const ariaLabel =
+  'Two ways to grade a RAG pipeline. On the left, grade the box: a single black box takes the query and emits a fluent, confident answer that reads as a pass, so scoring only the final text signs off. On the right, grade the layers: the pipeline is taken apart into retrieval, reranking, faithfulness, correctness, traversal, and guard, each with its own verdict. Three layers are red under the fluent answer: retrieval found the current plan document which is wrong for a legacy account, correctness against the oracle is false, and traversal stopped one hop short. Faithfulness is green because the answer is faithful to the wrong document. The box hid all three failures behind a paragraph that looked healthy.'
+---
+
+<DiagramFigure label="Test the layers, not the box" ariaLabel={ariaLabel} data-lb>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-error mb-2">Grade the box</span>
+      <div class="lb-box rounded border border-border-dark bg-surface-container-low p-4">
+        <p class="m-0 font-mono text-mono-xs text-text-muted">query → <span class="lb-blackbox px-2 py-0.5">RAG pipeline</span> → answer</p>
+        <blockquote class="m-0 mt-3 rounded border border-border-dark bg-surface px-3 py-2 text-sm text-text-primary">
+          “No cap, unlimited data, cancel any time.”
+        </blockquote>
+        <p class="lb-box-verdict m-0 mt-3 flex items-center gap-2 font-mono text-mono-xs">
+          <span class="lb-dot lb-ok" aria-hidden="true"></span>
+          reads as a pass: fluent and confident
+        </p>
+        <p class="m-0 mt-2 font-mono text-mono-xs text-text-muted leading-relaxed">
+          the text is the part that always looks healthy, so the box hides every failure beneath it.
+        </p>
+      </div>
+    </div>
+
+    <div>
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-primary mb-2">Grade the layers</span>
+      <ul class="m-0 list-none space-y-1.5 p-0">
+        {
+          boxLayers.map((l) => (
+            <li class:list={['lb-layer flex items-start gap-3 rounded border px-3 py-2', l.ok ? 'ok' : 'bad']}>
+              <span class:list={['lb-dot mt-1 shrink-0', l.ok ? 'lb-ok' : 'lb-bad']} aria-hidden="true" />
+              <span class="flex-1">
+                <span class="flex items-baseline justify-between gap-2">
+                  <span class="text-sm text-text-primary font-medium">{l.name}</span>
+                  <span class="lb-mark font-mono text-mono-xs shrink-0">{l.ok ? '✓' : '✗'}</span>
+                </span>
+                <span class="block font-mono text-mono-xs text-text-muted leading-snug">{l.check}</span>
+                {l.note && <span class="lb-note block font-mono text-mono-xs mt-0.5 leading-snug">{l.note}</span>}
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+
+  <Fragment slot="note">
+    Retrieval is not answer generation, reranking is not retrieval, faithful is not true. Each layer
+    fails on its own terms and hides the others behind a fluent paragraph. The box read green over
+    three red layers. Grade the layers and the bug is the first thing you see.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-lb] .lb-blackbox {
+    background: var(--color-text-primary);
+    color: var(--color-surface);
+    border-radius: var(--radius);
+  }
+  [data-lb] .lb-dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: var(--radius-full);
+    display: inline-block;
+  }
+  [data-lb] .lb-ok {
+    background: var(--color-primary);
+  }
+  [data-lb] .lb-bad {
+    background: var(--color-error);
+  }
+  [data-lb] .lb-layer.ok {
+    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-lb] .lb-layer.ok .lb-mark {
+    color: var(--color-primary);
+  }
+  [data-lb] .lb-layer.bad {
+    border-color: color-mix(in srgb, var(--color-error) 45%, transparent);
+    background: color-mix(in srgb, var(--color-error) 8%, transparent);
+  }
+  [data-lb] .lb-layer.bad .lb-mark {
+    color: var(--color-error);
+  }
+  [data-lb] .lb-note {
+    color: var(--color-error);
+  }
+  [data-lb] .lb-box-verdict .lb-ok {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+  }
+</style>
