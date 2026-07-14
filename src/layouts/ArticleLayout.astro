@@ -289,3 +289,9 @@ const jsonLd = {
     </article>
   </main>
 </BaseLayout>
+
+{/* All article interactive-widget scripts, bundled into one external chunk
+    (covered by CSP script-src 'self') instead of per-component inline scripts. */}
+<script>
+  import '../scripts/widgets'
+</script>

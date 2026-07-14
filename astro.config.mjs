@@ -66,10 +66,12 @@ function securityHeaders() {
   // and is exempt — hashing it just bloats the header until it breaches the
   // Cloudflare line limit.
   const EXECUTABLE_TYPE = /^(?:text\/javascript|application\/javascript|module)$/i
+  /** @param {string} attrs opening-tag attribute string */
   const isExecutable = (attrs) => {
     const type = attrs.match(/\btype\s*=\s*["']([^"']*)["']/i)
     return !type || EXECUTABLE_TYPE.test(type[1].trim())
   }
+  /** @param {string} dir @param {Set<string>} hashes */
   function collectHashes(dir, hashes) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name)
