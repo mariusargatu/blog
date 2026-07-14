@@ -51,8 +51,25 @@ const { map: POST_LASTMOD, latest: SITE_LASTMOD } = readPostLastmod()
 // scripts from shared layout components; their hashes are computed from the
 // built HTML so the policy never drifts out of sync when those components
 // change. Runs at build:done over the final dist/ (after every integration).
+// Cloudflare rejects any single line in `_headers` over this many characters
+// (error code 100324). The CSP line is the only one that can grow, so we guard
+// it at build time — a loud local failure beats a silent production rejection.
+const CF_HEADER_LINE_LIMIT = 2000
+
 function securityHeaders() {
-  const INLINE_SCRIPT = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g
+  // Capture the opening tag's attributes (group 1) alongside the body (group 2)
+  // so we can skip non-executable blocks below.
+  const INLINE_SCRIPT = /<script((?![^>]*\bsrc=)[^>]*)>([\s\S]*?)<\/script>/g
+  // CSP `script-src` only governs scripts the browser executes. A `type` that
+  // is absent or a JS/module type is executable; anything else (notably
+  // application/ld+json schema blocks, importmaps, speculationrules) is data
+  // and is exempt — hashing it just bloats the header until it breaches the
+  // Cloudflare line limit.
+  const EXECUTABLE_TYPE = /^(?:text\/javascript|application\/javascript|module)$/i
+  const isExecutable = (attrs) => {
+    const type = attrs.match(/\btype\s*=\s*["']([^"']*)["']/i)
+    return !type || EXECUTABLE_TYPE.test(type[1].trim())
+  }
   function collectHashes(dir, hashes) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name)
@@ -60,7 +77,8 @@ function securityHeaders() {
       else if (entry.name.endsWith('.html')) {
         const html = readFileSync(full, 'utf8')
         for (const m of html.matchAll(INLINE_SCRIPT)) {
-          const digest = createHash('sha256').update(m[1], 'utf8').digest('base64')
+          if (!isExecutable(m[1])) continue
+          const digest = createHash('sha256').update(m[2], 'utf8').digest('base64')
           hashes.add(`'sha256-${digest}'`)
         }
       }
@@ -95,6 +113,17 @@ function securityHeaders() {
           '  Permissions-Policy: geolocation=(), camera=(), microphone=()',
           '',
         ].join('\n')
+        const overLimit = headers
+          .split('\n')
+          .find((line) => line.length > CF_HEADER_LINE_LIMIT)
+        if (overLimit) {
+          throw new Error(
+            `_headers line exceeds Cloudflare's ${CF_HEADER_LINE_LIMIT}-char limit ` +
+              `(${overLimit.length} chars). The CSP hash list has grown too large — ` +
+              `externalize inline scripts so 'self' covers them, or trim the policy.\n` +
+              `Offending line starts: ${overLimit.slice(0, 80)}…`,
+          )
+        }
         writeFileSync(path.join(out, '_headers'), headers)
       },
     },
