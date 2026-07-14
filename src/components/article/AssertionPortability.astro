@@ -1,0 +1,105 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// Then the frameworks, and what they will not do. The agentic eval frameworks
+// offer two portable metrics that run over a trace: tool correctness, a
+// deterministic comparison of tools called against tools expected, which can
+// gate; and task completion, judged by a model, which runs beside the gate, not
+// in it. Everything else you write by hand, because ordering, preconditions,
+// confirmation gates, idempotency keys, call budgets, and the execute-the-
+// pending-action invariant are specific to what your agent may do and how it was
+// built. A faithfulness metric is portable across every RAG system in the world.
+// A "never open a ticket the customer did not ask for" assertion is portable
+// across nothing. That is not a gap in your tooling, it is the work.
+
+const general = [
+  { name: 'Tool correctness', how: 'tools called vs expected', lane: 'deterministic', gate: 'gates' },
+  { name: 'Task completion', how: 'did it accomplish the goal', lane: 'model judged', gate: 'tracks' },
+]
+
+const bespoke = [
+  'ordering and preconditions',
+  'no orphan action',
+  'confirmation fidelity',
+  'execute the pending action',
+  'idempotency key',
+  'call budget and termination',
+]
+
+const ariaLabel =
+  'Two kinds of agent metric. On one side, portable framework metrics that run over any trace: tool correctness, a deterministic comparison of tools called against tools expected, which can gate; and task completion, judged by a model, which is tracked beside the gate rather than in it. On the other side, bespoke assertions portable across nothing: ordering and preconditions, no orphan action, confirmation fidelity, execute the stored pending action, the idempotency key, and call budget with termination. A faithfulness metric is portable across every RAG system; a never open a ticket assertion is portable across nothing, and writing those yourself is the work, not a workaround.'
+---
+
+<DiagramFigure label="Portable metrics, and the assertions you write yourself" ariaLabel={ariaLabel} data-ap>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-text-muted mb-2">
+        Framework metrics · portable
+      </span>
+      <div class="space-y-2">
+        {
+          general.map((g) => (
+            <div class="ap-gen rounded border border-border-dark bg-surface-container-low px-4 py-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-sm text-text-primary font-medium">{g.name}</span>
+                <span class:list={['ap-gate font-mono text-mono-xs', g.gate === 'gates' ? 'is-gate' : 'is-track']}>
+                  {g.gate === 'gates' ? 'gates ✓' : 'tracked'}
+                </span>
+              </div>
+              <span class="block font-mono text-mono-xs text-text-muted mt-1">
+                {g.how} · {g.lane}
+              </span>
+            </div>
+          ))
+        }
+        <p class="m-0 pt-1 font-mono text-mono-xs text-text-muted leading-relaxed">
+          a faithfulness metric is portable across every RAG system in the world.
+        </p>
+      </div>
+    </div>
+
+    <div>
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-primary mb-2">
+        Bespoke assertions · portable across nothing
+      </span>
+      <div class="ap-bespoke rounded border px-4 py-3">
+        <ul class="m-0 grid grid-cols-1 gap-1.5 p-0 list-none">
+          {
+            bespoke.map((b) => (
+              <li class="flex items-center gap-2 text-sm text-text-primary">
+                <span class="ap-tick font-mono text-mono-xs shrink-0" aria-hidden="true">▸</span>
+                {b}
+              </li>
+            ))
+          }
+        </ul>
+        <p class="m-0 mt-3 pt-3 border-t border-border-dark font-mono text-mono-xs text-text-muted leading-relaxed">
+          a “never open a ticket the customer did not ask for” assertion is portable across nothing.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <Fragment slot="note">
+    You will write more custom assertions than you did for retrieval, by a wide margin. That is not a
+    gap in your tooling. It is the current state of the field, and writing those assertions yourself
+    is the work, not a workaround for missing work.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-ap] .ap-gate.is-gate {
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+  [data-ap] .ap-gate.is-track {
+    color: var(--color-text-muted);
+  }
+  [data-ap] .ap-bespoke {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-ap] .ap-tick {
+    color: var(--color-primary);
+  }
+</style>

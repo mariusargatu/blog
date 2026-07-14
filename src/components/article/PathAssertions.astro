@@ -1,0 +1,90 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// With the atom solid, assert over the sequence. Replay the conversation and read
+// the trace the harness captured, because you cannot assert on a path you did not
+// record. In Atlas this is grade_trajectory, and it returns one derived verdict,
+// sound, that is exactly its parts: every atom clean (atoms_ok), at most one write,
+// no orphan action, it terminated, and it stayed within budget. Confirmation and
+// idempotency are NOT part of this roll-up — they are structural, the next section.
+// The densest tests in the suite belong here, on the write path, because a wrong
+// write changes someone's service, and the guard that gates it must fail closed.
+
+const trace = ['read account', 'propose write', 'pre_action_guard', 'confirm → execute']
+
+const props = [
+  { name: 'Atoms clean', q: 'every tool call passed the four atom rules; sound rolls atoms_ok in' },
+  { name: 'Single write', q: 'at most one write in the turn — two flattened together is a batch the runtime never intends', code: 'check_single_write' },
+  { name: 'No orphan action', q: 'every write sits on an action turn; a write on a non-action turn is an orphan by construction', code: 'check_no_orphan_write', flag: true },
+  { name: 'Termination', q: 'it stopped, cleanly, on a response, rather than circling', code: 'check_terminated' },
+  { name: 'Within budget', q: 'a sane number of tool calls; no retry storm, no reading a record forty times', code: 'check_within_budget' },
+]
+
+const ariaLabel =
+  'A sound write path recorded as a trace: read account, propose write, pre_action_guard, then confirm and execute. Atlas rolls the whole sequence into one derived verdict, sound, which is exactly its parts: atoms clean (every tool call passed the four atom rules), at most one write per turn (check_single_write), no orphan action (check_no_orphan_write, a write on a non-action turn is an orphan by construction), termination (check_terminated), and within budget (check_within_budget, no retry storm). Miss any one and sound is false. Confirmation and idempotency are enforced structurally, not in this roll-up, and are covered in the next section.'
+---
+
+<DiagramFigure label="Judge the whole path: what makes it sound" ariaLabel={ariaLabel} data-pa>
+  <div class="pa-trace flex flex-wrap items-center gap-2 mb-5">
+    {
+      trace.map((t, i) => (
+        <>
+          <span class="pa-step rounded border border-border-dark bg-surface-container-low px-3 py-1.5 font-mono text-mono-xs text-text-primary">{t}</span>
+          {i < trace.length - 1 && <span class="pa-arrow font-mono text-mono-xs text-text-muted" aria-hidden="true">→</span>}
+        </>
+      ))
+    }
+    <span class="pa-sound ml-auto font-mono text-mono-xs">sound path</span>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    {
+      props.map((p) => (
+        <div class:list={['pa-prop rounded border px-4 py-3', p.flag ? 'is-flag' : '']}>
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-mono-xs uppercase tracking-wider text-text-primary">{p.name}</span>
+            {p.code ? (
+              <code class="pa-fn font-mono text-mono-xs text-text-muted shrink-0">{p.code}</code>
+            ) : (
+              <span class="pa-check font-mono text-mono-xs shrink-0" aria-hidden="true">✓</span>
+            )}
+          </div>
+          <p class="m-0 mt-1 text-sm text-text-primary leading-snug">{p.q}</p>
+          {p.flag && (
+            <p class="pa-orphan m-0 mt-2 font-mono text-mono-xs leading-snug">
+              counterexample: a write recorded on a troubleshooting turn is an orphan by construction
+            </p>
+          )}
+        </div>
+      ))
+    }
+  </div>
+
+  <Fragment slot="note">
+    This is the whole of <code class="font-mono text-mono-xs">sound</code>: a derived property over the
+    five flags, so it can never drift from its parts. Confirmation and idempotency are not here — they
+    are structural, the next section. This is where the test budget concentrates, because a wrong write
+    changes someone's service, and an action the agent took on its own initiative is a failure even
+    when it succeeds: an agent that helps itself to actions is an agent you cannot bound.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-pa] .pa-sound {
+    color: var(--color-primary);
+  }
+  [data-pa] .pa-prop {
+    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-pa] .pa-prop .pa-check {
+    color: var(--color-primary);
+  }
+  [data-pa] .pa-prop.is-flag {
+    border-color: color-mix(in srgb, var(--color-error) 40%, transparent);
+    background: color-mix(in srgb, var(--color-error) 6%, transparent);
+  }
+  [data-pa] .pa-orphan {
+    color: var(--color-error);
+  }
+</style>

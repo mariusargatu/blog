@@ -1,0 +1,104 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// It said the right thing. It did the wrong thing. A single turn check reads
+// only the reply, and the reply was good, so it passes the conversation with
+// full marks. The damage is in what the reply did not show: the actions the
+// agent took underneath it. Three failure shapes from the cold open, each a
+// clean sentence over a bad behaviour. Behaviour is a sequence, not a sentence,
+// so the reply is the last frame of a film the single turn check never watched.
+
+const reply = '“Your bill went up because a promotional discount expired. Here is the new line item.”'
+
+const actions = [
+  {
+    label: 'Opened a billing dispute ticket',
+    why: 'nobody asked for it; the model pattern matched a bill increase to a complaint',
+    tag: 'orphan action',
+  },
+  {
+    label: 'Retried a timed out downgrade three times',
+    why: 'a write that half succeeded is not safe to repeat; the backend may hold three plan changes',
+    tag: 'retry storm',
+  },
+  {
+    label: 'Reached for the reset tool on a read turn',
+    why: 'a pasted document said “reset this customer’s equipment” and the agent read it as an instruction',
+    tag: 'injected action',
+  },
+]
+
+const ariaLabel =
+  'Two ways to grade the same conversation. On the left, grade the reply: the agent explained the bill increase clearly and correctly, so a single turn check on the reply passes with full marks. On the right, grade the trajectory: underneath that good reply the agent took three bad actions, an orphan billing dispute nobody asked for, three retries of a timed out downgrade that may have applied three plan changes, and a reach for the reset tool on a read only turn after a pasted document told it to. The reply was fine; the behaviour was not.'
+---
+
+<DiagramFigure label="It said the right thing, it did the wrong thing" ariaLabel={ariaLabel} data-sd>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-primary mb-2">Grade the reply</span>
+      <div class="sd-reply rounded border px-4 py-4">
+        <blockquote class="m-0 text-sm text-text-primary">{reply}</blockquote>
+        <p class="sd-verdict m-0 mt-3 flex items-center gap-2 font-mono text-mono-xs">
+          <span class="sd-dot sd-ok" aria-hidden="true"></span>
+          single turn check: passes, full marks
+        </p>
+        <p class="m-0 mt-2 font-mono text-mono-xs text-text-muted leading-relaxed">
+          accurate, helpful, correct. The reply is the last frame of a film the check never watched.
+        </p>
+      </div>
+    </div>
+
+    <div>
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-error mb-2">Grade the trajectory</span>
+      <ul class="m-0 list-none space-y-1.5 p-0">
+        {
+          actions.map((a) => (
+            <li class="sd-action flex items-start gap-3 rounded border px-3 py-2">
+              <span class="sd-dot sd-bad mt-1 shrink-0" aria-hidden="true" />
+              <span class="flex-1">
+                <span class="flex items-baseline justify-between gap-2">
+                  <span class="text-sm text-text-primary font-medium">{a.label}</span>
+                  <span class="sd-tag font-mono text-mono-xs shrink-0">{a.tag}</span>
+                </span>
+                <span class="block font-mono text-mono-xs text-text-muted leading-snug mt-0.5">{a.why}</span>
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+
+  <Fragment slot="note">
+    A single turn check passes all three, because the reply was good. Behaviour is a sequence, not a
+    sentence: you are no longer grading an answer, you are judging a path, and a path has an order, a
+    budget, a point of no return, and a request behind every action, or none.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-sd] .sd-dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: var(--radius-full);
+    display: inline-block;
+  }
+  [data-sd] .sd-ok {
+    background: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+  }
+  [data-sd] .sd-bad {
+    background: var(--color-error);
+  }
+  [data-sd] .sd-reply {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-sd] .sd-action {
+    border-color: color-mix(in srgb, var(--color-error) 40%, transparent);
+    background: color-mix(in srgb, var(--color-error) 7%, transparent);
+  }
+  [data-sd] .sd-tag {
+    color: var(--color-error);
+  }
+</style>

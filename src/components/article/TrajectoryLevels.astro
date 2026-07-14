@@ -1,0 +1,166 @@
+---
+import DiagramLabel from './DiagramLabel.astro'
+
+// One trajectory, three distances, and the levels disagree — that disagreement is
+// the information. The run is Atlas's real "refused" scenario: the model proposes
+// an out of bounds plan (plan_internal_zero) and pre_action_guard fails it closed.
+// End to end the task did NOT complete (goal_completed is false, the account never
+// moved), yet across the path the trajectory is sound (the guard held, so nothing
+// bad executed), and at the node it is pre_action_guard that refused it. Watch only
+// the end to end dashboard and you file a bug for a correct refusal. The node names
+// are Atlas's real LangGraph nodes: agent, pre_action_guard, confirm.
+
+const steps = [
+  { node: 'agent', label: 'agent proposes' },
+  { node: 'pre_action_guard', label: 'pre_action_guard' },
+  { node: 'confirm', label: 'confirm' },
+]
+// pre_action_guard (index 1) is where the value-bounds check refuses the write.
+const GUARD = 1
+---
+
+{/* Statically rendered at "across the path", the level that carries the key
+    insight (the refusal is sound), so a no-JS render shows the guard held rather
+    than only the end to end "not completed". The script inits to "end to end" so
+    the toggle pedagogy (the levels disagree, and that gap is the point) is intact. */}
+<figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-5 tl-path" data-tl data-inview>
+  <div class="mb-4 flex items-center gap-2">
+    <DiagramLabel label="One trajectory, three distances (Atlas's refused run)" />
+    <div class="h-px flex-1 bg-border-dark"></div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 mb-5" role="group" aria-label="Which level to watch">
+    <span class="font-mono text-mono-xs text-text-muted mr-1" aria-hidden="true">Watch:</span>
+    <button type="button" class="tl-toggle inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark text-text-muted transition-colors" data-tl-mode="e2e" aria-pressed="false">
+      end to end
+    </button>
+    <button type="button" class="tl-toggle on inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark transition-colors" data-tl-mode="path" aria-pressed="true">
+      across the path
+    </button>
+    <button type="button" class="tl-toggle inline-flex items-center font-mono text-mono-xs px-3 min-h-11 border border-border-dark text-text-muted transition-colors" data-tl-mode="node" aria-pressed="false">
+      at the node
+    </button>
+  </div>
+
+  <div class="tl-strip flex flex-wrap items-stretch gap-2 mb-4" aria-hidden="true">
+    {
+      steps.map((s, i) => (
+        <div class="tl-node flex-1 min-w-[7rem] rounded border border-border-dark bg-surface-container-low px-2 py-2 text-center" data-tl-node={i} data-guard={i === GUARD ? 'true' : 'false'}>
+          <span class="block font-mono text-mono-xs text-text-muted">{`n${i + 1}`}</span>
+          <span class="block text-sm text-text-primary leading-tight mt-0.5">{s.label}</span>
+          <code class="tl-nodeid block font-mono text-mono-xs text-text-muted mt-1">{s.node}</code>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="flex items-center gap-2 mb-3">
+    <span class="tl-verdict font-mono text-mono-xs uppercase tracking-wider px-2 py-1 border" data-tl-verdict>route sound</span>
+  </div>
+
+  <figcaption class="m-0 border-t border-border-dark pt-4 font-mono text-mono-xs text-text-muted" data-tl-caption aria-live="polite">
+    Across the path, the same run is sound: at most one write, no orphan action, it terminated, within budget — and nothing bad executed, because pre_action_guard failed the write closed before any tool ran. The refusal end to end was the system working.
+  </figcaption>
+
+  <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <div class="tl-family rounded border border-border-dark bg-surface-container-low px-3 py-2">
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-text-muted">System efficiency</span>
+      <span class="block text-sm text-text-primary mt-0.5">tool_call_count, guard_blocks: what the path cost</span>
+    </div>
+    <div class="tl-family rounded border border-border-dark bg-surface-container-low px-3 py-2">
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-text-muted">Agent quality</span>
+      <span class="block text-sm text-text-primary mt-0.5">sound, goal_completed: whether it was any good</span>
+    </div>
+  </div>
+</figure>
+
+<style is:global>
+  [data-tl] .tl-toggle.on {
+    border-color: var(--color-text-primary);
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  }
+  [data-tl] .tl-node {
+    transition: border-color 0.25s ease, background-color 0.25s ease, opacity 0.25s ease;
+  }
+  /* end to end: only the outcome matters, and the outcome is "no change"; the path dims */
+  [data-tl].tl-e2e .tl-node {
+    opacity: 0.4;
+  }
+  /* across the path: the route is sound; the guard node is marked as the block point */
+  [data-tl].tl-path .tl-node[data-guard='true'] {
+    border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  }
+  /* at the node: only the guard node is lit, with its id emphasised */
+  [data-tl].tl-node-view .tl-node:not([data-guard='true']) {
+    opacity: 0.4;
+  }
+  [data-tl].tl-node-view .tl-node[data-guard='true'] {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 9%, transparent);
+  }
+  [data-tl].tl-node-view .tl-node[data-guard='true'] .tl-nodeid {
+    color: var(--color-primary);
+  }
+  [data-tl] .tl-verdict {
+    border-color: var(--color-border-dark);
+    color: var(--color-text-muted);
+  }
+  /* end to end: the task did not complete — a real outcome, flagged (error tint) */
+  [data-tl].tl-e2e .tl-verdict {
+    border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
+    color: var(--color-error);
+  }
+  /* path + node: the system behaved correctly — sound, and the guard held */
+  [data-tl]:not(.tl-e2e) .tl-verdict {
+    border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+    color: var(--color-primary);
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-tl]')
+  if (root) {
+    const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-tl-mode]')]
+    const verdictEl = root.querySelector<HTMLElement>('[data-tl-verdict]')!
+    const captionEl = root.querySelector<HTMLElement>('[data-tl-caption]')!
+
+    const data: Record<string, { cls: string; verdict: string; caption: string }> = {
+      e2e: {
+        cls: 'tl-e2e',
+        verdict: 'task not completed',
+        caption:
+          'End to end, the session asks one thing: did the account reach the plan the customer asked for. It did not — goal_completed is false, the account never moved. A stakeholder watching only this dashboard sees a red "failed" and reaches for a bug report.',
+      },
+      path: {
+        cls: 'tl-path',
+        verdict: 'route sound',
+        caption:
+          'Across the path, the same run is sound: at most one write, no orphan action, it terminated, within budget — and nothing bad executed, because pre_action_guard failed the write closed before any tool ran. The refusal end to end was the system working.',
+      },
+      node: {
+        cls: 'tl-node-view',
+        verdict: 'pre_action_guard refused',
+        caption:
+          'At the node, the exact seam Atlas names: pre_action_guard, on the value-bounds check, refused plan_internal_zero before it could execute. Not "the agent failed" but the node, the reason, and the input and output on either side of it.',
+      },
+    }
+
+    const render = (mode: string) => {
+      const d = data[mode]
+      root.classList.remove('tl-e2e', 'tl-path', 'tl-node-view')
+      root.classList.add(d.cls)
+      verdictEl.textContent = d.verdict
+      captionEl.textContent = d.caption
+      toggles.forEach((t) => {
+        const on = t.dataset.tlMode === mode
+        t.classList.toggle('on', on)
+        t.setAttribute('aria-pressed', String(on))
+      })
+    }
+
+    toggles.forEach((t) => t.addEventListener('click', () => render(t.dataset.tlMode!)))
+    render('e2e')
+  }
+</script>

@@ -1,0 +1,119 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// The atom of a trajectory: one tool call, held to four fail closed rules. The
+// right tool for the intent, the right arguments drawn from what the customer
+// said, the arguments in bounds, and the id scoped to the session. The last is
+// the one that matters most and the one a model must never touch: identity
+// comes from who is signed in, carried in the call context out of the model's
+// reach, never an id lifted from the conversation. All four are binary and
+// fail closed, and the atom check calls the same guard the runtime calls, so an
+// eval can never grade a call the runtime would have refused.
+
+const args = [
+  { name: 'plan_id', value: '"plan_current_fast"', source: 'the plan the customer named', model: true },
+  { name: 'account', value: 'ctx.session', source: 'who is signed in, bound at connect — never a tool argument', model: false },
+]
+
+const rules = [
+  { n: 1, rule: 'The right tool for the intent', ok: 'switch plan → change_plan, not open_ticket' },
+  { n: 2, rule: 'The right arguments, from what was said', ok: 'the plan the customer actually named' },
+  { n: 3, rule: 'The arguments in bounds', ok: 'catalog check: no plan_internal_zero, no bogus add on' },
+  { n: 4, rule: 'The id scoped to the session', ok: 'from the call context, never from the conversation', critical: true },
+]
+
+const ariaLabel =
+  'A single tool call, change_plan, whose only model-authored argument is plan_id, drawn from the plan the customer named; the account acted on comes from the session context, bound at connect, never a tool argument. Four fail closed rules grade it: the right tool for the intent, the right arguments from what was said, the arguments in bounds against the catalog, and the id scoped to the session. The fourth is critical: identity must come from who is signed in, in the call context, never an id the model lifted from the chat. Three are checked deterministically against the runtime’s own guard; the second, arguments from what was said, needs the request and is model judged in the operator lane.'
+---
+
+<DiagramFigure label="The atom: one tool call, four fail closed rules" ariaLabel={ariaLabel} data-ta>
+  <div class="ta-call rounded border border-border-dark bg-surface-container-low overflow-hidden">
+    <div class="px-4 py-2 border-b border-border-dark bg-surface-container-high font-mono text-mono-xs text-text-muted">
+      the emitted tool call
+    </div>
+    <div class="p-4 font-mono text-sm">
+      <div class="text-text-primary">change_plan(</div>
+      {
+        args.map((a) => (
+          <div class="pl-5 flex flex-wrap items-baseline gap-x-2">
+            <span class="text-text-primary">{a.name}:</span>
+            <span class="text-text-primary">{a.value}</span>
+            <span class:list={['ta-src ml-1 text-mono-xs', a.model ? 'ta-model' : 'ta-locked']}>
+              {a.model ? '← ' : '🔒 '}
+              {a.source}
+            </span>
+          </div>
+        ))
+      }
+      <div class="text-text-primary">)</div>
+    </div>
+  </div>
+
+  <div class="mt-4 space-y-1.5">
+    {
+      rules.map((r) => (
+        <div class:list={['ta-rule flex items-start gap-3 rounded border px-3 py-2', r.critical ? 'is-critical' : '']}>
+          <span class="ta-num font-mono text-mono-xs shrink-0 mt-0.5">{r.n}</span>
+          <span class="flex-1">
+            <span class="flex items-baseline justify-between gap-2">
+              <span class="text-sm text-text-primary font-medium">{r.rule}</span>
+              {r.critical ? (
+                <span class="ta-crit font-mono text-mono-xs shrink-0">critical · stops the turn</span>
+              ) : (
+                <span class="ta-pass font-mono text-mono-xs shrink-0">✓ binary</span>
+              )}
+            </span>
+            <span class="block font-mono text-mono-xs text-text-muted leading-snug mt-0.5">{r.ok}</span>
+          </span>
+        </div>
+      ))
+    }
+  </div>
+
+  <Fragment slot="note">
+    A call that targets the wrong account does not get nine out of ten for the rest: it is a critical
+    failure that stops the turn cold. The atom check does not reimplement these rules, it calls the
+    same guard the runtime calls, so an eval can never grade a call the runtime would have refused.
+    Grade the explanation if you like. Never grade the account number.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-ta] .ta-src {
+    font-size: 0.7rem;
+  }
+  [data-ta] .ta-model {
+    color: var(--color-text-muted);
+  }
+  [data-ta] .ta-locked {
+    color: var(--color-primary);
+  }
+  [data-ta] .ta-rule {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-ta] .ta-rule.is-critical {
+    border-color: color-mix(in srgb, var(--color-error) 45%, transparent);
+    background: color-mix(in srgb, var(--color-error) 7%, transparent);
+  }
+  [data-ta] .ta-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-full);
+    color: var(--color-text-muted);
+  }
+  [data-ta] .ta-pass {
+    color: var(--color-primary);
+  }
+  [data-ta] .ta-crit {
+    color: var(--color-error);
+  }
+  [data-ta] .ta-rule.is-critical .ta-num {
+    border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
+    color: var(--color-error);
+  }
+</style>

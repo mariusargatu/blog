@@ -1,0 +1,169 @@
+---
+title: 'Agent Trajectory Testing'
+description: >-
+  An agent that acts can say the right thing and do the wrong thing. Once the
+  model can act, the unit of testing becomes the trajectory: the tools it called,
+  in what order, whether it confirmed before anything irreversible, and whether a
+  retried write applied once. Grade the path, not just the answer.
+kicker: GENAI_TESTING
+topic: GenAI
+ctaNote: >-
+  Shipping an agent that can read or change a customer's account? This is how I
+  test the path it takes, not just the sentence it ends on, before a customer
+  ever sees it.
+series:
+  name: Evals Are Checks, Not Tests
+  order: 8
+  code: v8-agent-trajectory-testing
+author: Marius Argatu
+pubDate: 2026-07-12
+tags: [llm, langgraph, agentic, trajectory, idempotency, testing, evals]
+draft: false
+faq:
+  - q: What is agent trajectory testing?
+    a: >-
+      Grading the path of decisions an agent took, not just its final message.
+      Which tools it called, in what order, with what arguments, whether it
+      confirmed before anything irreversible, and whether it stopped. An agent
+      can say the right thing and do the wrong thing, and only the path shows the
+      second.
+  - q: Why is testing the final answer not enough for an agent?
+    a: >-
+      Because behaviour is a sequence, not a sentence. An agent can explain a bill
+      correctly and then open a dispute ticket nobody asked for, or retry a
+      timed out write until the backend holds three changes. A single turn check
+      on the reply passes both, because the reply was fine. The damage is in what
+      the reply did not show.
+  - q: What are the three levels of trajectory testing?
+    a: >-
+      End to end, did the task succeed. Across the path, was the route sound. At
+      the node, which step broke. You need all three: a session can succeed by
+      luck through a path you would never sign off on if you saw it drawn, and
+      only the node tells you which step to fix rather than that something,
+      somewhere, went wrong.
+  - q: How do you make a confirmation and a retried write safe?
+    a: >-
+      With an interrupt and a durable checkpoint. The agent proposes an action and
+      the run pauses, persisting exactly what it intends to do. On confirmation it
+      executes the stored action, not a fresh generation, so yes means yes to the
+      thing the customer actually saw. An idempotency key minted once means a
+      timed out write retried three times applies exactly once.
+  - q: Should you test an agent against a real backend?
+    a: >-
+      Never. The reason a trajectory test can attempt a plan change thousands of
+      times, with every retry and adversarial variation, is that the action
+      backend is faked, stateful, and idempotency aware, seeded with multi customer
+      data and incapable of touching a real account. Determinism and fakes are the
+      permission slip.
+---
+
+import SayVsDo from '../../../components/article/SayVsDo.astro'
+import TrajectoryLevels from '../../../components/article/TrajectoryLevels.astro'
+import ToolCallAtom from '../../../components/article/ToolCallAtom.astro'
+import PathAssertions from '../../../components/article/PathAssertions.astro'
+import ConfirmExecute from '../../../components/article/ConfirmExecute.astro'
+import IdempotencyKey from '../../../components/article/IdempotencyKey.astro'
+import OnlyGoesGreen from '../../../components/article/OnlyGoesGreen.astro'
+import AssertionPortability from '../../../components/article/AssertionPortability.astro'
+
+<Callout variant="info" title="tl;dr">
+Once the model can act, the final message stops being the thing to test. The unit becomes the trajectory: which tools it called, in what order, with what arguments, whether it confirmed before doing anything irreversible, whether a write that timed out applied once or three times, and whether it stopped. You grade that at three levels, end to end, across the path, and at the single node that broke, and along two families, agent quality and system efficiency. Start with the atom, one tool call, and four fail closed rules. Then judge the whole path. The hardest properties, confirmation and idempotency, are not checks you bolt on. They are the shape of the machine.
+</Callout>
+
+## It said the right thing. It did the wrong thing.
+
+A customer asks why his bill went up. The agent explains the change clearly and correctly: a promotional discount expired, here is the new line item, all true. Then, unprompted, it opens a billing dispute ticket on his account, because somewhere in its plan it decided that explaining a bill increase meant resolving a complaint. The text the customer saw was accurate and helpful. The action the agent took was never requested, and it now sits on his record waiting for a human to wonder where it came from. A single turn check on the reply passes this conversation with full marks, because the reply was good. The damage is in what the reply did not show.
+
+Now make it worse. A customer asks to downgrade. The agent tries the change, the call times out, and the agent retries. And retries. Three times, because nothing told it that a write which might have half succeeded is not safe to blindly repeat, and somewhere on the other side a backend may now hold three plan changes where the customer asked for one. Or take a third shape: a support document the customer pasted into the chat contains the line reset this customer's equipment, and the agent, reading it as an instruction rather than as content, reaches for the reset tool from inside what should have been a read only conversation. None of these is a bad sentence. All of them are bad behaviour, and behaviour is a sequence, not a sentence.
+
+That is the whole shift. You are no longer grading an answer. You are judging a path, and a path has properties an answer does not: an order, a budget, a point of no return, and a question at every single step about whether the thing the agent just did is the thing the customer actually asked for. The reply is the last frame of a film you have been ignoring.
+
+<SayVsDo />
+
+## Three levels, and two families of number
+
+A trajectory is not one thing you measure. It is a structure you can look at from three distances, and you need all three, because a failure hides at whichever one you are not watching. The three below are the ones Atlas actually computes, in its `trajectory` eval lane, named here as they appear in the harness (`grade_trajectory` and the `TrajectoryReport` it returns), so the diagrams are the code, not a sketch of it.
+
+End to end, the session. Did the task succeed: did the account actually reach the plan the customer asked for. In Atlas this is an out of band oracle, `goal_completed`, read from the account store after the run, never the trajectory's own `write_applied` flag, because "did the account end on the right plan" is a question the trajectory cannot answer from its own shape. It is the question a stakeholder asks and the only one a customer feels, and it is the coarsest: end to end alone cannot tell a task that failed because the agent broke from one that "failed" because a guard correctly refused an out of bounds request. Both read as red.
+
+Across the path, the trajectory. Was the route sound: in Atlas literally `report.sound`, a property derived from the path and atom flags so it can never drift from its parts. This is where that refused request comes back green, the guard held and nothing executed, so the path is valid even though the task did not complete. A session can also reach the right end state through a path you would never sign off on if you saw it drawn, and the trajectory view is where you finally see it drawn. This is the level the old single turn world had no way to look at, because there was nothing to look at: one question, one answer, no path.
+
+At the node, the step. Which node broke, or here, which node held. Atlas's agent core is a LangGraph state graph, and that is not an implementation footnote, it is a testing gift. Every node is a labelled seam. When something happens you do not get a vague "the agent failed," you get the exact node the graph names, the `agent` node that proposed the call, the `pre_action_guard` that checked it, or the `confirm` node that executes the stored action, with the input and the output on either side of it. The graph gives the trace its joints, and a trace with joints is one you can assert against precisely instead of grading as a blob.
+
+Across all three levels run two different families of number, and teams routinely track one and forget the other. System efficiency metrics ask what the path cost: how many tokens it burned, how long it took, how many tool calls it made (in the report, `tool_call_count` and `guard_blocks`). Agent quality metrics ask whether the path was any good: did it complete the task, was the trajectory sound, did it call the right tools correctly (`goal_completed` and `sound`). Efficiency without quality is a fast, cheap route to the wrong place. Quality without efficiency is a correct agent that costs more per conversation than the human it was supposed to replace. You read both.
+
+<TrajectoryLevels />
+
+## Start with the atom: one tool call
+
+Before the full path, get the atom right, because a path is only ever as trustworthy as the single steps it is made of. When the agent decides to act, assert on the tool call it emits, not on the prose around it. Four things, and they are not a rubric, they are rules.
+
+The right tool for the intent. A customer who asks to downgrade gets the plan change tool, not the ticket tool, and the agent that opens a dispute because it pattern matched "bill" to "complaint" fails here, at the selection, before an argument is even built.
+
+The right arguments, drawn from what the customer actually said. The target plan is the one the customer named, not an adjacent one the model free associated into existence, and the date is the date they gave, not a plausible default the model felt like supplying.
+
+The arguments in bounds. No internal only plan a customer is not allowed to select. No bogus add on, no invented engineer slot, no date outside the range the system permits. These are the values a fluent, confident model produces without blinking, and a schema check catches them without an opinion.
+
+And the id scoped to the session. This is the one that matters most and the one a model must never touch. The account being acted on comes from who is signed in, carried in the call context out of the model's reach, never an id the model lifted from the conversation and certainly never one the customer typed. Identity is not an argument. The moment it becomes an argument, you have built a system where the cheapest attack in the world is to ask politely for someone else's account.
+
+All four are binary and fail closed. A tool call that targets the wrong account does not get nine out of ten for getting everything else right; it is a critical failure that stops the turn cold. And here is the discipline that keeps the grader honest: the atom check does not reimplement these rules, it calls the same guard the runtime calls. The eval that decides whether a call was in bounds runs the runtime's own bounds check. So an eval can never grade a call the runtime would have refused. Grade the explanation if you like. Never grade the account number.
+
+<ToolCallAtom />
+
+## Then judge the whole path
+
+With the atom solid, assert over the sequence. Replay a conversation and read the trace the harness captured, the same span tree the retrieval tests read, because you cannot assert on a path you did not record. In Atlas this is `grade_trajectory`, and it returns one derived verdict, `sound`, that is exactly its parts: every atom clean, at most one write, no orphan action, it terminated, and it stayed within budget. Miss any one and `sound` is false, so a single bad step pulls the whole path down. The questions are no longer about any single call. They are about restraint.
+
+At most one write. A turn changes the account once or not at all; two writes flattened into one turn is a batch the runtime never intends, and `check_single_write` rejects it. This is the turn scoped shape of the write surface: a legitimate action turn may read and then write, but it never writes twice.
+
+No orphan action. Did every write have a matching request behind it. This is the bill dispute failure made into an assertion: walk the trace, and for each write, point to the turn that asked for it. An action the agent took on its own initiative, however helpful it imagined it was being, is a failure even when it succeeds, because an agent that helps itself to actions is an agent you cannot bound. In Atlas a write only belongs on an action turn, so a write recorded on a troubleshooting turn is an orphan by construction, and `check_no_orphan_write` says so.
+
+Termination. Did it stop, cleanly, on a response, rather than circle: `check_terminated`. Budget. Did the whole conversation stay within a sane number of tool calls, no retry storms, no reading the same record forty times inside a loop the model cannot feel itself running: `check_within_budget`. Together with the atom rules, these five flags are the whole of `sound`. Confirmation and fidelity, that anything irreversible happened only after a yes and that the action taken was the action requested, are not part of this deterministic roll-up. They are structural, and they get their own section next.
+
+<PathAssertions />
+
+This is where the test budget should concentrate, because this is where the consequence concentrates. A wrong document answer embarrasses you. A wrong write changes someone's service. The densest tests in the whole suite belong on the write path, and the guard that gates it has to fail closed every single time, because a guardrail that fails open once is not a guardrail, it is a delay.
+
+## Confirmation and idempotency, the LangGraph way
+
+The two hardest properties on the write path, confirmation and idempotency, are not bolted on checks. They are the shape of the machine, and the machine is LangGraph's. The propose, confirm, execute gate is an interrupt paired with a durable checkpointer: the graph runs up to the point of action in `pre_action_guard`, which mints the action it intends to take, and then the `confirm` node interrupts itself, pausing and persisting that pending action into the checkpoint. Nothing has happened yet. The conversation is now sitting on a saved state that says here is exactly what I am about to do, waiting for a yes.
+
+Where you put that checkpoint boundary is not a detail. It is the definition of idempotency for the whole system. Because when the confirmation arrives, the orchestrator does not turn back to the model and ask what to do now. It resumes from the checkpoint and executes the pending action, the one that was proposed and saved, not whatever the model would generate on this fresh turn. That distinction is the whole game. Execute the latest model output and a confirmation becomes a second roll of the dice, where the agent can propose one thing, collect a yes, and do another. Execute the stored pending action and the yes means yes to the specific thing the customer actually saw and agreed to.
+
+<ConfirmExecute />
+
+The same saved state carries an idempotency key, minted once when the action was first proposed and riding, like identity, in the call context rather than in any argument the model controls. This is what makes the retry storm story survivable. When a write times out and the orchestrator tries again, it carries the same key, and the stateful action backend, which knows it has seen that key, applies the change once and returns the original result for every repeat. Three retries on one key are one plan change. The key is the promise that a half succeeded write does not quietly become a double applied one, and because the key lives outside the model's reach, the model cannot reset it, reuse it, or talk its way into a fresh one. That property is one assertion over `execute_if_confirmed`: confirm the same pending action twice, and the account changed once.
+
+<IdempotencyKey />
+
+Which is why the failure modes here are their own test set, and a nasty one. Confirming a different action than the one proposed. A dropped session that loses the pending state. A double confirm that tries to execute the same pending action twice. Each is a specific, reproducible scenario you drive against the faked backend, over and over, and each one you do not test is a way for a yes to come to mean something the customer never agreed to.
+
+## An honest note about what the trace can and cannot show
+
+There is a subtlety worth stating plainly, because it changes how you read a green result. Atlas is fail closed: an out of bounds write, a foreign account id, a write on the wrong kind of turn, all of these are caught by the guard before the tool ever runs, and a blocked tool leaves no executed call record in the trace. So when you drive a bad write through the real graph, the trajectory that comes back is sound. Nothing bad executed. The guard held, and the trace shows a guard block and no action.
+
+That is not a gap in the test. It is the runtime working. But it means the negative direction, a trajectory that grades unsound because a bad action actually landed, cannot be produced by the real runtime at all, only by a hand built trajectory that skips the guard. So you test both: the real graph proves the guard never lets a bad write through, and a synthetic trajectory with a foreign account id proves the grader would catch one if it ever did. A test that can only ever go green is not a test. Knowing which of your assertions can fail, and constructing the case that makes it fail, is the difference between a suite with teeth and a suite that flatters you.
+
+<OnlyGoesGreen />
+
+## Then the frameworks, and what they will not do
+
+With the assertions understood by hand, reach for the tools, knowing this is the least mature corner of the ecosystem. The agentic eval frameworks offer metrics, task completion and tool correctness, that run over a trace and answer the two questions a general framework can answer well: did the agent accomplish the goal, and did it call the tools properly. In Atlas these are DeepEval's `ToolCorrectnessMetric` and `TaskCompletionMetric`. Tool correctness is deterministic, a comparison of the tools called against the tools expected, and it can gate. Task completion is judged by a model, so it runs beside the gate, not in it, calibrated and non blocking.
+
+Because here is the honest shape of agent testing today: you will write more custom assertions than you did for retrieval, by a wide margin. Ordering, preconditions, confirmation gates, idempotency keys, call budgets, the execute the pending action invariant, none of these is a general metric, because every one of them is specific to what your agent is allowed to do and how it was built. A faithfulness metric is portable across every RAG system in the world. A "never open a ticket the customer did not ask for" assertion is portable across nothing. That is not a gap in your tooling. It is the current state of the field, and writing those assertions yourself is the work, not a workaround for missing work.
+
+<AssertionPortability />
+
+Two things this deliberately does not do. It does not generate the conversations. The persona driven simulation that produces realistic, messy, multi turn paths, the tired customer at 9pm, the one who changes his mind twice and then asks for a refund, is its own subject, because driving an agent well enough to surface its bad paths is a discipline in its own right. And it does not throw the punches. The sharpest inputs, the jailbreaks that try to talk the agent past tool authorization, the social engineering that asks politely for another customer's record, belong to the security subject, because attacking the write path is a different mindset from testing it. This builds the assertions both of those will fire against.
+
+One thing to say plainly, and worth repeating wherever the write path comes up: do not run any of this against anything real. The entire reason a trajectory test can attempt a plan change, a reset, and a booking thousands of times, with every retry and every adversarial variation, is that the action backend is faked, stateful, and idempotency aware, seeded with multi customer data and structurally incapable of touching a real account or moving real money. Determinism and fakes are not a convenience here. They are the permission slip. They are what make it safe to test the most dangerous surface in the system as aggressively as it deserves, which is the only way that surface ever becomes safe.
+
+## Where this lands
+
+Grade the answer and you learn whether the agent is articulate. Judge the path and you learn whether it is safe. For a system that can change a customer's account, only the second one matters, and the gap between saying the right thing and doing the right thing is the gap between a demo and something you can put in front of a customer who is already annoyed about his bill.
+
+Next in the series: the conversations themselves. Every path so far was driven by a single scripted turn. The failures that scare you the most do not fit in one turn, they build across many, and the only way to find them before a customer does is to simulate the customer first.
+
+<Callout variant="takeaway" title="Key takeaway">
+The reply is the last frame of a film. Grade the whole film. Start with the atom, one tool call held to four fail closed rules, and reuse the runtime's own guard so an eval never grades more leniently than the system it grades. Then assert the path: order, no orphan action, confirmation, budget, termination, fidelity. Make confirmation and idempotency structural, an interrupt that executes the stored pending action and a key that turns three retries into one change. And know which of your assertions can actually fail, because a test that can only go green is not testing anything.
+</Callout>
