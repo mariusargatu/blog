@@ -12,7 +12,7 @@ import DiagramFigure from './DiagramFigure.astro'
 
 const args = [
   { name: 'plan_id', value: '"plan_current_fast"', source: 'the plan the customer named', model: true },
-  { name: 'account', value: 'ctx.session', source: 'who is signed in, bound at connect — never a tool argument', model: false },
+  { name: 'account', value: 'ctx.session', source: 'who is signed in, bound at connect, never a tool argument', model: false },
 ]
 
 const rules = [
@@ -23,7 +23,7 @@ const rules = [
 ]
 
 const ariaLabel =
-  'A single tool call, change_plan, whose only model-authored argument is plan_id, drawn from the plan the customer named; the account acted on comes from the session context, bound at connect, never a tool argument. Four fail closed rules grade it: the right tool for the intent, the right arguments from what was said, the arguments in bounds against the catalog, and the id scoped to the session. The fourth is critical: identity must come from who is signed in, in the call context, never an id the model lifted from the chat. Three are checked deterministically against the runtime’s own guard; the second, arguments from what was said, needs the request and is model judged in the operator lane.'
+  'A single tool call, change_plan, whose only model authored argument is plan_id, drawn from the plan the customer named; the account acted on comes from the session context, bound at connect, never a tool argument. Four fail closed rules grade it: the right tool for the intent, the right arguments from what was said, the arguments in bounds against the catalog, and the id scoped to the session. The fourth is critical: identity must come from who is signed in, in the call context, never an id the model lifted from the chat. Three are checked deterministically against the runtime’s own guard; the second, arguments from what was said, needs the request and is model judged in the operator lane.'
 ---
 
 <DiagramFigure label="The atom: one tool call, four fail closed rules" ariaLabel={ariaLabel} data-ta>

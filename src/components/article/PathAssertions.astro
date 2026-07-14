@@ -6,7 +6,7 @@ import DiagramFigure from './DiagramFigure.astro'
 // record. In Atlas this is grade_trajectory, and it returns one derived verdict,
 // sound, that is exactly its parts: every atom clean (atoms_ok), at most one write,
 // no orphan action, it terminated, and it stayed within budget. Confirmation and
-// idempotency are NOT part of this roll-up — they are structural, the next section.
+// idempotency are NOT part of this roll up; they are structural, the next section.
 // The densest tests in the suite belong here, on the write path, because a wrong
 // write changes someone's service, and the guard that gates it must fail closed.
 
@@ -14,14 +14,14 @@ const trace = ['read account', 'propose write', 'pre_action_guard', 'confirm →
 
 const props = [
   { name: 'Atoms clean', q: 'every tool call passed the four atom rules; sound rolls atoms_ok in' },
-  { name: 'Single write', q: 'at most one write in the turn — two flattened together is a batch the runtime never intends', code: 'check_single_write' },
-  { name: 'No orphan action', q: 'every write sits on an action turn; a write on a non-action turn is an orphan by construction', code: 'check_no_orphan_write', flag: true },
+  { name: 'Single write', q: 'at most one write in the turn; two flattened together is a batch the runtime never intends', code: 'check_single_write' },
+  { name: 'No orphan action', q: 'every write sits on an action turn; a write on a non action turn is an orphan by construction', code: 'check_no_orphan_write', flag: true },
   { name: 'Termination', q: 'it stopped, cleanly, on a response, rather than circling', code: 'check_terminated' },
   { name: 'Within budget', q: 'a sane number of tool calls; no retry storm, no reading a record forty times', code: 'check_within_budget' },
 ]
 
 const ariaLabel =
-  'A sound write path recorded as a trace: read account, propose write, pre_action_guard, then confirm and execute. Atlas rolls the whole sequence into one derived verdict, sound, which is exactly its parts: atoms clean (every tool call passed the four atom rules), at most one write per turn (check_single_write), no orphan action (check_no_orphan_write, a write on a non-action turn is an orphan by construction), termination (check_terminated), and within budget (check_within_budget, no retry storm). Miss any one and sound is false. Confirmation and idempotency are enforced structurally, not in this roll-up, and are covered in the next section.'
+  'A sound write path recorded as a trace: read account, propose write, pre_action_guard, then confirm and execute. Atlas rolls the whole sequence into one derived verdict, sound, which is exactly its parts: atoms clean (every tool call passed the four atom rules), at most one write per turn (check_single_write), no orphan action (check_no_orphan_write, a write on a non action turn is an orphan by construction), termination (check_terminated), and within budget (check_within_budget, no retry storm). Miss any one and sound is false. Confirmation and idempotency are enforced structurally, not in this roll up, and are covered in the next section.'
 ---
 
 <DiagramFigure label="Judge the whole path: what makes it sound" ariaLabel={ariaLabel} data-pa>
@@ -62,7 +62,7 @@ const ariaLabel =
 
   <Fragment slot="note">
     This is the whole of <code class="font-mono text-mono-xs">sound</code>: a derived property over the
-    five flags, so it can never drift from its parts. Confirmation and idempotency are not here — they
+    five flags, so it can never drift from its parts. Confirmation and idempotency are not here; they
     are structural, the next section. This is where the test budget concentrates, because a wrong write
     changes someone's service, and an action the agent took on its own initiative is a failure even
     when it succeeds: an agent that helps itself to actions is an agent you cannot bound.

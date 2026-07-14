@@ -1,7 +1,7 @@
 ---
 import DiagramLabel from './DiagramLabel.astro'
 
-// One trajectory, three distances, and the levels disagree — that disagreement is
+// One trajectory, three distances, and the levels disagree; that disagreement is
 // the information. The run is Atlas's real "refused" scenario: the model proposes
 // an out of bounds plan (plan_internal_zero) and pre_action_guard fails it closed.
 // End to end the task did NOT complete (goal_completed is false, the account never
@@ -15,12 +15,12 @@ const steps = [
   { node: 'pre_action_guard', label: 'pre_action_guard' },
   { node: 'confirm', label: 'confirm' },
 ]
-// pre_action_guard (index 1) is where the value-bounds check refuses the write.
+// pre_action_guard (index 1) is where the value bounds check refuses the write.
 const GUARD = 1
 ---
 
 {/* Statically rendered at "across the path", the level that carries the key
-    insight (the refusal is sound), so a no-JS render shows the guard held rather
+    insight (the refusal is sound), so a no JS render shows the guard held rather
     than only the end to end "not completed". The script inits to "end to end" so
     the toggle pedagogy (the levels disagree, and that gap is the point) is intact. */}
 <figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-5 tl-path" data-tl data-inview>
@@ -59,7 +59,7 @@ const GUARD = 1
   </div>
 
   <figcaption class="m-0 border-t border-border-dark pt-4 font-mono text-mono-xs text-text-muted" data-tl-caption aria-live="polite">
-    Across the path, the same run is sound: at most one write, no orphan action, it terminated, within budget — and nothing bad executed, because pre_action_guard failed the write closed before any tool ran. The refusal end to end was the system working.
+    Across the path, the same run is sound: at most one write, no orphan action, it terminated, within budget, and nothing bad executed, because pre_action_guard failed the write closed before any tool ran. The refusal end to end was the system working.
   </figcaption>
 
   <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -107,12 +107,12 @@ const GUARD = 1
     border-color: var(--color-border-dark);
     color: var(--color-text-muted);
   }
-  /* end to end: the task did not complete — a real outcome, flagged (error tint) */
+  /* end to end: the task did not complete, a real outcome, flagged (error tint) */
   [data-tl].tl-e2e .tl-verdict {
     border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
     color: var(--color-error);
   }
-  /* path + node: the system behaved correctly — sound, and the guard held */
+  /* path + node: the system behaved correctly, sound, and the guard held */
   [data-tl]:not(.tl-e2e) .tl-verdict {
     border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
     color: var(--color-primary);
