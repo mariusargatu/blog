@@ -1,0 +1,159 @@
+---
+title: 'Simulating the User: Test Between the Turns'
+description: >-
+  A golden case tests one turn; the failures that matter live across many.
+  Simulate persona conversations before production, scored by a calibrated
+  evaluator.
+kicker: GENAI_TESTING
+topic: GenAI
+ogImage: ./og.jpg
+ctaNote: >-
+  Shipping an agent that holds multi-turn conversations with real customers? This
+  is how I break it myself first, in private, where the wreckage is a failing test
+  and not a refund.
+series:
+  name: Evals Are Checks, Not Tests
+  order: 9
+  code: v9-simulating-the-user
+author: Marius Argatu
+pubDate: 2026-07-14
+tags: [llm, langgraph, agentic, simulation, personas, testing, evals]
+draft: false
+faq:
+  - q: What is user simulation in agent testing?
+    a: >-
+      Generating multi-turn conversations against the agent from personas, a
+      customer with a disposition and a goal, before a real customer ever opens a
+      chat. It exists because the failures that matter build across a conversation,
+      the customer who changes her mind and the agent that loses track, and those
+      do not fit in a single-turn golden case.
+  - q: Why is a static golden set not enough for a conversational agent?
+    a: >-
+      A golden case is a snapshot of one turn, authored and reviewed one turn at a
+      time. Real conversations are a tree that branches at every reply, with
+      failure modes, drift, context loss, sycophancy under pressure, that have no
+      single-turn form. The static set stays the regression floor of named
+      failures; simulation finds the ones nobody named.
+  - q: What is the three-agent harness?
+    a: >-
+      A persona simulator drives the traffic, the system under test responds
+      exactly as it would in production, and a separate calibrated evaluator
+      scores. The separation is the point: an agent grading its own conversation
+      grades itself generously, so the judge is a different, calibrated agent, one
+      whose verdicts agree with human labels.
+  - q: How does a nondeterministic simulation still gate a build?
+    a: >-
+      By recording it. The simulation runs live in a slow nightly lane, and the
+      conversations worth keeping are frozen as fixtures that replay in the fast
+      deterministic lane, exactly like golden cases. The generator runs nightly;
+      the fixture it leaves behind runs on every commit and never flakes.
+  - q: How does simulation help security testing?
+    a: >-
+      A persona is a customer with a disposition and a goal, and nothing requires
+      the goal to be honest. The same simulator that plays the bargain hunter plays
+      the social engineer escalating over five patient turns. The hardest attacks
+      are multi-turn by nature, so building persona simulation gives you half the
+      security suite for free.
+---
+
+import ConversationSeam from '../../../components/article/ConversationSeam.astro'
+import FlashcardVsTree from '../../../components/article/FlashcardVsTree.astro'
+import PersonaRoster from '../../../components/article/PersonaRoster.astro'
+import SettledIntent from '../../../components/article/SettledIntent.astro'
+import ThreeAgentHarness from '../../../components/article/ThreeAgentHarness.astro'
+import SimToFixture from '../../../components/article/SimToFixture.astro'
+
+<Callout variant="info" title="tl;dr">
+A golden case tests one turn. The failures that scare you live between turns: a customer changes her mind and the agent loses the thread, a polite request curdles and the agent agrees to the wrong plan four turns later. So you simulate the user. Personas drive hundreds of conversations before a real customer does, a separate calibrated evaluator scores them, and the ones worth keeping freeze into fixtures so a nondeterministic simulation still gates a deterministic build.
+</Callout>
+
+## Every turn passes. The conversation fails.
+
+Single-turn evals can all pass while the conversation fails. Every document answer is grounded, every account read matches the oracle, every tool call carries the customer's own arguments and waits for confirmation. The dashboard has been green for weeks. Then a real customer opens a conversation, and the failure appears in the seam between turns, where no single-turn case ever looked.
+
+She wants to upgrade. The agent quotes the price of the faster plan, correctly, to the cent. She hesitates, asks whether there is something cheaper, and the agent describes a lower tier. She thinks about it, decides the faster one was right after all, and types "let's go with the faster plan, switch me over". Four turns deep, the agent has lost the thread. It confirms the cheaper plan, the one she talked herself out of two messages ago, and tells her the change is done. Every individual reply in that exchange was fluent. Every individual reply, checked on its own, would pass. The failure is not in any turn. It is in the seam between them.
+
+<ConversationSeam />
+
+Or take the customer who starts polite. He asks a billing question, gets a clean answer, asks another, and somewhere around the third the tone shifts. He is annoyed now. By the fifth turn he is quoting a competitor's promotion, and the agent, having spent four turns being helpful and agreeable, stays helpful and agreeable. It offers to match a price it has no authority to match, on a plan that does not exist, because nothing pulled it back to the policy once the conversation had built up enough momentum toward yes. No single message said anything outrageous. The conversation, taken whole, gave away the store.
+
+Neither failure lives in a single turn, which is exactly why no single-turn case ever caught it. The golden set tests the agent the way a flash card tests a student: one prompt, one answer, no memory, no momentum. Real customers do not arrive as flash cards. They arrive as conversations, and conversations are where the agent forgets, drifts, and gets talked into things.
+
+## Why isn't a static golden set enough for a conversational agent?
+
+Because a golden case is a snapshot of one turn, and multi-turn behaviour is a different beast. Each case is a single input and a single expected behaviour, the unit a person can author, review, and agree on. A subject-matter expert can look at one question and one gold answer and say yes, that is correct. Nobody can author a six-turn conversation with a customer who changes her mind in turn four, review it, and be confident it covers the right ground, because the space of conversations is not a list. It is a tree that branches at every reply.
+
+<FlashcardVsTree />
+
+This is [the coverage bias from the dataset part](/blog/the-golden-dataset/), wearing a heavier coat. There the point was that your set only ever covers the failures you imagined. Here it is sharper: even the failures you did imagine, you imagined one turn at a time. You can picture the agent confirming the wrong plan. You cannot enumerate the thousand conversational paths that lead it there. Multi-turn behaviour is not single-turn behaviour summed over a transcript. It is a different beast, with failure modes, drift, context loss, momentum, sycophancy under pressure, that simply have no single-turn form. They need length to appear, and a golden case has no length. This is not a hunch. A 2025 study drove more than two hundred thousand conversations against the top models and found they [lose an average of 39 percent going from a single-turn instruction to a multi-turn one](https://arxiv.org/abs/2505.06120): the model takes a wrong turn early, commits to it, and never recovers.
+
+So the static set keeps its job. It is the regression floor, the set of named failures that must never come back. It is not, and was never going to be, the thing that finds the failures nobody named. A static golden set covers the failures you wrote down. Conversations supply the rest, and you are not going to write those conversations by hand.
+
+## How do you generate the conversations no one would write by hand?
+
+If you cannot write the conversations, you generate them, and the way you generate ones worth running is with personas. **A persona is a customer with a disposition and a goal**, expressed well enough that a model can play it across many turns without breaking character. Not a single message: a way of behaving.
+
+<PersonaRoster />
+
+Each persona is a generator. Point it at the agent, give it a goal, and let it drive a conversation to a natural end, then do it again with a different opening, a different order, a different breaking point. One persona becomes a hundred conversations. Five personas become a corpus no team of authors could afford to write. And you run them before production, against [the faked action backend from the architecture](/blog/the-system-under-test/), so the agent meets the confused customer and the bargain hunter and the mind-changer thousands of times before a paying customer ever opens a chat. The point of simulation is not to replace the people who break your agent. It is to break it yourself, first, in private, where the wreckage is a failing test and not a refund.
+
+## What does a good conversation look like when you can assert on it?
+
+Two assertions matter more than the rest, because the cold open is built from their failure. The agent must maintain which plan it is proposing across every turn of the negotiation, so the referent of "that one" is never ambiguous to the system even when it is ambiguous in the prose. And it must confirm the final settled intent, the plan the customer actually landed on, not an earlier one she walked back. Land on the wrong plan and confirm it, and you have the exact failure from the opening, now caught as a single red assertion instead of an angry customer.
+
+Generating the conversations is half the job. The other half is deciding what is true of a good one, because a simulation you do not assert over is just expensive chatter. Start from [the trajectory part's assertions](/blog/agent-trajectory-testing/) and stretch them across many turns. There the unit was a single path: the right tools, in the right order, with the customer's own arguments, confirmed before anything irreversible. Here the path is long, and the questions grow teeth. Coherence over the whole context: does the agent still know, in turn six, what was established in turn two. Correct handling of a correction: when the customer says no, the other one, does the state actually update, or does the agent agree and quietly keep the old value.
+
+<SettledIntent />
+
+Over all of it sits the whole-conversation check the write surface demands: across the entire conversation the agent took exactly one action, the authorized one, on the settled intent, after confirmation, and chatted freely about everything else. The conversation may wander. The action may not. In Atlas that check is a plain function over the executed-action record: sound only if there is at most one action and it lands on the plan the customer settled on, read from the stateful backend's audit log rather than from the prose the agent ended on. The mind-changer conversation, driven through the real agent graph, confirms the plan she landed on, and the recorded conversation where the agent confirms the walked-back plan fails that check end to end. One green assertion, and one red, where the cold open was an angry customer.
+
+## Why score conversations with a third, separate agent?
+
+Because an agent grading its own conversation grades itself generously. Run a simulation and you are operating three agents at once, each in its proper role. The persona simulator generates the traffic, playing the customer with a disposition and a goal. The system under test, the agent itself on its [graph](https://langchain-ai.github.io/langgraph/) and its tools, responds exactly as it would in production, identity pinned to the session, the guard gating every action, the oracle consulted for every fact. And a third agent, separate from both, scores what happened.
+
+<ThreeAgentHarness />
+
+| Agent | Role | Why it stays separate |
+|---|---|---|
+| Persona simulator | Plays the customer with a disposition and a goal, drives the conversation to a natural end | The traffic must be varied and adversarial, not a script the agent can learn |
+| System under test | The agent on its graph and tools, identity pinned, guard gating every action | It has to behave exactly as it will in production, no test-only shortcuts |
+| Calibrated evaluator | Scores the conversation against criteria checked on human labels | An agent grading its own work forgives the turn where it drifted |
+
+That separation is not architectural fussiness. It is the whole reason the scores mean anything. The tempting shortcut is to ask the agent under test to evaluate its own conversation, and it is a trap for a reason [the judge part](/blog/the-lying-judge/) spells out: an agent grading its own work grades itself generously. It rationalizes the plan it chose, forgives the turn where it drifted, and reports a conversation that went fine when the customer would tell you it did not. This is measured, not suspected: a 2024 study found an LLM judge [scores its own outputs higher than others' that humans rate equal in quality](https://arxiv.org/abs/2404.13076), and the bias tracks how well the model recognizes its own writing. Self-evaluation in a multi-turn setting is worse than in a single-turn one, because there is more to rationalize and a longer story to tell in your own favour.
+
+So the evaluator is a different agent, and a calibrated one. Calibrated means its judgments have been checked against human labels on a sample of conversations, so that when it calls a trajectory coherent it agrees with what a careful human would call coherent. That calibration is a live measurement, not a slogan: the cheapest cross-family judge that clears the bar against the human labels is the one that ships, and it is re-run because both ends of the comparison drift. An uncalibrated evaluator scoring a simulated conversation gives you two unverified opinions multiplied together, which is not a measurement, it is a rumour with a number attached. A calibrated one gives you a measurement. The persona generates, the agent acts, the judge scores, and no one of the three marks its own work.
+
+## If a simulation is nondeterministic, how does it gate a deterministic build?
+
+By recording it. A simulation is the opposite of deterministic by construction: the persona is a model, the agent is a model, and the conversation that emerges between them is different every time you run it. You cannot gate a pull request on something that returns a different answer on Tuesday. So you do not gate on the live simulation. You gate on what it leaves behind.
+
+<SimToFixture />
+
+The resolution is the one the architecture has used all along, applied one level up. [The harness already records and replays the model](/blog/the-harness/), every account read, every tool result, every generation captured once and replayed exactly so the deterministic lane never makes a live call. The personas extend that pattern:
+
+1. Run the personas live against the agent in the slow nightly lane, and let them drive real conversations to their natural ends.
+2. Record every generation, account read, and tool result, captured once and replayed exactly.
+3. Keep the conversations worth keeping, the ones that exposed a failure or exercised a tricky reversal.
+4. Replay those as fixtures in the fast deterministic lane, gating every commit without ever calling a model.
+
+A failure the simulation found once becomes a regression test that runs forever, cheaply, and never flakes. The generator runs nightly; the fixture it leaves behind runs on every commit.
+
+The live lane stays live for a reason, though, and here [the statistics part](/blog/honest-benchmarks/) earns its place. A single simulated conversation is one sample from a distribution, and one sample lies. The agent might handle the mind-changer well on this run and badly on the next, not because the code changed but because generation is stochastic. The same 2025 study found the multi-turn collapse was driven far more by [a rise in unreliability than by any drop in raw skill](https://arxiv.org/abs/2505.06120), which is exactly the shape a distribution of trials exposes and a single run hides. So you run each persona scenario many times, track the pass rate and its variance, and judge the agent on the distribution rather than on one lucky or unlucky transcript. The fixture lane tells you whether a known failure came back. The live lane tells you, across many trials, how often a new one shows up.
+
+## The machinery that pays off twice
+
+Build this machinery for quality and you have built half of the security suite for free, which is the rare case in this series where one investment settles two debts. A persona is a customer with a disposition and a goal. Nothing requires the goal to be honest. The same simulator that plays the confused customer plays the attacker: the persona whose actual aim is to talk the agent past its authorization, to extract another customer's record, to manipulate a legitimate plan change toward an illegitimate value over five patient turns rather than one obvious request. The security part's hardest attacks are multi-turn by nature, because a single hostile message is easy to catch and a slow, plausible escalation is not, and a persona simulator is precisely a multi-turn attack generator pointed at your own agent before someone else points theirs at it. The bargain hunter and the social engineer are the same machine with a different goal.
+
+The three layers are not rivals. Each one is for a different question, and you keep all three:
+
+| Layer | Unit it tests | What it catches | What it cannot catch |
+|---|---|---|---|
+| Static golden set | One turn | Named single-turn failures: grounding, wrong tool, an unconfirmed write | Anything that needs length: drift, context loss, sycophancy |
+| Live user simulation | A whole conversation | The multi-turn failures nobody named, measured across many trials | Nothing as a stable gate; it is stochastic by construction |
+| Frozen fixtures | A recorded conversation | Regression of a failure the simulation already found | A failure it has not met yet, which is the live lane's job |
+
+A golden case asks the agent one question and records whether it answered well. A simulation holds a conversation and finds out whether the agent can be trusted to hold one. Customers never arrive a turn at a time, so you cannot afford to test a turn at a time. The static set proves the failures you named stay dead. The simulations find the ones you never could have named, because they were never going to live in a single turn, and the only way to meet a conversation is to have one first.
+
+<Callout variant="takeaway" title="Key takeaway">
+The failures that scare you live between turns, so test between turns. Personas turn one disposition into a hundred conversations no author could afford to write. Assert what actually matters across the whole conversation, that the agent maintained which plan it was proposing and confirmed the one the customer settled on, not one she walked back, and that it took exactly one authorized action while it chatted about everything else. Score with a separate calibrated evaluator, never the agent on itself. Then freeze the conversations worth keeping so a nondeterministic simulation still gates a deterministic build, and run many trials so one lucky transcript never reads as a fix.
+</Callout>

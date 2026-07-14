@@ -1,0 +1,96 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// The two assertions the cold open turns on: the agent must MAINTAIN which plan it
+// is proposing across the negotiation, and CONFIRM the plan the customer settled
+// on, not one she walked back. Grounded in Atlas's grade_conversation: a
+// conversation is sound only if it took at most one action AND that action lands on
+// the settled plan (plan_current_fast), read from the backend audit log. Confirming
+// the walked-back plan (plan_legacy_value) fails matches_settled, so sound is false.
+
+const path = [
+  { plan: 'Fast', note: 'wants to upgrade' },
+  { plan: 'Value?', note: 'wavers toward cheaper', waver: true },
+  { plan: 'Fast', note: 'settles', settled: true },
+]
+
+const outcomes = [
+  { ok: true, action: "change_plan(plan_current_fast)", verdict: 'matches the settled intent', sound: 'sound' },
+  { ok: false, action: "change_plan(plan_legacy_value)", verdict: 'the plan she walked back', sound: 'not sound' },
+]
+
+const ariaLabel =
+  'The settled-intent check. Across the negotiation the customer moves from Fast, wanting to upgrade, to Value, wavering toward a cheaper option, back to Fast, where she settles. The gold settled intent is the plan she landed on, Fast. Two possible endings, both graded across the whole conversation. If the agent confirms change_plan for plan_current_fast, that matches the settled intent, so the conversation is sound. If it confirms change_plan for plan_legacy_value, the plan she walked back, that fails the settled-intent check, so the conversation is not sound. Exactly one action, on the plan she settled on, or it is a red assertion.'
+---
+
+<DiagramFigure label="Confirm the plan she landed on, not the one she walked back" ariaLabel={ariaLabel} data-si>
+  <div class="si-path flex flex-wrap items-center gap-2 mb-5">
+    {
+      path.map((p, i) => (
+        <>
+          {i > 0 && <span class="si-arrow font-mono text-text-muted" aria-hidden="true">&rarr;</span>}
+          <span class="si-step rounded border px-3 py-1.5 text-center" data-waver={p.waver ? 'true' : 'false'} data-settled={p.settled ? 'true' : 'false'}>
+            <span class="block text-sm text-text-primary">{p.plan}</span>
+            <span class="block font-mono text-mono-xs text-text-muted leading-tight">{p.note}</span>
+          </span>
+        </>
+      ))
+    }
+    <span class="si-settled-tag font-mono text-mono-xs ml-1">settled intent</span>
+  </div>
+
+  <ul class="m-0 list-none space-y-2 p-0">
+    {
+      outcomes.map((o) => (
+        <li class="si-outcome flex items-center gap-3 rounded border px-3 py-2" data-ok={o.ok ? 'true' : 'false'}>
+          <span class="si-mark font-mono text-mono-xs shrink-0" aria-hidden="true">{o.ok ? 'PASS' : 'FAIL'}</span>
+          <code class="si-action font-mono text-mono-xs flex-1">{o.action}</code>
+          <span class="font-mono text-mono-xs text-text-muted shrink-0">{o.verdict}</span>
+          <span class="si-verdict font-mono text-mono-xs uppercase tracking-wider shrink-0">{o.sound}</span>
+        </li>
+      ))
+    }
+  </ul>
+
+  <Fragment slot="note">
+    Read from the backend's audit log, not the prose the agent ended on. The conversation may wander;
+    the action may not. The mind-changer driven through the real graph confirms Fast and passes; the
+    recorded run that confirms Value fails this check end to end.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-si] .si-step {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-si] .si-step[data-waver='true'] {
+    border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
+  }
+  [data-si] .si-step[data-settled='true'] {
+    border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  }
+  [data-si] .si-settled-tag {
+    color: var(--color-primary);
+  }
+  [data-si] .si-outcome[data-ok='true'] {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-si] .si-outcome[data-ok='false'] {
+    border-color: color-mix(in srgb, var(--color-error) 40%, transparent);
+    background: color-mix(in srgb, var(--color-error) 7%, transparent);
+  }
+  [data-si] .si-outcome[data-ok='true'] .si-mark,
+  [data-si] .si-outcome[data-ok='true'] .si-verdict {
+    color: var(--color-primary);
+  }
+  [data-si] .si-outcome[data-ok='false'] .si-mark,
+  [data-si] .si-outcome[data-ok='false'] .si-verdict {
+    color: var(--color-error);
+  }
+  [data-si] .si-action {
+    color: var(--color-text-primary);
+  }
+</style>

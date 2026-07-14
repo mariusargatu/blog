@@ -1,0 +1,76 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// The mind-changer cold open. She wants the faster plan, wavers toward a cheaper
+// one, then settles back on the faster plan; four turns deep the agent confirms the
+// cheaper one she walked back. Every reply is fluent, so every single-turn check
+// passes; the failure lives in the seam between the turns. Grounded in Atlas's
+// MIND_CHANGER / MIND_CHANGER_WRONG simulation fixtures: settled intent is Fast
+// (plan_current_fast), the walked-back option is Value (plan_legacy_value).
+
+const turns = [
+  { line: 'I want to upgrade to the faster plan.', holding: 'Fast' },
+  { line: 'Actually, what about a cheaper option?', holding: 'Value?' },
+  { line: "Let's go with the faster plan, switch me over.", holding: 'Fast' },
+]
+
+const ariaLabel =
+  'A three-turn conversation with a customer who changes her mind. Turn one, she asks to upgrade to the faster plan, so the plan in play is Fast. Turn two, she asks about a cheaper option, and the plan in play wavers to Value. Turn three, she settles back on the faster plan and asks to switch. Every reply was fluent, so every single-turn check passes. But four turns deep the agent has lost the thread and confirms Value, the cheaper plan she walked back two messages ago, when her settled intent was Fast. The failure is not in any one turn; it is in the seam between them.'
+---
+
+<DiagramFigure label="Every turn passes, the conversation fails" ariaLabel={ariaLabel} data-cs>
+  <ol class="m-0 list-none space-y-2 p-0">
+    {
+      turns.map((t, i) => (
+        <li class="cs-turn flex items-center gap-3 rounded border px-3 py-2">
+          <span class="cs-num font-mono text-mono-xs shrink-0">{`turn ${i + 1}`}</span>
+          <span class="flex-1 text-sm text-text-primary">{t.line}</span>
+          <span class="cs-chip font-mono text-mono-xs shrink-0" data-waver={t.holding.includes('?') ? 'true' : 'false'}>
+            holding: {t.holding}
+          </span>
+        </li>
+      ))
+    }
+  </ol>
+
+  <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div class="cs-outcome cs-good rounded border px-3 py-2">
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-primary">settled intent</span>
+      <span class="block text-sm text-text-primary mt-0.5">Fast (current), the plan she landed on</span>
+    </div>
+    <div class="cs-outcome cs-bad rounded border px-3 py-2">
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-error">agent confirmed</span>
+      <span class="block text-sm text-text-primary mt-0.5">Value (legacy), the plan she walked back</span>
+    </div>
+  </div>
+
+  <Fragment slot="note">
+    Every individual reply, checked on its own, passes. The failure is the referent of "that one"
+    drifting between turns, so the agent confirms the plan she talked herself out of. No single-turn
+    case ever caught it, because it has no single-turn form.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-cs] .cs-turn {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-cs] .cs-num {
+    color: var(--color-text-muted);
+  }
+  [data-cs] .cs-chip {
+    color: var(--color-text-muted);
+  }
+  [data-cs] .cs-chip[data-waver='true'] {
+    color: var(--color-error);
+  }
+  [data-cs] .cs-good {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-cs] .cs-bad {
+    border-color: color-mix(in srgb, var(--color-error) 40%, transparent);
+    background: color-mix(in srgb, var(--color-error) 7%, transparent);
+  }
+</style>

@@ -1,0 +1,65 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// Three agents, each in its proper role: a persona simulator drives, the system
+// under test responds exactly as in production, and a SEPARATE calibrated evaluator
+// scores. The separation is the whole reason the scores mean anything, because an
+// agent grading its own conversation grades itself generously. Calibration is a
+// live measurement: the cheapest cross-family judge that clears the bar against
+// human labels ships (Atlas's live sweep lands on gpt-5.4-nano, kappa 0.86), and it
+// is re-run because both ends drift.
+
+const roles = [
+  { tag: 'drives', name: 'Persona simulator', body: 'plays the customer, a disposition and a goal, across many turns' },
+  { tag: 'responds', name: 'System under test', body: 'the agent on its graph and tools, exactly as in production: identity pinned, guard gating, oracle consulted' },
+  { tag: 'scores', name: 'Calibrated evaluator', body: 'a separate judge, calibrated against human labels (kappa 0.86), cross-family so it does not share the agent' },
+]
+
+const ariaLabel =
+  'The three-agent harness. First, a persona simulator drives the traffic, playing the customer with a disposition and a goal across many turns. It feeds the second agent, the system under test, the agent itself on its graph and tools, responding exactly as it would in production with identity pinned to the session, the guard gating every action, and the oracle consulted for every fact. Both feed the third agent, a separate calibrated evaluator that scores what happened. The evaluator is calibrated against human labels, cross-family so it does not share the agent, and no one of the three marks its own work, because an agent grading its own conversation grades itself generously.'
+---
+
+<DiagramFigure label="Three agents, and none marks its own work" ariaLabel={ariaLabel} data-ta>
+  <div class="flex flex-col md:flex-row items-stretch gap-2">
+    {
+      roles.map((r, i) => (
+        <>
+          {i > 0 && (
+            <div class="flex items-center justify-center md:px-1" aria-hidden="true">
+              <span class="ta-arrow font-mono text-text-muted">&rarr;</span>
+            </div>
+          )}
+          <div class="ta-role flex-1 rounded border px-3 py-3" data-role={i}>
+            <span class="ta-tag block font-mono text-mono-xs uppercase tracking-wider">{r.tag}</span>
+            <span class="block text-sm text-text-primary font-medium mt-1">{r.name}</span>
+            <span class="block font-mono text-mono-xs text-text-muted mt-1.5 leading-snug">{r.body}</span>
+          </div>
+        </>
+      ))
+    }
+  </div>
+
+  <Fragment slot="note">
+    Ask the agent under test to evaluate its own conversation and it rationalizes the plan it chose and
+    forgives the turn where it drifted. An uncalibrated evaluator over a simulated conversation is two
+    unverified opinions multiplied together, a rumour with a number attached. A calibrated one is a
+    measurement.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-ta] .ta-role {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-ta] .ta-role[data-role='2'] {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-ta] .ta-tag {
+    color: var(--color-text-muted);
+  }
+  [data-ta] .ta-role[data-role='2'] .ta-tag {
+    color: var(--color-primary);
+  }
+</style>

@@ -1,0 +1,76 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// A simulation is nondeterministic by construction (two models improvising), and
+// the build gate must be deterministic. The resolution is record-and-replay applied
+// one level up: the personas drive real conversations in a slow nightly lane, the
+// ones worth keeping are frozen as fixtures (ADR-019), and those replay in the fast
+// deterministic lane on every commit with no model call. The nightly lane also runs
+// each scenario many times and watches the variance, because one sample lies.
+
+const ariaLabel =
+  'How a nondeterministic simulation still gates a deterministic build. In the slow nightly lane, the persona simulator and the agent, both models, drive real conversations; the result differs every run, so this lane runs each scenario many times and watches the pass rate and its variance, because one sample lies. The conversations worth keeping, the ones that exposed a failure or exercised a tricky reversal, are frozen as fixtures. In the fast deterministic lane, those frozen conversations replay on every commit with no model call, so a failure the simulation found once becomes a regression test that runs forever and never flakes. The generator runs nightly; the fixture it leaves behind runs on every commit.'
+---
+
+<DiagramFigure label="The generator runs nightly; the fixture runs on every commit" ariaLabel={ariaLabel} data-sf>
+  <div class="sf-lane sf-live rounded border px-4 py-3">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="sf-tag font-mono text-mono-xs uppercase tracking-wider">nightly, live, nondeterministic</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="sf-node font-mono text-mono-xs rounded border px-2 py-1">persona simulator</span>
+      <span class="font-mono text-text-muted" aria-hidden="true">&rarr;</span>
+      <span class="sf-node font-mono text-mono-xs rounded border px-2 py-1">agent</span>
+      <span class="font-mono text-text-muted" aria-hidden="true">&rarr;</span>
+      <span class="sf-node font-mono text-mono-xs rounded border px-2 py-1">conversations</span>
+      <span class="font-mono text-mono-xs text-text-muted ml-auto">many trials, watch the variance</span>
+    </div>
+  </div>
+
+  <div class="sf-bridge flex items-center justify-center gap-2 py-2" aria-hidden="true">
+    <span class="font-mono text-text-muted">&darr;</span>
+    <span class="font-mono text-mono-xs text-text-muted">freeze the ones worth keeping (ADR-019)</span>
+    <span class="font-mono text-text-muted">&darr;</span>
+  </div>
+
+  <div class="sf-lane sf-gate rounded border px-4 py-3">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="sf-tag font-mono text-mono-xs uppercase tracking-wider">every commit, replayed, deterministic</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="sf-node font-mono text-mono-xs rounded border px-2 py-1">frozen fixture</span>
+      <span class="font-mono text-text-muted" aria-hidden="true">&rarr;</span>
+      <span class="sf-node font-mono text-mono-xs rounded border px-2 py-1">replay through the real graph</span>
+      <span class="font-mono text-text-muted" aria-hidden="true">&rarr;</span>
+      <span class="sf-node font-mono text-mono-xs rounded border px-2 py-1">assert, no model call</span>
+    </div>
+  </div>
+
+  <Fragment slot="note">
+    A failure the simulation found once becomes a regression test that runs forever, cheaply, and never
+    flakes. The fixture lane tells you whether a known failure came back; the live lane tells you, across
+    many trials, how often a new one shows up.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-sf] .sf-lane {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-sf] .sf-gate {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  [data-sf] .sf-live .sf-tag {
+    color: var(--color-text-muted);
+  }
+  [data-sf] .sf-gate .sf-tag {
+    color: var(--color-primary);
+  }
+  [data-sf] .sf-node {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+  }
+</style>

@@ -1,0 +1,65 @@
+---
+import DiagramFigure from './DiagramFigure.astro'
+
+// A golden case tests the agent the way a flash card tests a student: one prompt,
+// one answer, no memory, no momentum. Real conversations are a tree that branches
+// at every reply, and the failures that matter live down a path no author would
+// think to write. The left is the unit a person can author and review; the right
+// is the space that unit cannot cover.
+
+const levels = [
+  ['upgrade?'],
+  ['hesitates', 'commits'],
+  ['cheaper?', 'cancel?', 'confirm', 'refund?'],
+]
+
+const ariaLabel =
+  'Two ways to think about a test case. On the left, a flash card: one question, "Is my plan capped?", one gold answer, "No". One prompt, one answer, no memory, no momentum, the unit a subject-matter expert can author and review. On the right, a conversation drawn as a tree that branches at every reply: one opening turn fans into hesitates or commits, and each of those fans again into cheaper, cancel, confirm, refund, and on. The space of conversations is not a list you can author; it is a tree, and the failures that matter live down a path no author would think to write.'
+---
+
+<DiagramFigure label="A flash card, and the tree it cannot cover" ariaLabel={ariaLabel} data-ft>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+    <div>
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-text-muted mb-2">The golden case: a flash card</span>
+      <div class="ft-card rounded border px-4 py-4">
+        <p class="m-0 text-sm text-text-primary"><span class="font-mono text-mono-xs text-text-muted">Q</span> Is my plan capped?</p>
+        <p class="m-0 mt-2 text-sm text-text-primary"><span class="font-mono text-mono-xs text-text-muted">A</span> No.</p>
+        <p class="m-0 mt-3 font-mono text-mono-xs text-text-muted leading-relaxed">one prompt, one answer, no memory, no momentum</p>
+      </div>
+    </div>
+
+    <div>
+      <span class="block font-mono text-mono-xs uppercase tracking-wider text-text-muted mb-2">A conversation: a branching tree</span>
+      <div class="ft-tree space-y-2">
+        {
+          levels.map((row, i) => (
+            <div class="flex flex-wrap justify-center gap-2" data-level={i}>
+              {row.map((n) => (
+                <span class="ft-node font-mono text-mono-xs rounded border px-2 py-1">{n}</span>
+              ))}
+            </div>
+          ))
+        }
+        <p class="m-0 mt-1 text-center font-mono text-mono-xs text-text-muted">branches at every reply &hellip;</p>
+      </div>
+    </div>
+  </div>
+
+  <Fragment slot="note">
+    A subject-matter expert can review one question and one gold answer and agree it is correct. Nobody
+    can author a six-turn conversation with a mind-changer, review it, and be confident it covers the
+    right ground. The static set covers the failures you wrote down; conversations supply the rest.
+  </Fragment>
+</DiagramFigure>
+
+<style is:global>
+  [data-ft] .ft-card {
+    border-color: var(--color-border-dark);
+    background: var(--color-surface-container-low);
+  }
+  [data-ft] .ft-node {
+    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+    color: var(--color-text-primary);
+  }
+</style>
