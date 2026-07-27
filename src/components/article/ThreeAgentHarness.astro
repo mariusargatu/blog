@@ -2,21 +2,27 @@
 import DiagramFigure from './DiagramFigure.astro'
 
 // Three agents, each in its proper role: a persona simulator drives, the system
-// under test responds exactly as in production, and a SEPARATE calibrated evaluator
-// scores. The separation is the whole reason the scores mean anything, because an
-// agent grading its own conversation grades itself generously. Calibration is a
-// live measurement: the cheapest cross-family judge that clears the bar against
-// human labels ships (Atlas's live sweep lands on gpt-5.4-nano, kappa 0.86), and it
-// is re-run because both ends drift.
+// under test responds exactly as in production, and a SEPARATE evaluator scores.
+// The separation is the whole reason the scores mean anything, because an agent
+// grading its own conversation grades itself generously.
+//
+// The third box says SELECTED, not calibrated, and the distinction is load bearing.
+// Atlas picked its judge by measurement against ground truth fixed by construction
+// (a 20 case selection set, 10 PASS / 10 FAIL), which is selection. Calibration means
+// measured agreement with a human labeller, and Atlas has none: zero human labels
+// exist, and `judge/contract.py` treats a JudgeContract with no CalibrationRecord as
+// UNLICENSED so `require_licensed()` refuses. An earlier draft of this figure claimed
+// "calibrated against human labels, kappa 0.86". That number was never measured
+// anywhere in the repo, and it is gone. JudgeCalibration.astro draws the same gap.
 
 const roles = [
   { tag: 'drives', name: 'Persona simulator', body: 'plays the customer, a disposition and a goal, across many turns' },
   { tag: 'responds', name: 'System under test', body: 'the agent on its graph and tools, exactly as in production: identity pinned, guard gating, oracle consulted' },
-  { tag: 'scores', name: 'Calibrated evaluator', body: 'a separate judge, calibrated against human labels (kappa 0.86), cross-family so it does not share the agent' },
+  { tag: 'scores', name: 'Separate evaluator', body: 'a judge from another family, selected on a set whose ground truth is fixed by construction, and unlicensed until a human labels against it' },
 ]
 
 const ariaLabel =
-  'The three-agent harness. First, a persona simulator drives the traffic, playing the customer with a disposition and a goal across many turns. It feeds the second agent, the system under test, the agent itself on its graph and tools, responding exactly as it would in production with identity pinned to the session, the guard gating every action, and the oracle consulted for every fact. Both feed the third agent, a separate calibrated evaluator that scores what happened. The evaluator is calibrated against human labels, cross-family so it does not share the agent, and no one of the three marks its own work, because an agent grading its own conversation grades itself generously.'
+  'The three-agent harness. First, a persona simulator drives the traffic, playing the customer with a disposition and a goal across many turns. It feeds the second agent, the system under test, the agent itself on its graph and tools, responding exactly as it would in production with identity pinned to the session, the guard gating every action, and the oracle consulted for every fact. Both feed the third agent, a separate evaluator that scores what happened. The evaluator comes from a different model family so it does not share the agent, it was selected by measurement against ground truth fixed by construction rather than calibrated against human labels, and no one of the three marks its own work, because an agent grading its own conversation grades itself generously.'
 ---
 
 <DiagramFigure label="Three agents, and none marks its own work" ariaLabel={ariaLabel} data-ta>
@@ -41,9 +47,10 @@ const ariaLabel =
 
   <Fragment slot="note">
     Ask the agent under test to evaluate its own conversation and it rationalizes the plan it chose and
-    forgives the turn where it drifted. An uncalibrated evaluator over a simulated conversation is two
-    unverified opinions multiplied together, a rumour with a number attached. A calibrated one is a
-    measurement.
+    forgives the turn where it drifted. Separation is what stops that. It is not what licenses the score:
+    an evaluator with no measured agreement with a human is still an opinion, however carefully it was
+    chosen, and Atlas says so out loud rather than shipping a number. Fifty answers sit in the labelling
+    queue waiting for the human end of that measurement.
   </Fragment>
 </DiagramFigure>
 

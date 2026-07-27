@@ -2,19 +2,19 @@
 title: 'Simulating the User: Test Between the Turns'
 description: >-
   A golden case tests one turn; the failures that matter live across many.
-  Simulate persona conversations before production, scored by a calibrated
-  evaluator.
+  Simulate persona conversations before production, and score them with an
+  evaluator that is not the agent under test.
 kicker: GENAI_TESTING
 topic: GenAI
 ogImage: ./og.jpg
 ctaNote: >-
   Shipping an agent that holds multi-turn conversations with real customers? This
-  is how I break it myself first, in private, where the wreckage is a failing test
-  and not a refund.
+  is the design I would break it with first, in private, where the wreckage is a
+  failing test and not a refund.
 series:
   name: Evals Are Checks, Not Tests
   order: 9
-  code: v9-simulating-the-user
+  code: rebuild/v2
 author: Marius Argatu
 pubDate: 2026-07-14
 tags: [llm, langgraph, agentic, simulation, personas, testing, evals]
@@ -37,16 +37,20 @@ faq:
   - q: What is the three-agent harness?
     a: >-
       A persona simulator drives the traffic, the system under test responds
-      exactly as it would in production, and a separate calibrated evaluator
-      scores. The separation is the point: an agent grading its own conversation
-      grades itself generously, so the judge is a different, calibrated agent, one
-      whose verdicts agree with human labels.
+      exactly as it would in production, and a separate evaluator scores. The
+      separation is the point and it is the free part: an agent grading its own
+      conversation grades itself generously. Calibration, checking that evaluator
+      against labels a human wrote, is the part that is not free. In Atlas nobody
+      has written those labels yet, so the judge contract refuses to be reported
+      as calibrated at all.
   - q: How does a nondeterministic simulation still gate a build?
     a: >-
-      By recording it. The simulation runs live in a slow nightly lane, and the
+      By recording it. The simulation runs live in a slow lane, and the
       conversations worth keeping are frozen as fixtures that replay in the fast
-      deterministic lane, exactly like golden cases. The generator runs nightly;
-      the fixture it leaves behind runs on every commit and never flakes.
+      deterministic lane, exactly like golden cases. Atlas ships the recording
+      half of that, one gateway that records a model call once and replays it, so
+      all 573 tests run with no key and no network. The persona lane on top of it
+      is a design, not something in the tree.
   - q: How does simulation help security testing?
     a: >-
       A persona is a customer with a disposition and a goal, and nothing requires
@@ -64,7 +68,7 @@ import ThreeAgentHarness from '../../../components/article/ThreeAgentHarness.ast
 import SimToFixture from '../../../components/article/SimToFixture.astro'
 
 <Callout variant="info" title="tl;dr">
-A golden case tests one turn. The failures that scare you live between turns: a customer changes her mind and the agent loses the thread, a polite request curdles and the agent agrees to the wrong plan four turns later. So you simulate the user. Personas drive hundreds of conversations before a real customer does, a separate calibrated evaluator scores them, and the ones worth keeping freeze into fixtures so a nondeterministic simulation still gates a deterministic build.
+A golden case tests one turn. The failures that scare you live between turns: a customer changes her mind and the agent loses the thread, a polite request curdles and the agent agrees to the wrong plan four turns later. So you simulate the user. Personas drive hundreds of conversations before a real customer does, a separate evaluator scores them, and the ones worth keeping freeze into fixtures so a nondeterministic simulation still gates a deterministic build. This part is mostly a design rather than a lane Atlas runs, and the scope note below says exactly which halves of it are in the tree.
 </Callout>
 
 ## Every turn passes. The conversation fails.
@@ -89,13 +93,17 @@ This is [the coverage bias from the dataset part](/blog/the-golden-dataset/), we
 
 So the static set keeps its job. It is the regression floor, the set of named failures that must never come back. It is not, and was never going to be, the thing that finds the failures nobody named. A static golden set covers the failures you wrote down. Conversations supply the rest, and you are not going to write those conversations by hand.
 
+<Callout variant="info" title="Scope note: what is shipped, and what is a design">
+Everything from here is a design, not a lane I can point you at. The rebuilt Atlas does not run persona simulation. It was cut, along with the pass rate machinery stacked on top of it, because it needed a persona adherence judge and a scoring judge both working before it produced a single number. Two halves of the design are in the tree, on either side of the missing middle. One gateway records a model call once and replays it, so the whole suite of 573 tests runs with no key and no network (`uv run --frozen pytest`). And `agent/domain/accounts.py` keeps an applied write ledger, `audit(customer_id)`, which is exactly what a whole conversation check reads. Between those two halves, five tests in the whole suite drive more than one turn on a thread, and the longest drives three. So read the machinery below as the thing I would build on that base, and read as measured only the numbers that come with a command.
+</Callout>
+
 ## How do you generate the conversations no one would write by hand?
 
 If you cannot write the conversations, you generate them, and the way you generate ones worth running is with personas. **A persona is a customer with a disposition and a goal**, expressed well enough that a model can play it across many turns without breaking character. Not a single message: a way of behaving.
 
 <PersonaRoster />
 
-Each persona is a generator. Point it at the agent, give it a goal, and let it drive a conversation to a natural end, then do it again with a different opening, a different order, a different breaking point. One persona becomes a hundred conversations. Five personas become a corpus no team of authors could afford to write. And you run them before production, against [the faked action backend from the architecture](/blog/the-system-under-test/), so the agent meets the confused customer and the bargain hunter and the mind-changer thousands of times before a paying customer ever opens a chat. The point of simulation is not to replace the people who break your agent. It is to break it yourself, first, in private, where the wreckage is a failing test and not a refund.
+Each persona is a generator. Point it at the agent, give it a goal, and let it drive a conversation to a natural end, then do it again with a different opening, a different order, a different breaking point. One persona becomes a hundred conversations. Five personas become a corpus no team of authors could afford to write. And you run them before production, against [the in memory account store from the architecture](/blog/the-system-under-test/), so the agent meets the confused customer and the bargain hunter and the mind-changer thousands of times before a paying customer ever opens a chat. The point of simulation is not to replace the people who break your agent. It is to break it yourself, first, in private, where the wreckage is a failing test and not a refund.
 
 ## What does a good conversation look like when you can assert on it?
 
@@ -105,11 +113,13 @@ Generating the conversations is half the job. The other half is deciding what is
 
 <SettledIntent />
 
-Over all of it sits the whole-conversation check the write surface demands: across the entire conversation the agent took exactly one action, the authorized one, on the settled intent, after confirmation, and chatted freely about everything else. The conversation may wander. The action may not. In Atlas that check is a plain function over the executed-action record: sound only if there is at most one action and it lands on the plan the customer settled on, read from the stateful backend's audit log rather than from the prose the agent ended on. The mind-changer conversation, driven through the real agent graph, confirms the plan she landed on, and the recorded conversation where the agent confirms the walked-back plan fails that check end to end. One green assertion, and one red, where the cold open was an angry customer.
+Over all of it sits the whole-conversation check the write surface demands: across the entire conversation the agent took exactly one action, the authorized one, on the settled intent, after confirmation, and chatted freely about everything else. The conversation may wander. The action may not. The reason to write that check over an action record rather than over the transcript is that the prose the agent ended on is the thing under suspicion; the ledger is not.
+
+Atlas ships the ledger and not the conversation, and the gap is worth naming rather than smoothing over. `agent/domain/accounts.py` exposes `audit(customer_id)`, the applied writes for one customer in the order they were applied, and the write tests already assert over it a turn at a time: resume the confirmation with a bare "yes" and the ledger stays empty, resume it with the typed token and the ledger holds exactly one entry, under the idempotency key the proposal was checkpointed with (`uv run --frozen pytest tests/test_graph.py`, 22 tests). What is missing is length. Five tests in the tree drive more than one turn, all of them in that one file, and the longest is three turns: ask, write, ask again, which proves the confirmed write dropped the customer's cached answer. The mind-changer never runs. The check over the whole conversation is a short function over a ledger that already exists, and the expensive part is not the function. It is generating the conversation that drives it.
 
 ## Why score conversations with a third, separate agent?
 
-Because an agent grading its own conversation grades itself generously. Run a simulation and you are operating three agents at once, each in its proper role. The persona simulator generates the traffic, playing the customer with a disposition and a goal. The system under test, the agent itself on its [graph](https://langchain-ai.github.io/langgraph/) and its tools, responds exactly as it would in production, identity pinned to the session, the guard gating every action, the oracle consulted for every fact. And a third agent, separate from both, scores what happened.
+Because an agent grading its own conversation grades itself generously. Run a simulation and you are operating three agents at once, each in its proper role. The persona simulator generates the traffic, playing the customer with a disposition and a goal. The system under test, the agent itself on its [graph](https://langchain-ai.github.io/langgraph/) and its tools, responds exactly as it would in production, identity pinned to the session, the guard gating every action, the oracle consulted before a sentence ships. And a third agent, separate from both, scores what happened.
 
 <ThreeAgentHarness />
 
@@ -117,11 +127,15 @@ Because an agent grading its own conversation grades itself generously. Run a si
 |---|---|---|
 | Persona simulator | Plays the customer with a disposition and a goal, drives the conversation to a natural end | The traffic must be varied and adversarial, not a script the agent can learn |
 | System under test | The agent on its graph and tools, identity pinned, guard gating every action | It has to behave exactly as it will in production, no test-only shortcuts |
-| Calibrated evaluator | Scores the conversation against criteria checked on human labels | An agent grading its own work forgives the turn where it drifted |
+| Separate evaluator | Scores the conversation against a stated rubric, from a different model family than the agent | An agent grading its own work forgives the turn where it drifted |
 
 That separation is not architectural fussiness. It is the whole reason the scores mean anything. The tempting shortcut is to ask the agent under test to evaluate its own conversation, and it is a trap for a reason [the judge part](/blog/the-lying-judge/) spells out: an agent grading its own work grades itself generously. It rationalizes the plan it chose, forgives the turn where it drifted, and reports a conversation that went fine when the customer would tell you it did not. This is measured, not suspected: a 2024 study found an LLM judge [scores its own outputs higher than others' that humans rate equal in quality](https://arxiv.org/abs/2404.13076), and the bias tracks how well the model recognizes its own writing. Self-evaluation in a multi-turn setting is worse than in a single-turn one, because there is more to rationalize and a longer story to tell in your own favour.
 
-So the evaluator is a different agent, and a calibrated one. Calibrated means its judgments have been checked against human labels on a sample of conversations, so that when it calls a trajectory coherent it agrees with what a careful human would call coherent. That calibration is a live measurement, not a slogan: the cheapest cross-family judge that clears the bar against the human labels is the one that ships, and it is re-run because both ends of the comparison drift. An uncalibrated evaluator scoring a simulated conversation gives you two unverified opinions multiplied together, which is not a measurement, it is a rumour with a number attached. A calibrated one gives you a measurement. The persona generates, the agent acts, the judge scores, and no one of the three marks its own work.
+So the evaluator is a different agent. Whether it is also a calibrated one is a separate question, and in Atlas the honest answer is no. Calibrated means its verdicts have been checked against labels a human wrote, so that when it calls a trajectory coherent it agrees with what a careful human would call coherent. Zero such labels exist here. `judge/contract.py` carries the calibration record as an optional field and treats a contract without one as unlicensed, so the refusal is mechanical rather than a caveat in a doc: ask the shipped contract to license itself and it raises `UnlicensedJudge`, "carries no calibration record: its verdicts are unlicensed and may not be reported as calibrated agreement".
+
+What did happen is selection, which is a smaller claim and a real one. Two judge contracts were chosen by measurement over a 20 case set whose ground truth is true by construction, each case assembled backwards from the fact registry so the expected verdict follows from how the case was built and not from anyone's opinion about the answer. `gpt-5.6-luna` scored 40 of 40 across two prompt conditions with nothing unparseable, and was the cheapest of the four models that tied there. `claude-opus-5` scored 20 of 20, the only Claude model to match it. The two rejections are the more interesting half: `gpt-5.4-mini` at 36 of 40 and `claude-sonnet-5` at 18 of 20 failed the same case, a correct claim carrying a wrong citation, which this rubric puts out of scope. The over harshness is shared across model families rather than being one vendor's quirk. All of which is model selection: it says an instrument can apply a stated rubric to facts it was handed. It does not say the instrument agrees with me. A 50 item labelling queue is built and waiting for the only person who can answer that, which is the owner.
+
+Keep the distinction, because the shortcut is tempting in exactly this setting. An unchecked evaluator scoring a simulated conversation gives you two unverified opinions multiplied together, which is not a measurement, it is a rumour with a number attached. The separation of the three roles is free, and you should take it on the first day. The calibration is not free, and until someone sits down with the labelling queue the honest report is a verdict count with the word calibrated left off it. The persona generates, the agent acts, the judge scores, and no one of the three marks its own work.
 
 ## If a simulation is nondeterministic, how does it gate a deterministic build?
 
@@ -129,20 +143,20 @@ By recording it. A simulation is the opposite of deterministic by construction: 
 
 <SimToFixture />
 
-The resolution is the one the architecture has used all along, applied one level up. [The harness already records and replays the model](/blog/the-harness/), every account read, every tool result, every generation captured once and replayed exactly so the deterministic lane never makes a live call. The personas extend that pattern:
+The resolution is the one the architecture has used all along, applied one level up. [The harness already records and replays the model](/blog/the-harness/): one gateway, one nondeterministic call, captured once and replayed exactly so the deterministic lane never makes a live one. Everything else in Atlas is already deterministic, the account store and the tools are local Python, so the model is the only thing there is to pin. The personas would extend that pattern:
 
-1. Run the personas live against the agent in the slow nightly lane, and let them drive real conversations to their natural ends.
-2. Record every generation, account read, and tool result, captured once and replayed exactly.
+1. Run the personas live against the agent in a slow lane, and let them drive real conversations to their natural ends.
+2. Record every generation the two models produce, captured once and replayed exactly.
 3. Keep the conversations worth keeping, the ones that exposed a failure or exercised a tricky reversal.
 4. Replay those as fixtures in the fast deterministic lane, gating every commit without ever calling a model.
 
-A failure the simulation found once becomes a regression test that runs forever, cheaply, and never flakes. The generator runs nightly; the fixture it leaves behind runs on every commit.
+Steps 2 and 4 are the machinery that exists: the A/B lane already records two model arms through that one gateway into separate cassette directories, so pointing it at a persona model and an agent model is the same trick with different roles. Steps 1 and 3 are the part nobody has written. A failure the simulation found once becomes a regression test that runs forever, cheaply, and never flakes. The generator runs on a schedule; the fixture it leaves behind runs on every commit.
 
-The live lane stays live for a reason, though, and here [the statistics part](/blog/honest-benchmarks/) earns its place. A single simulated conversation is one sample from a distribution, and one sample lies. The agent might handle the mind-changer well on this run and badly on the next, not because the code changed but because generation is stochastic. The same 2025 study found the multi-turn collapse was driven far more by [a rise in unreliability than by any drop in raw skill](https://arxiv.org/abs/2505.06120), which is exactly the shape a distribution of trials exposes and a single run hides. So you run each persona scenario many times, track the pass rate and its variance, and judge the agent on the distribution rather than on one lucky or unlucky transcript. The fixture lane tells you whether a known failure came back. The live lane tells you, across many trials, how often a new one shows up.
+The live lane stays live for a reason, though, and here [the statistics part](/blog/honest-benchmarks/) earns its place. A single simulated conversation is one sample from a distribution, and one sample lies. The agent might handle the mind-changer well on this run and badly on the next, not because the code changed but because generation is stochastic. The same 2025 study found the multi-turn collapse was driven far more by [a rise in unreliability than by any drop in raw skill](https://arxiv.org/abs/2505.06120), which is exactly the shape a distribution of trials exposes and a single run hides. So you run each persona scenario many times, track the pass rate and its variance, and judge the agent on the distribution rather than on one lucky or unlucky transcript. What you report from those trials is a rate with an interval around it, gated on the interval's lower bound. Atlas carries no significance test at all, no McNemar, no paired bootstrap, no permutation test, and that is a stance rather than an oversight: intervals plus a lower bound cost you power, not honesty. An unpaired comparison will miss a real improvement a paired test would have caught. It will not manufacture one that is not there. The fixture lane tells you whether a known failure came back. The live lane tells you, across many trials, how often a new one shows up.
 
 ## The machinery that pays off twice
 
-Build this machinery for quality and you have built half of the security suite for free, which is the rare case in this series where one investment settles two debts. A persona is a customer with a disposition and a goal. Nothing requires the goal to be honest. The same simulator that plays the confused customer plays the attacker: the persona whose actual aim is to talk the agent past its authorization, to extract another customer's record, to manipulate a legitimate plan change toward an illegitimate value over five patient turns rather than one obvious request. The security part's hardest attacks are multi-turn by nature, because a single hostile message is easy to catch and a slow, plausible escalation is not, and a persona simulator is precisely a multi-turn attack generator pointed at your own agent before someone else points theirs at it. The bargain hunter and the social engineer are the same machine with a different goal.
+Build this machinery for quality and you have built half of the security suite for free, which is the rare case in this series where one investment settles two debts. A persona is a customer with a disposition and a goal. Nothing requires the goal to be honest. The same simulator that plays the confused customer plays the attacker: the persona whose actual aim is to talk the agent past its authorization, to extract another customer's record, to manipulate a legitimate plan change toward an illegitimate value over five patient turns rather than one obvious request. The hardest attacks are multi-turn by nature, because a single hostile message is easy to catch and a slow, plausible escalation is not, and a persona simulator is precisely a multi-turn attack generator pointed at your own agent before someone else points theirs at it. The bargain hunter and the social engineer are the same machine with a different goal.
 
 The three layers are not rivals. Each one is for a different question, and you keep all three:
 
@@ -155,5 +169,5 @@ The three layers are not rivals. Each one is for a different question, and you k
 A golden case asks the agent one question and records whether it answered well. A simulation holds a conversation and finds out whether the agent can be trusted to hold one. Customers never arrive a turn at a time, so you cannot afford to test a turn at a time. The static set proves the failures you named stay dead. The simulations find the ones you never could have named, because they were never going to live in a single turn, and the only way to meet a conversation is to have one first.
 
 <Callout variant="takeaway" title="Key takeaway">
-The failures that scare you live between turns, so test between turns. Personas turn one disposition into a hundred conversations no author could afford to write. Assert what actually matters across the whole conversation, that the agent maintained which plan it was proposing and confirmed the one the customer settled on, not one she walked back, and that it took exactly one authorized action while it chatted about everything else. Score with a separate calibrated evaluator, never the agent on itself. Then freeze the conversations worth keeping so a nondeterministic simulation still gates a deterministic build, and run many trials so one lucky transcript never reads as a fix.
+The failures that scare you live between turns, so test between turns. Personas turn one disposition into a hundred conversations no author could afford to write. Assert what actually matters across the whole conversation, that the agent maintained which plan it was proposing and confirmed the one the customer settled on, not one she walked back, and that it took exactly one authorized action while it chatted about everything else. Score with a separate evaluator, never the agent on itself, and keep selecting that evaluator separate from calibrating it: measuring that it can apply your rubric is not the same as measuring that it agrees with you, and Atlas has done the first and not the second. Then freeze the conversations worth keeping so a nondeterministic simulation still gates a deterministic build, and run many trials so one lucky transcript never reads as a fix.
 </Callout>

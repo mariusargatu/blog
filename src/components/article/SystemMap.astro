@@ -5,11 +5,18 @@ import Tag from './Tag.astro'
 
 // The whole system on one page. Drawn so the structure carries the meaning the
 // mermaid box-and-arrow could not: the guard is a real membrane that ENCLOSES
-// the core (not a node beside it), the three MCP servers are a labelled column
-// of reach (READ vs the single WRITE surface), and the harness is the plinth
-// the whole stack visibly rests on.
+// the core (not a node beside it), the tool surfaces are a labelled column of
+// reach (READ vs the single WRITE surface), and the harness is the plinth the
+// whole stack visibly rests on.
+//
+// These were three MCP servers. MCP was removed from Atlas entirely, about 1,100
+// lines, and the tools are now a plain registry in agent/tools/. The counts below
+// are the real binding sets and sum to the 15 registered tools:
+//   uv run python -c "from agent.tools.registry import SURFACE_BINDING as S; \
+//     print({k: len(v) for k, v in S.items()})"
+//   -> {'knowledge': 1, 'account': 5, 'catalog': 4, 'write': 5}
 
-interface Server {
+interface Surface {
   name: string
   detail: string
   icon: string
@@ -19,23 +26,23 @@ interface Server {
   accent: boolean
 }
 
-const servers: Server[] = [
+const servers: Surface[] = [
   {
-    name: 'Knowledge MCP',
-    detail: 'RAG · vector + graph',
+    name: 'knowledge · 1 tool',
+    detail: 'lexical retrieval over the corpus',
     icon: 'material-symbols:menu-book-outline',
     access: 'READ',
     accent: false,
   },
   {
-    name: 'Account + catalog MCP',
+    name: 'account + catalog · 9 tools',
     detail: 'the oracle · source of truth',
     icon: 'material-symbols:database-outline',
     access: 'READ',
     accent: false,
   },
   {
-    name: 'Actions MCP',
+    name: 'write · 5 tools',
     detail: 'changes the account',
     icon: 'material-symbols:bolt',
     access: 'WRITE',
@@ -44,7 +51,7 @@ const servers: Server[] = [
 ]
 
 const ariaLabel =
-  'The whole Atlas system on one page. An authenticated chat front door, whose identity comes from the session, feeds a LangGraph agent core that runs the model gateway and the per-customer semantic cache. The core is enclosed by a fail-closed guard that checks before every action and every render. From inside, the core reaches three MCP servers per intent: a read-only Knowledge server, a read-only Account and catalog oracle, and a single write-capable Actions server. The whole stack rests on the test harness, which seeds the fakes, records and replays the model, and traces every turn.'
+  'The whole Atlas system on one page. An authenticated chat front door, whose identity comes from the session, feeds a LangGraph agent core that runs the model gateway and the per-customer cache. The core is enclosed by a fail-closed guard that checks before every action and every render. From inside, the core reaches fifteen tools across three surfaces, bound per intent: a read-only knowledge surface of one tool, a read-only account and catalog oracle of nine, and a single write-capable surface of five. The whole stack rests on the test harness, which seeds the stores, records and replays the model, and traces every turn.'
 ---
 
 <DiagramFigure
@@ -107,14 +114,14 @@ const ariaLabel =
               model gateway · record / replay
             </span>
             <span class="font-mono text-mono-xs text-text-muted rounded border border-border-dark bg-surface-container-low px-2 py-0.5">
-              semantic cache · per-customer key
+              per customer cache · key includes customer_id
             </span>
           </div>
         </div>
       </div>
     </div>
 
-    {/* per-intent reach: the three servers */}
+    {/* per-intent reach: the three tool surfaces */}
     <div class="flex items-center gap-2 mt-1 text-text-muted pl-1" data-stagger-item style="--d:0.4s">
       <Icon name="material-symbols:arrow-downward" class="text-[16px]" />
       <span class="font-mono text-mono-xs uppercase tracking-wider">reaches, per intent</span>
@@ -157,15 +164,15 @@ const ariaLabel =
         Harness · the ground everything above stands on
       </span>
       <span class="font-mono text-mono-xs text-text-muted leading-tight">
-        seeds the fakes · records / replays the model · traces every turn
+        seeds the stores · records / replays the model · blocks egress · traces every turn
       </span>
     </div>
   </div>
 
   <Fragment slot="note">
-    Read it top to bottom. The core decides and, per intent, reaches one server,
-    wrapped the whole time in a guard that can stop an action or a render.
-    Everything this series does is somewhere on this picture.
+    Read it top to bottom. The core decides and, per intent, is handed a subset of
+    the fifteen tools, wrapped the whole time in a guard that can stop an action or
+    a render. Everything this series does is somewhere on this picture.
   </Fragment>
 </DiagramFigure>
 

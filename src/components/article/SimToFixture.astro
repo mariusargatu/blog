@@ -1,12 +1,18 @@
 ---
 import DiagramFigure from './DiagramFigure.astro'
 
-// A simulation is nondeterministic by construction (two models improvising), and
-// the build gate must be deterministic. The resolution is record-and-replay applied
-// one level up: the personas drive real conversations in a slow nightly lane, the
-// ones worth keeping are frozen as fixtures (ADR-019), and those replay in the fast
-// deterministic lane on every commit with no model call. The nightly lane also runs
-// each scenario many times and watches the variance, because one sample lies.
+// A simulation is nondeterministic by construction (two models improvising), and the build gate must
+// be deterministic. The resolution is record and replay applied one level up: personas drive real
+// conversations in a slow live lane, the ones worth keeping are frozen, and those replay in the fast
+// deterministic lane with no model call.
+//
+// THIS IS THE PATTERN, NOT A DESCRIPTION OF ATLAS. Atlas has no persona simulator and no nightly
+// lane; `grep -rl persona` over the runtime and eval packages hits only evals/golden.py and
+// evals/measure_retrieval.py, where "persona" is a style variant on a templated query, not an agent.
+// What Atlas does implement is the bottom half of this picture, and it implements it exactly:
+// evals/ab_arms.py and judge/build_queue.py record once against a live local model in Mode.RECORD,
+// and every lane after that replays in Mode.REPLAY with no model call. An earlier draft cited
+// ADR-019 here; the ADRs lived in the deleted docs tree and that citation is gone.
 
 const ariaLabel =
   'How a nondeterministic simulation still gates a deterministic build. In the slow nightly lane, the persona simulator and the agent, both models, drive real conversations; the result differs every run, so this lane runs each scenario many times and watches the pass rate and its variance, because one sample lies. The conversations worth keeping, the ones that exposed a failure or exercised a tricky reversal, are frozen as fixtures. In the fast deterministic lane, those frozen conversations replay on every commit with no model call, so a failure the simulation found once becomes a regression test that runs forever and never flakes. The generator runs nightly; the fixture it leaves behind runs on every commit.'
@@ -29,7 +35,7 @@ const ariaLabel =
 
   <div class="sf-bridge flex items-center justify-center gap-2 py-2" aria-hidden="true">
     <span class="font-mono text-text-muted">&darr;</span>
-    <span class="font-mono text-mono-xs text-text-muted">freeze the ones worth keeping (ADR-019)</span>
+    <span class="font-mono text-mono-xs text-text-muted">freeze the ones worth keeping</span>
     <span class="font-mono text-text-muted">&darr;</span>
   </div>
 
@@ -49,7 +55,9 @@ const ariaLabel =
   <Fragment slot="note">
     A failure the simulation found once becomes a regression test that runs forever, cheaply, and never
     flakes. The fixture lane tells you whether a known failure came back; the live lane tells you, across
-    many trials, how often a new one shows up.
+    many trials, how often a new one shows up. Atlas runs the bottom half of this and not the top: it
+    records against a live local model once and replays forever, and it has no persona simulator driving
+    the traffic. The top lane is what the pattern asks for, not something this repo can show you.
   </Fragment>
 </DiagramFigure>
 

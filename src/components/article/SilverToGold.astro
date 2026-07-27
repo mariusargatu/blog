@@ -1,15 +1,22 @@
 ---
 import DiagramFigure from './DiagramFigure.astro'
 
-// Silver-to-gold promotion. Synthetic and sampled cases enter as silver:
-// provisional, never permitted to gate a release. A case becomes gold only after
-// a human verifies the label AND an evaluator agrees (chance-corrected, kappa
-// >= 0.61). Gold gates; silver explores. The promotion step is where trust is
-// manufactured deliberately instead of assumed. In Atlas this pipeline lands
-// with the production living loop; the seed set ships all-gold, by hand.
+// Silver to gold promotion, drawn as the general pattern, NOT as a description of Atlas.
+// Synthetic and sampled cases enter as silver: provisional, never permitted to gate a release. A
+// case becomes gold only after a human verifies the label AND an evaluator agrees (chance corrected,
+// kappa >= 0.61, which is Landis and Koch's floor for "substantial", a literature convention and not
+// an Atlas measurement).
+//
+// Atlas does not run this pipeline, and the note now says so instead of promising it. Atlas takes the
+// other route to a trustworthy label: it derives ground truth by CONSTRUCTION rather than promoting it
+// by review. The corpus is rendered from a registry with character span provenance, and 119 fact_refs
+// fall out of intersecting those spans with the chunk spans, with zero human labelling anywhere in the
+// path. Cross checked against the committed seed cases, 55 of 55 cases and 45 of 45 single fact cases
+// come out exact. That is why the judge is unlicensed (see JudgeCalibration.astro): construction gives
+// you a label, and only a human gives you agreement.
 
 const ariaLabel =
-  'A promotion pipeline in three stages. Stage one, silver: synthetic or sampled cases, provisional and untrusted, used for coverage and never allowed to gate a release. Stage two, the review gate: a human verifies the label and an evaluator agrees, with chance-corrected agreement of kappa at least 0.61. Stage three, gold: trusted cases that gate the release. An arrow loops from gold back to the gate, labelled keep the tiers visibly separate.'
+  'A promotion pipeline in three stages, shown as a general pattern rather than as a description of Atlas. Stage one, silver: synthetic or sampled cases, provisional and untrusted, used for coverage and never allowed to gate a release. Stage two, the review gate: a human verifies the label and an evaluator agrees, with chance-corrected agreement of kappa at least 0.61. Stage three, gold: trusted cases that gate the release. An arrow loops from gold back to the gate, labelled keep the tiers visibly separate.'
 ---
 
 <DiagramFigure label="Silver → gold promotion" ariaLabel={ariaLabel} data-sg>
@@ -39,9 +46,13 @@ const ariaLabel =
 
   <Fragment slot="note">
     Gold gates; silver explores coverage. Keeping the tiers visibly separate is
-    what stops a thousand half-trusted cases from leaking into the set that
-    decides whether you ship. In Atlas the pipeline lands with the living loop;
-    the seed set ships all-gold.
+    what stops a thousand half trusted cases from leaking into the set that
+    decides whether you ship. This is the pattern, not Atlas. Atlas reaches a
+    trustworthy label the other way, by deriving it from the corpus's own
+    provenance so no promotion step is needed: 119 fact references, zero human
+    labels. The two routes trade off against each other, and the cost of the
+    derived one shows up in the judge, which stays unlicensed until a human
+    finally labels something.
   </Fragment>
 </DiagramFigure>
 

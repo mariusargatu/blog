@@ -5,8 +5,16 @@ import DiagramLabel from './DiagramLabel.astro'
 // The model gateway, drawn as the one seam in front of the only nondeterministic node. Implemented
 // as the chat model the LangGraph graph already calls, so nothing upstream knows it is recorded.
 // Three modes, and the mode is the whole story: where the response comes from, whether a socket
-// opens, whether a cassette is written, and which lane it serves. REPLAY is the one that gates a
-// merge; the other two need keys and never run in the PR lane. Static, one node into three modes.
+// opens, whether a cassette is written, and which lane it serves.
+//
+// harness/gateway.py, class Gateway(BaseChatModel), Mode.REPLAY / RECORD / LIVE. Wiring is checked
+// when the object is built, not on the first call: REPLAY needs a store, RECORD needs both, LIVE
+// needs an inner provider. The rebuild collapsed three separate gateways into this one.
+//
+// The LIVE column is honest about its own status. The mode is implemented and tested
+// (tests/test_gateway.py) but NO lane in the tree currently runs in it: every operator lane records
+// once and replays after, and `task measure` is hermetic today because every arm is already
+// recorded. Do not describe LIVE as a nightly eval lane. There is no nightly.
 
 const modes = [
   {
@@ -15,8 +23,8 @@ const modes = [
     source: 'cassette',
     network: 'no socket',
     persist: 'nothing',
-    lane: 'the PR lane · gates the merge',
-    note: 'same input, same decision, every run. A miss is a hard fail, never a live call.',
+    lane: 'task test + task measure · gates the merge',
+    note: 'same input, same decision, every run. A miss raises CassetteMiss, never a live call.',
   },
   {
     key: 'RECORD',
@@ -24,7 +32,7 @@ const modes = [
     source: 'live provider',
     network: 'one call',
     persist: 'writes the cassette',
-    lane: 'capture once · needs keys',
+    lane: 'the operator lanes · needs keys or a local model',
     note: 'call the model AND persist, so REPLAY has something to serve. Run deliberately.',
   },
   {
@@ -33,8 +41,8 @@ const modes = [
     source: 'live provider',
     network: 'every call',
     persist: 'nothing',
-    lane: 'the eval lane · nightly',
-    note: 'measure the real model’s variance; a cassette would freeze the thing being measured.',
+    lane: 'implemented and tested · no lane uses it yet',
+    note: 'for measuring the real model’s variance, where a cassette would freeze the thing being measured.',
   },
 ]
 ---
@@ -48,7 +56,7 @@ const modes = [
   <div class="p-5 flex flex-col gap-0">
     <div class="gw-node">
       <Icon name="material-symbols:cable" class="text-[15px] text-primary" />
-      <span>the chat model the graph already calls<b>GatewayChatModel</b></span>
+      <span>the chat model the graph already calls<b>harness.gateway.Gateway</b></span>
     </div>
 
     <div class="gw-fork" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -73,8 +81,10 @@ const modes = [
     <p class="gw-legend">
       In <b>REPLAY</b> the gateway returns the recorded response and never opens a socket, so the run is
       deterministic and a red is a real regression, not a dice roll. The cassette lineage is borrowed from
-      HTTP record-and-replay (VCR): capture a live interaction once, replay it forever. Point the same idea
-      at the model and the loudest source of nondeterminism stops moving.
+      HTTP record and replay (VCR): capture a live interaction once, replay it forever. Point the same idea
+      at the model and the loudest source of nondeterminism stops moving. Note what that buys and what it
+      does not: every measured number in this series was replayed, so it is reproducible, and none of it is
+      a reading of a model live in the wild.
     </p>
   </div>
 </div>

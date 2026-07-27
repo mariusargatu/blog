@@ -1,15 +1,21 @@
 ---
 import DiagramFigure from './DiagramFigure.astro'
 
-// Retrieval graded before any answer exists. The legacy customer's data-cap
-// question needs two chunks to answer correctly: the cap term and the
-// throttling clause that governs it. A single vector lookup returns the cap
-// term at rank 1 and an unlimited-plan doc at rank 2, burying the throttling
-// clause at rank 3. Read the ranked list and the classical IR metrics fall
-// out as closed-form arithmetic over chunk ids, no model required. The number
-// that matters later: recall at rank 1 is 0.50, one relevant chunk of two.
-// Ranked list is illustrative; the recall@1 = 0.50 finding is the real one
-// the retrieval slice reports on the two-chunk questions.
+// Retrieval graded before any answer exists. The legacy customer's data cap question needs two
+// chunks to answer correctly: the cap term and the throttling clause that governs it. A lookup
+// returns the cap term at rank 1 and an uncapped plan doc at rank 2, burying the throttling clause
+// at rank 3. Read the ranked list and the classical IR metrics fall out as closed form arithmetic
+// over chunk ids, no model required. THAT is what this figure teaches, and it is the part that is
+// true by definition rather than by measurement.
+//
+// THE ENTIRE RANKED LIST IS ILLUSTRATIVE, chosen so the arithmetic stays legible. No number in it is
+// an Atlas result. An earlier draft claimed "the recall@1 = 0.50 finding is the real one the
+// retrieval slice reports". Atlas's measured recall@1 is 0.1188, and this list is not where it came
+// from. The real measured figures are reproducible with:
+//   uv run python -m evals.measure_retrieval
+//   -> hit_rate@3 0.3468 [0.2687, 0.4340] over n=124, recall@3 0.2353, ndcg@3 0.2111
+// Note too that Atlas ships no dense retriever: the scorer is a lexical coverage fraction
+// (agent/domain/retrieval.py, lexical_score), so "a vector lookup" is not what this system does.
 
 const query = 'is there a cap on my data?'
 const results = [
@@ -76,7 +82,10 @@ const ariaLabel =
   <Fragment slot="note">
     {foundAt1} of {goldTotal} relevant chunks reached rank 1, so recall@1 is 0.50: a single lookup
     gets one hop and misses the other. Grade only the answer and that miss is invisible. Grade the
-    retrieval and it is the first number on the page.
+    retrieval and it is the first number on the page. This ranked list is a worked example chosen so
+    the arithmetic stays legible; the metrics are definitions, not measurements. Atlas's own measured
+    figures come from <code>evals.measure_retrieval</code>, where hit_rate@3 is 0.3468 with a 95%
+    interval of [0.2687, 0.4340] over 124 cases.
   </Fragment>
 </DiagramFigure>
 

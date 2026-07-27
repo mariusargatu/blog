@@ -7,41 +7,57 @@ import Tag from './Tag.astro'
 // whether this is testable before signing off on it. Two views on one diagram:
 //   Runtime    the request path, the trust boundary, the capability tier, the
 //              systems of record. What ships.
-//   Test points the same diagram with the four places the harness hooks in made
-//              explicit: the model gateway (record / replay), the seeded fakes
-//              behind every MCP server, the per-customer cache key, and the
-//              trace export the assertions read from.
+//   Test points the same diagram with the places the harness hooks in made
+//              explicit: the model gateway (record / replay), the seeded stores
+//              behind every tool surface, the per-customer cache key, and the
+//              trace the assertions read from.
 // The toggle is the point: the system is the same, the test view just shows
 // where you cut it open. Static layout, one piece of state, keyboard reachable.
+//
+// MCP IS GONE. The rebuild removed it entirely, about 1,100 lines, and the tools
+// are now a plain Python registry in agent/tools/. Do not reintroduce the word.
+// The identity guarantee never came from MCP in the first place: customer_id
+// arrives on a ToolContext closure, and it survived the removal unchanged.
+//
+// The node names are the real graph nodes. Reproduce with:
+//   grep -n "add_node" agent/graph.py
+//   -> agent, tools_read, pre_action_guard, confirm, pre_render_guard, refusal
+// The surfaces and their sizes are the real binding sets:
+//   uv run python -c "from agent.tools.registry import SURFACE_BINDING as S; \
+//     print({k: len(v) for k, v in S.items()})"
+//   -> {'knowledge': 1, 'account': 5, 'catalog': 4, 'write': 5}  (15 tools total)
+//   uv run python -c "from agent.tools.registry import REGISTRY; \
+//     from agent.tools.spec import identity_leaks; print(identity_leaks(REGISTRY.values()))"
+//   -> ()   no tool schema anywhere declares an identity argument
 
-const nodes = ['retrieve', 'read', 'decide', 'act', 'reply']
+const nodes = ['agent', 'tools_read', 'pre_action_guard', 'confirm', 'pre_render_guard', 'refusal']
 
 const servers = [
   {
     key: 'knowledge',
-    name: 'Knowledge MCP',
-    proto: 'MCP · read scope',
-    detail: 'RAG over help docs, vector + graph',
+    name: 'knowledge · 1 tool',
+    proto: 'search_knowledge',
+    detail: 'lexical retrieval over the rendered corpus',
     access: 'READ' as const,
-    store: 'Vector index + relation graph',
+    store: 'the 45 document corpus, chunked',
     accent: false,
   },
   {
     key: 'oracle',
-    name: 'Account + catalog MCP',
-    proto: 'MCP · OAuth 2.1 · read scope',
+    name: 'account + catalog · 9 tools',
+    proto: 'get_account_summary, get_plan, compute_price, …',
     detail: 'the oracle, source of truth',
     access: 'READ' as const,
-    store: 'Account store · catalog store',
+    store: 'account store · catalog registry',
     accent: false,
   },
   {
     key: 'actions',
-    name: 'Actions MCP',
-    proto: 'MCP · OAuth 2.1 · step-up write scope',
-    detail: 'the only writer',
+    name: 'write · 5 tools',
+    proto: 'change_plan, cancel_service, book_engineer, …',
+    detail: 'the only writer, and it must be confirmed',
     access: 'WRITE' as const,
-    store: 'Account store (mutations)',
+    store: 'account store (mutations)',
     accent: true,
   },
 ]
@@ -70,7 +86,7 @@ const servers = [
         </div>
         <div class="arch-id">
           <Icon name="material-symbols:badge-outline" class="text-[14px]" />
-          customer_id in MCP call context, never a tool argument
+          customer_id on the tool context, never a tool argument
         </div>
       </div>
     </div>
@@ -93,29 +109,29 @@ const servers = [
             Guard · fail-closed · gates every action and every render
           </span>
           <div class="arch-core">
-            <span class="arch-box-h"><Icon name="material-symbols:hub-outline" class="text-[15px]" />Agent core · LangGraph StateGraph</span>
+            <span class="arch-box-h"><Icon name="material-symbols:hub-outline" class="text-[15px]" />Agent core · LangGraph StateGraph · six nodes</span>
             <div class="mt-2 flex flex-wrap items-center gap-1.5">
               {
                 nodes.map((n, i) => (
                   <>
                     {i > 0 && <Icon name="material-symbols:chevron-right" class="text-text-muted text-[14px]" />}
-                    <span class:list={['arch-node', n === 'decide' && 'arch-node-nd']} data-node={n}>
+                    <span class:list={['arch-node', n === 'agent' && 'arch-node-nd']} data-node={n}>
                       {n}
-                      {n === 'decide' && <span class="arch-nd-mark">model · nondeterministic</span>}
+                      {n === 'agent' && <span class="arch-nd-mark">model · nondeterministic</span>}
                     </span>
                   </>
                 ))
               }
             </div>
             <div class="mt-2 flex flex-wrap gap-1.5">
-              <span class="arch-chip">semantic cache · key includes customer_id</span>
+              <span class="arch-chip">per customer cache · key includes customer_id</span>
               <span class="arch-chip">interrupt() · human confirm before any write</span>
             </div>
 
-            {/* seam: model gateway, on the decide node */}
+            {/* seam: model gateway, on the agent node */}
             <div class="arch-seam" data-seam>
               <Icon name="material-symbols:cable" class="text-[14px]" />
-              <span><b>test point:</b> model gateway records every call on <code>decide</code> and replays it. One nondeterministic node, pinned.</span>
+              <span><b>test point:</b> the gateway records every call the <code>agent</code> node makes and replays it. One nondeterministic node, pinned.</span>
             </div>
             {/* seam: cache key */}
             <div class="arch-seam" data-seam>
@@ -139,7 +155,7 @@ const servers = [
       <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
         {
           servers.map((s) => (
-            <div class:list={['arch-mcp', s.accent && 'arch-mcp-write']} data-mcp={s.key}>
+            <div class:list={['arch-surface', s.accent && 'arch-surface-write']} data-surface={s.key}>
               <div class="flex items-center justify-between gap-2">
                 <Icon name="material-symbols:dns-outline" class:list={['text-[16px]', s.accent ? 'text-primary' : 'text-text-muted']} />
                 <Tag label={s.access} variant={s.accent ? 'solid' : 'neutral'} />
@@ -153,7 +169,7 @@ const servers = [
               </div>
               <div class="arch-seam" data-seam>
                 <Icon name="material-symbols:swap-horiz" class="text-[14px]" />
-                <span><b>test point:</b> seeded fake, multi-customer data, no real account touched.</span>
+                <span><b>test point:</b> seeded in memory store, several customers, no real account touched. Every schema is <code>additionalProperties: false</code> and none declares an identity field.</span>
               </div>
             </div>
           ))
@@ -270,13 +286,13 @@ const servers = [
   }
   @media (max-width: 640px) { [data-arch] .arch-flow { margin-left: 0; } }
 
-  /* mcp cards */
-  [data-arch] .arch-mcp {
+  /* tool surface cards */
+  [data-arch] .arch-surface {
     display: flex; flex-direction: column; gap: 0.15rem;
     border: 1px solid var(--color-border-dark); background: var(--color-surface-container-low);
     border-radius: var(--radius); padding: 0.7rem 0.8rem;
   }
-  [data-arch] .arch-mcp-write { border-color: color-mix(in srgb, var(--color-primary) 55%, transparent); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+  [data-arch] .arch-surface-write { border-color: color-mix(in srgb, var(--color-primary) 55%, transparent); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
   [data-arch] .arch-proto { font-family: var(--font-mono); font-size: 0.64rem; color: var(--color-primary); margin-top: 0.15rem; }
   [data-arch] .arch-store {
     display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.4rem;

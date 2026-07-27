@@ -4,25 +4,42 @@ import DiagramLabel from './DiagramLabel.astro'
 import Tag from './Tag.astro'
 
 // The article's central thesis made tangible: the agent's reach is decided per
-// turn, not per agent. Pick an intent and the toolset binds only the servers
+// turn, not per agent. Pick an intent and the toolset binds only the surfaces
 // that intent needs; the rest are not denied at call time, they are simply not
 // on the table. The "attempt change_plan" button proves it: a write is
-// unreachable on a read-only turn because the tool was never handed over.
+// unreachable on a read only turn because the tool was never handed over.
 //
 // Interaction idiom matches ValidatorPipeline/RiskLever: JS adds .is-interactive
 // (no-JS shows the default intent fully bound and legible), tabs carry
 // aria-pressed, the verdict line is aria-live.
 
+// The surfaces and the binding map are read straight out of agent/domain/binding.py.
+// There is no MCP here any more; the tools are a plain registry in agent/tools/.
+// Reproduce the map with:
+//   uv run python -c "from agent.domain import binding as b; \
+//     [print(i, sorted(b.bound_tools(i))) for i in \
+//      (b.POLICY_QUESTION, b.TROUBLESHOOTING, b.ACCOUNT_READ, b.ACTION)]"
+//
+//   policy_question -> knowledge + catalog                 (5 tools)
+//   troubleshooting -> knowledge + account                 (6 tools)
+//   account_read    -> account + catalog                   (9 tools)
+//   action          -> account + catalog + write          (14 tools)
+//
+// Two shapes the real map has that a tidier invented one would not. NO intent binds all four
+// surfaces at once, and knowledge is never on the table at the same time as write: the turn that
+// can change the account cannot read the help docs it might be talked into believing.
 const servers = [
-  { key: 'knowledge', name: 'Knowledge MCP', detail: 'help docs · RAG', access: 'READ' as const },
-  { key: 'account', name: 'Account + catalog', detail: 'the oracle', access: 'READ' as const },
-  { key: 'actions', name: 'Actions MCP', detail: 'change the account', access: 'WRITE' as const },
+  { key: 'knowledge', name: 'knowledge', detail: '1 · search_knowledge', access: 'READ' as const },
+  { key: 'account', name: 'account', detail: '5 · the account reads', access: 'READ' as const },
+  { key: 'catalog', name: 'catalog', detail: '4 · plans and pricing', access: 'READ' as const },
+  { key: 'actions', name: 'write', detail: '5 · changes the account', access: 'WRITE' as const },
 ]
 
 const intents = [
-  { key: 'troubleshoot', label: 'Troubleshoot', bind: ['knowledge', 'account'] },
-  { key: 'bill', label: 'Check bill', bind: ['account'] },
-  { key: 'plan', label: 'Change plan', bind: ['account', 'actions'] },
+  { key: 'policy', label: 'policy_question', bind: ['knowledge', 'catalog'] },
+  { key: 'troubleshoot', label: 'troubleshooting', bind: ['knowledge', 'account'] },
+  { key: 'read', label: 'account_read', bind: ['account', 'catalog'] },
+  { key: 'action', label: 'action', bind: ['account', 'catalog', 'actions'] },
 ]
 
 // data-bind holds the per-intent binding so the script needs no duplicated map
@@ -57,7 +74,7 @@ const bindMap = JSON.stringify(Object.fromEntries(intents.map((i) => [i.key, i.b
       Toolset bound for this turn
     </p>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       {
         servers.map((s) => (
           <div

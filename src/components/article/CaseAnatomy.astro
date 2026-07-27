@@ -1,40 +1,47 @@
 ---
 import DiagramFigure from './DiagramFigure.astro'
 
-// The four load-bearing parts of a golden case, shown on a real Atlas case, the
-// planted cold-open trap, lifted verbatim from the seed set
-// (testing/harness/evals/datasets/seed.py, id: cap-legacy-trap). Each part is
-// labelled by its role: input + session, expected behaviour, risk label, oracle
-// reference. The oracle is a pointer to the source of truth, never a frozen value.
+// The four load-bearing parts of a golden case, shown on a real Atlas case lifted verbatim from
+// the committed seed set: corpus/seed_cases.jsonl, case_id seed-mt-daniel-over-cap-upgrade.
+// Read the case itself with:
+//   uv run python -c "import json; \
+//     print([json.loads(l) for l in open('corpus/seed_cases.jsonl') \
+//            if json.loads(l)['case_id'] == 'seed-mt-daniel-over-cap-upgrade'][0])"
+//
+// Field names below are the real ones. Two honesty notes. First, the risk row shows what this case
+// actually carries, which is three null class labels: the schema has the slots, and an authored
+// happy path case fills none of them. Second, the oracle row is an end_state assertion written as a
+// PATH with an expected value, so it re-reads the account after the run rather than trusting a
+// number typed into the case months ago.
 
 const parts = [
   {
     role: 'Input + session',
-    why: 'identity rides in the session, never the chat, half the test',
-    body: '“is there a cap on my data?”  ·  session: customer_id = cust_legacy_term',
+    why: 'identity rides on the session, never the chat, and that is half the test',
+    body: '“Am I over my data cap this month?”  ·  customer_id = cust_legacy_term',
   },
   {
     role: 'Expected behaviour',
     why: 'written as the thing you check, not a vibe',
-    body: 'reflects that THIS plan is capped (legacy); must NOT serve “uncapped / term-free”',
+    body: 'checkpoint: expected_intent = troubleshooting, expected_tool_calls = [account.get_usage]',
   },
   {
-    role: 'Risk label',
-    why: 'lets you weight and slice by consequence later',
-    body: 'high  ·  grounded-but-false',
+    role: 'Class labels',
+    why: 'the slots that let you weight and slice by consequence later',
+    body: 'adversarial_class: null · failure_class: null · refusal_class: null · origin: authored',
   },
   {
     role: 'Oracle reference',
-    why: 'a reference, not a number typed in March',
-    body: "truth_for('cust_legacy_term').has_data_cap is True   (account ⋈ catalog)",
+    why: 'a path re-read after the run, not a number typed in March',
+    body: 'end_state.account_assertions: usage.data_cap_gb equals null, bill.amount equals 29.99',
   },
 ]
 
 const ariaLabel =
-  'One golden case broken into its four load-bearing parts. Input plus session: the question “is there a cap on my data?” with the session identity customer_id equals cust_legacy_term. Expected behaviour: the answer reflects that this legacy plan is capped and must not serve the uncapped, term-free line. Risk label: high, grounded-but-false. Oracle reference: an assertion that truth_for of cust_legacy_term has_data_cap is True, drawn from the account joined to the catalog, not a frozen value.'
+  'One golden case broken into its four load-bearing parts, taken from the committed seed set. Input plus session: the question “Am I over my data cap this month?” with the session identity customer_id equals cust_legacy_term. Expected behaviour: a checkpoint expecting the troubleshooting intent and a call to account.get_usage. Class labels: the adversarial, failure and refusal class slots are all null on this authored case. Oracle reference: end state account assertions written as paths, that usage dot data_cap_gb equals null and bill dot amount equals 29.99, re-read after the run rather than frozen into the case.'
 ---
 
-<DiagramFigure label="Anatomy of a case · cap-legacy-trap" ariaLabel={ariaLabel} data-ca>
+<DiagramFigure label="Anatomy of a case · seed-mt-daniel-over-cap-upgrade" ariaLabel={ariaLabel} data-ca>
   <div class="flex flex-col gap-2">
     {
       parts.map((p, i) => (

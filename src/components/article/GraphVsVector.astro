@@ -1,16 +1,20 @@
 ---
 import DiagramLabel from './DiagramLabel.astro'
 
-// Make graph RAG earn its cost. Split the query set into flat lookups and
-// genuinely relational, multi-hop questions, run both strategies over both
-// slices, and adopt the graph only where it wins. On the flat slice the vector
-// retriever is already perfect and the graph adds only indexing and token cost.
-// On the relational slice the split is stark: the vector recovers only 0.50
-// even at the deployed retrieval budget (k=3) because the linking fact is a
-// graph edge, not co-occurring text, while the graph's path recall comes back
-// at 1.00. Adopt it because the study came back yes at a FAIR budget on the
-// queries that need it, not because graphs are fashionable. Numbers are the
-// ones the Atlas relational split reports.
+// Make graph RAG earn its cost. Split the query set into flat lookups and genuinely relational,
+// multi hop questions, run both strategies over both slices, and adopt the graph only where it wins.
+// The DISCIPLINE is the lesson here: adopt a retriever because a study came back yes at a fair
+// budget on the queries that need it, not because graphs are fashionable.
+//
+// EVERY NUMBER IN THIS FIGURE IS ILLUSTRATIVE. An earlier draft ended "Numbers are the ones the
+// Atlas relational split reports". There is no such split, and no measurement was ever taken behind
+// these figures. Atlas ships NEITHER retriever this figure compares: there is no vector index and no
+// graph retriever in the tree. Confirm with:
+//   grep -rn "rerank\|vector\|embedding\|neo4j" --include="*.py" agent evals corpus_spine harness
+// The only hit is an embedding column in the chunk parquet that evals/measure_retrieval.py documents
+// as present and unused, because scoring a query against it would need the same embedding model on
+// the query side and no offline run has one. What Atlas actually ships is a lexical coverage
+// fraction (agent/domain/retrieval.py, lexical_score); its measured behaviour is in GatingRule.
 
 const SLICES = {
   flat: {
@@ -35,8 +39,8 @@ const SLICES = {
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`
 ---
 
-{/* Statically rendered on the relational slice, where the graph earns its cost
-    and the 0.50-vs-1.00 split is the committed finding, so a no-JS render never
+{/* Statically rendered on the relational slice, where the graph earns its cost and the illustrative
+    0.50 against 1.00 split makes the point, so a no-JS render never
     implies "adopt the graph" without the slice it actually wins on. The script
     flips the interactive view to the flat slice on init, where the graph adds
     only cost, so the "prove it per slice" lesson is intact. */}
@@ -84,7 +88,7 @@ const pct = (x: number) => `${(x * 100).toFixed(0)}%`
   </div>
 
   <figcaption class="m-0 mt-4 border-t border-border-dark pt-4 font-mono text-mono-xs text-text-muted" data-gv-caption aria-live="polite">
-    On the relational slice the split is stark: the vector recovers only 0.50 even at the deployed budget (k=3), while graph path recall is 1.00, every hop. {SLICES.relational.why} Adopt the graph here.
+    On the relational slice the split is stark: the vector recovers only 0.50 even at the deployed budget (k=3), while graph path recall is 1.00, every hop. {SLICES.relational.why} Adopt the graph here. Worked example, not an Atlas measurement: Atlas ships neither a vector index nor a graph retriever, so the shape of the decision is the transferable part, not these figures.
   </figcaption>
 </figure>
 

@@ -6,7 +6,7 @@
     const legend = root.querySelector<HTMLElement>('[data-legend]')!
     const RUNTIME = 'What ships: the request path, the trust boundary, the capability tier bound per intent, and the systems of record behind it.'
     const SEAMS =
-      'Four test points the harness hooks into: the model gateway pins the one nondeterministic node, seeded fakes stand in for every backend, the cache key is asserted per customer, and the trace is what trajectory tests read.'
+      'The test points the harness hooks into: the model gateway pins the one nondeterministic node, seeded in memory stores stand in for every backend, the cache key is asserted per customer, and the trace is what trajectory tests read.'
 
     const view = (v: string) => {
       root.classList.toggle('seams', v === 'seams')

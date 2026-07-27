@@ -1,25 +1,35 @@
 ---
 import DiagramLabel from './DiagramLabel.astro'
-// The single most important rule in the statistics article, made visual, with the committed
-// numbers from the Atlas repo (`task benchmark`, the `release_gate` block of benchmark_study.json).
-// The candidate v_b must clear a release bar of 0.80. Its point is 0.81 with a Wilson 95%
-// interval whose floor is 0.722. Toggle the gating rule: gate on the point and it ships on
-// optimism (0.81 >= 0.80, green, wrong); gate on the lower bound and it fails closed
-// (0.722 < 0.80, "we cannot tell yet" blocks the release). Numbers are the committed
-// artifact's, not illustrative. Keep in sync with
-// testing/harness/evals/benchmark/artifacts/benchmark_study.json if the fixture or seed changes.
-const THRESHOLD = 0.8
-const POINT = 0.81
-const LO = 0.722
-const HI = 0.875
-const D0 = 0.65
-const SPAN = 1.0 - D0
+// The single most important rule in the statistics article, made visual, on Atlas's own retrieval
+// gate. Reproduce every number here with:
+//   uv run python -m evals.measure_retrieval
+// which ends on exactly this block:
+//   gate on hit_rate@3, threshold 0.3, point 0.3468
+//     variance_budget 0.20  FAIL       lower bound 0.269 is below the 0.300 bar
+//     variance_budget 0.10  QUARANTINE interval width 0.165 exceeds the 0.100 variance budget
+// hit_rate@3 is 0.3468 over n=124, Wilson 95% [0.2687, 0.4340].
+//
+// This is the real thing, on real data, and nothing about it was arranged: the point clears the
+// 0.300 bar and the floor does not, so the two gating rules genuinely disagree about whether this
+// ships. Toggle between them and the same measurement reads as green or as fails closed.
+//
+// An earlier draft of this figure ran on a 100 item benchmark scoring 0.81 against a 0.80 bar, cited
+// to `task benchmark` and a benchmark_study.json artifact. That task, that artifact and that dataset
+// do not exist in the rebuilt tree, so the figure now runs on a lane a reader can actually execute.
+const THRESHOLD = 0.3
+const POINT = 0.3468
+const LO = 0.2687
+const HI = 0.434
+const N = 124
+const D0 = 0.2
+const TOP = 0.5
+const SPAN = TOP - D0
 const pos = (x: number) => ((x - D0) / SPAN) * 100
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`
 ---
 
-{/* Statically rendered in floor mode — the honest gating rule and the committed verdict — so a
-    no-JS render or an extracted snapshot never quotes "0.81 clears the bar, ship" out of context.
+{/* Statically rendered in floor mode, the honest gating rule and the real verdict, so a no-JS
+    render or an extracted snapshot never quotes "0.3468 clears the bar, ship" out of context.
     The script flips the interactive experience back to point mode on init so the toggle
     pedagogy is unchanged. */}
 <figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-5" data-gr data-pass="false" data-inview>
@@ -40,8 +50,8 @@ const pct = (x: number) => `${(x * 100).toFixed(0)}%`
 
   <div class="mb-3" aria-hidden="true">
     <div class="flex flex-wrap items-baseline gap-x-3 mb-3">
-      <span class="font-mono text-3xl text-text-primary">{POINT.toFixed(2)}</span>
-      <span class="font-mono text-mono-xs text-text-muted">Wilson 95% CI [{LO.toFixed(3)}, {HI.toFixed(3)}]</span>
+      <span class="font-mono text-3xl text-text-primary">{POINT.toFixed(4)}</span>
+      <span class="font-mono text-mono-xs text-text-muted">hit_rate@3 · n={N} · Wilson 95% CI [{LO.toFixed(4)}, {HI.toFixed(4)}]</span>
       <span class="font-mono text-mono-xs uppercase tracking-wide sm:ml-auto" data-gr-verdict>hold</span>
     </div>
     <div class="gr-track relative h-3 w-full">
@@ -52,13 +62,13 @@ const pct = (x: number) => `${(x * 100).toFixed(0)}%`
     </div>
     <div class="relative mt-1.5 font-mono text-mono-xs text-text-muted">
       <span>{pct(D0)}</span>
-      <span class="absolute -translate-x-1/2 text-text-primary whitespace-nowrap" style={`left:${pos(THRESHOLD)}%`}>0.80 bar</span>
-      <span class="float-right">100%</span>
+      <span class="absolute -translate-x-1/2 text-text-primary whitespace-nowrap" style={`left:${pos(THRESHOLD)}%`}>0.300 bar</span>
+      <span class="float-right">{pct(TOP)}</span>
     </div>
   </div>
 
   <figcaption class="m-0 mt-5 border-t border-border-dark pt-4 font-mono text-mono-xs text-text-muted" data-gr-caption aria-live="polite">
-    Gate on the lower bound: the floor is 0.722, below the 0.80 bar, so the release holds. "We cannot tell yet" fails closed, which is the only safe direction for a number that might be noise. This is the committed verdict, not an illustration.
+    Gate on the lower bound: the floor is 0.2687, below the 0.300 bar, so the gate fails closed. "We cannot tell yet" is the only safe reading of a number that might be noise. This is what <code>uv run python -m evals.measure_retrieval</code> prints today, on real data, with nothing arranged. Tighten the variance budget from 0.20 to 0.10 and the same measurement stops being a FAIL and becomes a QUARANTINE, because an interval 0.165 wide is too wide to decide anything with.
   </figcaption>
 </figure>
 

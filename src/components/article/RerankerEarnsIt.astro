@@ -1,15 +1,19 @@
 ---
 import DiagramLabel from './DiagramLabel.astro'
 
-// The reranker has to earn its latency. Run the same query set with it and
-// without it and read what NDCG does. Here it climbs, 0.71 to 0.78, a +0.07
-// lift that looks like a win at a glance. But a with-and-without comparison
-// over seven queries is a statistical claim, not a glance at two averages: the
-// paired permutation test comes back p = 0.23, so the lift is directional and
-// not yet claimable. A guardrail rides along: recall must not drop while top
-// precision rises, and here it holds at 1.00. Numbers are illustrative of the
-// honest report shape; the discipline (paired test, recall guardrail) is the
-// real one from the reranker slice.
+// The reranker has to earn its latency. Run the same query set with it and without it and read what
+// NDCG does. Here it climbs, 0.71 to 0.78, a +0.07 lift that looks like a win at a glance. But a
+// with and without comparison over seven queries is a statistical claim, not a glance at two
+// averages, so the lift is directional and not yet claimable. A guardrail rides along: recall must
+// not drop while top precision rises.
+//
+// EVERY NUMBER HERE IS ILLUSTRATIVE, the p value most of all. An earlier draft said "the discipline
+// (paired test, recall guardrail) is the real one from the reranker slice". Atlas has no reranker
+// slice, and more to the point it computes NO significance test anywhere: no permutation test, no
+// McNemar, no paired bootstrap, no power analysis. That is a deliberate stance, intervals plus lower
+// bound gating, and it costs power rather than honesty, because an unpaired comparison misses real
+// improvements a paired test would find. Read this figure as the report shape a paired study SHOULD
+// have; read BenchmarkVerdict for what Atlas actually reports when it compares two arms.
 
 const RUNS = {
   off: { ndcg: 0.71, recall: 1.0 },
@@ -62,7 +66,7 @@ const pct = (x: number) => `${(x * 100).toFixed(0)}%`
   </div>
 
   <figcaption class="m-0 mt-5 border-t border-border-dark pt-4 font-mono text-mono-xs text-text-muted" data-rk-caption aria-live="polite">
-    On {N} queries the lift is +{LIFT.toFixed(2)}, but the paired permutation test returns p = {P.toFixed(2)}: directional, not yet claimable. The honest report is "helps directionally, and on this evidence you cannot claim it, so size the set to the effect you care about."
+    On {N} queries the lift is +{LIFT.toFixed(2)}, but the paired permutation test returns p = {P.toFixed(2)}: directional, not yet claimable. The honest report is "helps directionally, and on this evidence you cannot claim it, so size the set to the effect you care about." Worked example, not an Atlas measurement: Atlas runs no reranker and computes no significance test at all, which buys simplicity and costs exactly the power this figure is asking for.
   </figcaption>
 </figure>
 

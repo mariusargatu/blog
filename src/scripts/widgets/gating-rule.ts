@@ -1,12 +1,14 @@
-// Gating-rule toggle: gate on the point (0.81 ships) vs the Wilson lower bound
-// (0.722 holds), with the reading marker sliding between the two.
+// Gating-rule toggle on Atlas's real retrieval gate: gate on the point (0.3468 clears the 0.300
+// bar) vs the Wilson lower bound (0.2687 does not), with the reading marker sliding between the
+// two. Keep in step with GatingRule.astro and with the tail of
+// `uv run python -m evals.measure_retrieval`.
   const root = document.querySelector<HTMLElement>('[data-gr]')
   if (root) {
-    const THRESHOLD = 0.8
-    const POINT = 0.81
-    const LO = 0.722
-    const D0 = 0.65
-    const SPAN = 1.0 - D0
+    const THRESHOLD = 0.3
+    const POINT = 0.3468
+    const LO = 0.2687
+    const D0 = 0.2
+    const SPAN = 0.5 - D0
     const pos = (x: number) => ((x - D0) / SPAN) * 100
 
     const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-gr-mode]')]
@@ -16,9 +18,9 @@
 
     const captions: Record<string, string> = {
       point:
-        'Gate on the point: 0.81 clears the 0.80 bar, so it ships. That is shipping on the best guess, with an honest floor sitting far below the line.',
+        'Gate on the point: 0.3468 clears the 0.300 bar, so it ships. That is shipping on the best guess, with an honest floor sitting below the line.',
       floor:
-        'Gate on the lower bound: the floor is 0.722, below the 0.80 bar, so the release holds. "We cannot tell yet" fails closed, which is the only safe direction for a number that might be noise. This is the committed verdict, not an illustration.',
+        'Gate on the lower bound: the floor is 0.2687, below the 0.300 bar, so the gate fails closed. "We cannot tell yet" is the only safe reading of a number that might be noise. This is what `uv run python -m evals.measure_retrieval` prints today, on real data, with nothing arranged. Tighten the variance budget from 0.20 to 0.10 and the same measurement stops being a FAIL and becomes a QUARANTINE, because an interval 0.165 wide is too wide to decide anything with.',
     }
 
     const render = (mode: string) => {

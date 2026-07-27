@@ -1,7 +1,21 @@
 ---
 import DiagramFigure from './DiagramFigure.astro'
 
-// Metamorphic augmentation: a relation is a free label. Take the cold open as a
+// Metamorphic augmentation: a relation is a free label.
+//
+// The diagram teaches the METHOD, and the seed and paraphrases here are illustrative. What is
+// measured, and what the note now reports, is the outcome when the method is pointed at Atlas's real
+// corpus: `uv run python -m probes.metamorphic` -> all_live=True, all_hold=False, with
+// [FAIL] paraphrase, [FAIL] typo noise, [PASS] query perturbation. Paraphrase invariance does NOT
+// hold for a lexical retriever, which is the whole reason this figure is worth drawing.
+//
+// The history matters as much as the result. The OLD lane ran its entire life against a two chunk
+// corpus at k=2, where the top k WAS the whole corpus. All 13 members across three families returned
+// the byte identical list, so no rewording could change the result and the lane reported PASS on an
+// invariant that could not fail. Rerun the rebuilt probe against that same stub and it reports
+// all_hold=True with all_live=False, marking every family INERT rather than passing.
+//
+// Take the cold open as a
 // seed golden case, a legacy customer whose document-grounded but false "you
 // are free to leave" answer must be held at the render guard. Paraphrase it.
 // Each paraphrase is a new case, and the move is that you never had to label
@@ -56,6 +70,11 @@ const ariaLabel =
     When a model writes both the question and its gold answer, nothing says the gold answer is
     right, so you have only moved the oracle problem. A relation moves it out of the way: you never
     need the right answer, only that related inputs must relate, and that is a deterministic check.
+    Then run it and find out. Against Atlas's real 45 chunk corpus at k=3,
+    <code>uv run python -m probes.metamorphic</code> reports <code>all_hold=False</code>: surface
+    noise passes, and <span class="text-error">paraphrase fails</span>, along with typo noise. Lexical
+    retrieval is robust to casing and whitespace and not to meaning preserving rewording. That is the
+    figure earning its keep. An invariant is only worth drawing if it is allowed to come back red.
   </Fragment>
 </DiagramFigure>
 

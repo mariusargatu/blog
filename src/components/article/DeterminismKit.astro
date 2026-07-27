@@ -4,18 +4,26 @@ import DiagramLabel from './DiagramLabel.astro'
 
 // The determinism kit, drawn for the engineer who pinned the model and is still chasing a flake.
 // Determinism is a property of the WHOLE run: every nondeterministic source is pinned behind an
-// injected port, the CI lane wires the frozen ones, dev and prod inject real ones at the same call
-// site. The board lists each source and what pins it; the model is flagged as the loud one everyone
-// stops at, and the LangGraph checkpointer as the framework trap a toy agent would never teach you.
-// Static board, no state.
+// injected port, the hermetic lane wires the frozen ones, a served run injects real ones at the same
+// call site. The board lists each source and what pins it; the model is flagged as the loud one
+// everyone stops at, and the scanners are flagged as the part a toy agent would never teach you.
+//
+// Every pin names a real symbol in the rebuilt tree:
+//   harness/gateway.py   Gateway, Mode.REPLAY, CassetteMiss
+//   harness/sources.py   FrozenClock, SystemClock, IdFactory, SpanSequence, FIXTURE_INSTANT
+//   harness/egress.py    block_egress, EgressBlocked  (patches socket.connect and friends)
+//   tests/test_determinism.py  the two AST scanners, over the whole runtime tree
+// The RNG row is deliberately not "seed 0". Nothing in the tree owns a global seed; the rule is that
+// a runtime path may never touch the process wide `random`, and the two modules that do use `random`
+// build their own local `random.Random(...)`. That rule is enforced by an AST scanner, not by trust.
 
 const sources = [
-  { src: 'the model', pin: 'GatewayChatModel · REPLAY', icon: 'material-symbols:smart-toy-outline', loud: true },
+  { src: 'the model', pin: 'Gateway · REPLAY · miss = hard fail', icon: 'material-symbols:smart-toy-outline', loud: true },
   { src: 'the clock', pin: 'FrozenClock · now never moves', icon: 'material-symbols:schedule-outline' },
-  { src: 'the RNG', pin: 'SeededRng · seed 0', icon: 'material-symbols:casino-outline' },
+  { src: 'the RNG', pin: 'a local random.Random, never the global', icon: 'material-symbols:casino-outline' },
   { src: 'ids + refs', pin: 'IdFactory · derived, not UUIDs', icon: 'material-symbols:tag' },
-  { src: 'result order', pin: 'SpanSequence · never the clock', icon: 'material-symbols:sort' },
-  { src: 'MCP egress', pin: 'in-process · no socket opens', icon: 'material-symbols:lan-outline' },
+  { src: 'span order', pin: 'SpanSequence · never the clock', icon: 'material-symbols:sort' },
+  { src: 'network egress', pin: 'block_egress · a socket raises', icon: 'material-symbols:lan-outline' },
 ]
 ---
 
@@ -40,18 +48,21 @@ const sources = [
     </div>
 
     <div class="dk-trap">
-      <span class="dk-trap-h"><Icon name="material-symbols:warning-outline" class="text-[14px]" />the framework trap</span>
+      <span class="dk-trap-h"><Icon name="material-symbols:warning-outline" class="text-[14px]" />the trap the list cannot catch</span>
       <span class="dk-trap-b">
-        LangGraph stamps every checkpoint with a time-ordered <b>UUIDv6</b> and a wall-clock <b>ts</b>, which
-        leak straight into saved state and traces. You do not control the framework's insides, so you pin the
-        <b>checkpointer</b> it writes through, a deterministic in-memory saver fed the frozen factories.
+        A board like this decays the moment someone adds a source it does not name. So the ban is not a
+        convention, it is <b>two AST scanners over the whole runtime tree</b>: one for wall clock reads, one
+        for calls into the process wide <code>random</code>. The clock scanner asserts <b>equality</b> with its
+        allowlist, so a stale exemption fails as loudly as a new read and cannot outlive the code it names.
+        Both scanners are pointed at a synthetic violation first, because a detector nobody proved can detect
+        is just a green test.
       </span>
     </div>
 
     <p class="dk-legend">
-      Pin the agent by pinning its <b>ports</b>: the chat model the graph calls, the MCP tools it invokes, the
-      checkpointer it writes through, the clock it reads. More work than a toy loop, and far more credible,
-      because real teams ship on frameworks and this tests what you actually deploy.
+      Pin the agent by pinning its <b>ports</b>: the chat model the graph calls, the tools it invokes, the
+      clock it reads, the sockets it may not open. More work than a toy loop, and far more credible, because
+      real teams ship on frameworks and this tests what you actually deploy.
     </p>
   </div>
 </div>
@@ -96,6 +107,7 @@ const sources = [
   }
   [data-dk] .dk-trap-b { font-size: 0.76rem; color: var(--color-text-primary); line-height: 1.5; }
   [data-dk] .dk-trap-b b { font-weight: 600; }
+  [data-dk] .dk-trap-b code { font-family: var(--font-mono); font-size: 0.92em; }
 
   [data-dk] .dk-legend {
     margin: 0.9rem 0 0; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.6; color: var(--color-text-muted);

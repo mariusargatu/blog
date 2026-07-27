@@ -8,6 +8,7 @@ topic: GenAI
 series:
   name: Evals Are Checks, Not Tests
   order: 1
+  code: rebuild/v2
 author: Marius Argatu
 pubDate: 2026-06-11
 updatedDate: 2026-07-10
@@ -236,7 +237,9 @@ The Lenovo Lena incident is the textbook case for why this matters. The chatbot'
 
 For a refund policy capability, four validators are worth shipping.
 
-The first is a claims-against-canonical-facts validator, the production sibling of Pattern 1. Where Pattern 1 runs in CI against a fixed question set, the validator runs in production against every actual customer response. Any claim about refund mechanics that disagrees with the canonical facts, or any claim that introduces a fact the canonical source doesn't contain, blocks the response.
+The first is a claims-against-canonical-facts validator, the production sibling of Pattern 1. Where Pattern 1 runs in CI against a fixed question set, the validator runs in production against every actual customer response. The goal is that any claim about refund mechanics that disagrees with the canonical facts, or any claim that introduces a fact the canonical source doesn't contain, blocks the response.
+
+Say plainly what a first version of that actually is, because the full goal is harder than the sentence makes it sound. A shippable v1 is cue based: it carries a list of the phrasings that would be dangerous if they were false, and when one of them appears, it asks the canonical facts whether this customer's case contradicts it. That catches the phrasings on the list. It does not catch an arbitrary paraphrase, and it does not catch a number that is merely wrong. Worth stating out loud in the design doc rather than discovering it in an incident review, because a validator you believe is total and is really partial is worse than one you know is partial.
 
 The second is a commitment detector. Refund policy answers should describe the policy, not promise the customer a refund. A response that says "we will process your refund within five business days" is making a commitment that should require human authorization, not a presentation of policy information. The detector flags any response that promises a specific action, then routes the conversation to the appropriate authorization context: human review, a refund tool that requires explicit customer confirmation, or a polite redirect to the policy itself.
 
@@ -246,7 +249,7 @@ The fourth is a content safety layer that handles the Lenovo problem and its var
 
 The architectural point worth emphasizing is the one engineering leaders most often miss. Output validators reduce the effective risk of the LLM component by adding deterministic checks between the LLM and the customer. The LLM does not need to be perfectly correct if its output is verified before it ships. The verification can use a different model family from the generator, which means the failure modes of the LLM are not correlated with the failure modes of the validator. This is defense in depth applied to non-deterministic systems, and it is the single most powerful architectural move available to teams shipping LLM applications today.
 
-A small team can ship the first version of a validator pipeline in three to four weeks. The largest investment is in the claims-against-canonical-facts validator, which requires careful design to keep false positive rates manageable on legitimate paraphrases. Maintenance is ongoing but bounded.
+A small team can ship the first version of a validator pipeline in three to four weeks. The largest investment is in the claims-against-canonical-facts validator, and most of that investment goes into being precise about how much the first version really covers. Maintenance is ongoing but bounded, and it is mostly the cue list growing as production shows you the phrasings you did not think of, which is Pattern 5 feeding Pattern 2.
 
 ## Pattern 3: What Is an Adversarial Regression Suite?
 
@@ -360,7 +363,7 @@ Build the canonical facts. Run the validators. Read the transcripts. Test the tr
 
 Your evals are checks. The testing job is what surrounds them.
 
-Next in the series: [The System Under Test](/blog/the-system-under-test/) builds the authenticated broadband support agent that the rest of these patterns are tested against, named part by part by how each one breaks. Watch for the oracle. In a real system it stops being a policy PDF and becomes a server, the one place the truth actually lives. Every pattern in this series is executable there, in [Atlas](https://github.com/mariusargatu/Atlas), the runnable reference system it is all built against.
+Next in the series: [The System Under Test](/blog/the-system-under-test/) builds the authenticated broadband support agent that the rest of these patterns are tested against, named part by part by how each one breaks. Watch for the oracle. In a real system it stops being a policy PDF and becomes code, the customer's account joined to the catalog, the one place the truth actually lives. Patterns 1 through 4 are executable there, in [Atlas](https://github.com/mariusargatu/Atlas), the runnable reference system the series is built against. Pattern 5 is not, and the reason is worth saying rather than papering over: Atlas is hermetic and has no production traffic, so there are no real transcripts in it to read. The cheapest pattern in this article is the one a reference repository cannot hand you. That one you run against your own system.
 
 ## Frequently Asked Questions
 

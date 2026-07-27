@@ -13,7 +13,7 @@ ctaNote: >-
 series:
   name: Evals Are Checks, Not Tests
   order: 7
-  code: v7-rag-testing
+  code: rebuild/v2
 author: Marius Argatu
 pubDate: 2026-07-12
 ogImage: ./og.jpg
@@ -48,8 +48,11 @@ faq:
       Classical mutation testing flips syntax, greater than becomes greater than
       or equal. A semantic mutant is a plausible human mistake instead, a
       recall that divides by k, a reciprocal rank that keeps the last hit. The
-      signal is the survivors. A realistic mutant that no test kills is a bug the
-      suite would ship, which means the test you are missing.
+      signal is the survivors: a realistic mutant that no test kills is a bug the
+      suite would ship, which means the test you are missing. Write the mutants
+      first and the list becomes the suite's specification, and when nothing
+      survives the signal moves to the blast radius, how much of the suite each
+      mutation turns red.
   - q: When is graph RAG worth its cost?
     a: >-
       Only on relational and multi hop questions, where a single vector lookup
@@ -93,9 +96,17 @@ None of these needs a model, and that is the whole point. Relevance is matched b
 
 <RetrievalMetrics />
 
-In [Atlas](https://github.com/mariusargatu/Atlas), the runnable reference system this series is built around, the labelled slice is small and its chunk ids are stable, which makes the relevance check exact rather than approximate. One number falls out of it that matters later. On the relational questions, whose answer chains two chunks, the customer's plan and the throttling its cap is enforced by, recall comes back at 0.50, and stays there even at the retrieval budget the system actually deploys, because the link from the customer to her plan is an account relation no single document states. A lookup gets one hop and misses the other. Grade only the answer and that miss is invisible. Grade the retrieval and it is the first number on the page.
+In [Atlas](https://github.com/mariusargatu/Atlas), the runnable reference system this series is built around, that whole measurement is one command, `uv run python -m evals.measure_retrieval`, over 124 labelled cases against a 45 chunk corpus at the depth the agent actually deploys, k=3. No human wrote a label. The renderer records a character span for every fact it emits, the chunker records a span for every chunk, and intersecting the two derives 119 fact references. The relevance check is exact because the ids are derived, not because somebody was careful with a spreadsheet.
 
-Numbers to start from, knowing you will move them. Precision@5 at or above 0.7 for a narrow, well curated knowledge base. Recall@20 at or above 0.8 for a broad corpus. These are starting lines, not finish lines. They are self calibrated heuristics, informed by where strong embedders actually land on public benchmarks, not constants handed down from one. On a small corpus, gate on no regression against a committed baseline rather than an absolute floor, which is brittle at that size.
+The numbers are not flattering, and saying them out loud is the point of the exercise. Hit rate@3 comes back at 0.3468, Wilson interval 0.2687 to 0.4340. Precision@3 is 0.1183, recall@3 is 0.2353, MRR@3 is 0.2527, NDCG@3 is 0.2111, MAP@3 is 0.1696. The same run scores the full 45 chunk ranking at MRR 0.3207 against the sliced 0.2527, and that gap is entirely relevant chunks sitting at rank four and below, where the model never sees them.
+
+Then the finding that matters more than any of those numbers, and the whole reason to grade the layer rather than the box. The shipped scorer, `agent.domain.retrieval.lexical_score`, is a coverage fraction over the query's distinct stemmed terms. No inverse document frequency, no length normalisation. So function words score. Across the 124 queries a mean of 5.1452 chunks tie at the top score, and on the worst queries 15 of the 45 tie. Ask "What is the monthly_price of plan-fiber-500?" and seven chunks tie at 0.5000: one is the promotion page, the only document containing that plan token, and the other six matched nothing but `is`, `of` and `the`. Which three of the seven reach the model is decided by a `chunk_id` sort. An arbitrary tie break, not the ranking.
+
+That has a size, and the same command prints it. Break ties on `doc_id` instead and hit rate@3 is 0.2903. Order the gold chunk first inside every tied group and it is 0.6774; order it last and it is 0.1774. So the honest description of this retriever is a number between 0.1774 and 0.6774 selected by a sort key, against a measured 0.3468. The tie break moves the metric more than the retrieval does. Grading the final paragraph would never have surfaced that, and raising k does not fix it, because the defect is a scoring function that cannot separate documents rather than a depth that is too shallow.
+
+The gate then does its job on that evidence, unarranged. Ask `evals/gate.py` for a floor of 0.300 on hit rate@3 and the point estimate clears it by nearly five points while the lower bound, 0.2687, does not, so at a 0.20 variance budget the verdict is FAIL. Tighten the variance budget to 0.10 and the verdict becomes QUARANTINE, because a 0.165 wide interval is too wide to call either way. Shipping on the point would have been shipping on optimism, which is the entire argument for gating on the floor.
+
+Numbers to start from on your own corpus, knowing you will move them. Precision@5 at or above 0.7 for a narrow, well curated knowledge base. Recall@20 at or above 0.8 for a broad corpus. These are starting lines, not finish lines. They are self calibrated heuristics, informed by where strong embedders actually land on public benchmarks, not constants handed down from one, and the lexical retriever above is nowhere near either of them, which is what an untuned baseline looks like when you report it instead of tuning first and reporting after. On a small corpus, gate on no regression against a committed baseline rather than an absolute floor, which is brittle at that size.
 
 ## The reranker has to earn its place
 
@@ -103,9 +114,13 @@ A reranker takes the fast approximate set the vector search returned and reorder
 
 <RerankerEarnsIt />
 
-The trap is reading "the number went up" as the end of the question rather than the beginning. A with and without comparison across a query set is a statistical claim, not a glance at two averages. Over a set of seven queries, a reranker can lift NDCG on the noisy ones and still fail the paired permutation test [the statistics article](/blog/honest-benchmarks/) builds for exactly this comparison, because seven is too few to distinguish the lift from noise. The honest report of that run is not "the reranker helps." It is "the reranker helps directionally, and on this evidence you cannot yet claim it, so size the set to the effect you care about."
+The trap is reading "the number went up" as the end of the question rather than the beginning. A with and without comparison across a query set is a statistical claim, not a glance at two averages, and a small query set will happily hand you a lift you cannot claim. [The statistics article](/blog/honest-benchmarks/) takes the conservative version of that: report an interval, gate on the lower bound, refuse to call a difference when two intervals overlap. There is no significance test anywhere in Atlas, no McNemar, no paired bootstrap, no permutation test, and that absence is deliberate rather than pending.
 
-A guardrail belongs in the same test: a reranker can raise top precision while dropping a relevant chunk out of the kept set, so the with and without check watches recall too. Keep that comparison in the suite forever, because the day someone upgrades the reranker model is the day it can silently start hurting a narrow domain, and a number in CI is the only thing that will notice.
+What it costs is power, not honesty, and the cost is easy to price. On the same 124 case set, take hit rate@3 from 43 hits to 50, a lift of 5.64 points, and `evals.stats.intervals_overlap` still returns True: 0.3468 in [0.2687, 0.4340] against 0.4032 in [0.3211, 0.4912]. A paired analysis over the same queries would have seen that improvement. The unpaired one declines to call it, and would decline even if the seven extra hits were a strict superset and no query got worse. That is the trade, taken knowingly: never claim a false difference, at the price of missing smaller true ones. So the honest report of a reranker run is not "the reranker helps." It is "the reranker helps directionally, and on this evidence you cannot yet claim it, so size the set to the effect you care about."
+
+Atlas has not run that study, and it is worth being blunt about why rather than implying a result. `RetrievalConfig.rerank_enabled` defaults to True and `models.lock` pins `BAAI/bge-reranker-v2-m3`, but no reranker ever scored a query here: no embedding or reranking model is reachable in the offline lane, the corpus side vectors sit in the parquet unused, and the query side cannot be produced at all. Every retrieval number in this article is first stage lexical retrieval. Not degraded, absent. A number that is not there is a better artifact than a number that is there for decorative reasons.
+
+A guardrail belongs in the comparison when you do run it: a reranker can raise top precision while dropping a relevant chunk out of the kept set, so the with and without check watches recall too. Keep it in the suite forever, because the day someone upgrades the reranker model is the day it can silently start hurting a narrow domain, and a number in CI is the only thing that will notice.
 
 ## Grounded is not true
 
@@ -131,7 +146,9 @@ All three reduce to set arithmetic over ids, so they are plain assertions agains
 
 <GraphVsVector />
 
-Which is the argument for graph RAG ([Edge et al., 2024](https://arxiv.org/abs/2404.16130)), and also the place to be honest about it. Graph RAG is more to build, more to test, and slower to run, and it pays a large indexing and token tax, and most published win rates shrink once you correct the evaluation for the position and length bias that inflate a model judge's verdicts ([Zheng et al., 2023](https://arxiv.org/abs/2306.05685)). So make it earn the cost. Split the query set into the flat lookups and the genuinely relational ones, run both strategies over both slices, and adopt the graph only where it wins. On the relational slice in Atlas the split is stark: the vector recovers only 0.50 even at the retrieval budget the system deploys, because the linking fact is a graph edge, not text a lookup can match, so raising k does not close the gap. The graph's path recall comes back at 1.00, every hop. On a flat lookup the vector retriever is already perfect and the graph adds only cost. Adopt it because that study came back yes on the queries that need it, not because graphs are fashionable.
+Which is the argument for graph RAG ([Edge et al., 2024](https://arxiv.org/abs/2404.16130)), and also the place to be honest about it. Graph RAG is more to build, more to test, and slower to run, and it pays a large indexing and token tax, and most published win rates shrink once you correct the evaluation for the position and length bias that inflate a model judge's verdicts ([Zheng et al., 2023](https://arxiv.org/abs/2306.05685)). So make it earn the cost. Split the query set into the flat lookups and the genuinely relational ones, run both strategies over both slices, and adopt the graph only where it wins the relational slice by a margin that pays for what it costs everywhere.
+
+That study is the thing to run, and Atlas has not run it. The graph arm is not in the rebuilt tree at all: it came out along with the rest of the machinery that was declared rather than measured, because there was never a graph number here produced by a graph over labelled relational queries. What is left is one lexical arm over 45 chunks, reported above with its tie break caveat attached. So read this section as the design of a study rather than its result. The three checks are real and they are cheap, they need no database and no judge, and a graph is worth adopting on your own version of that split, not on a chart in an article.
 
 ## Where the attack lives
 
@@ -143,11 +160,15 @@ A poisoned help article, a support document a customer can influence, a communit
 
 So the query set grows an attack set. Documents seeded with injected instructions of every shape, the blunt override, the polite social engineer, the payload buried in a footnote, each paired with one assertion that does not bend: the agent treats retrieved content as data, never as commands. It may quote a poisoned document, summarise it, even tell the customer it looks wrong. It may not obey it. That assertion is graded deterministically, with a canary token and a check that no forbidden tool was called, which is the same mechanism a red team scanner uses, run without a model.
 
-And the real defence is not trusting the text. Least agency, the discipline OWASP files under excessive agency ([OWASP Top 10 for LLM Applications, 2025](https://genai.owasp.org/llm-top-10/)), makes the reset tool unreachable on a troubleshooting turn, so even a model that tried to obey hits a closed door. Guard the read, and you have closed the door the attacker was counting on you to leave open.
+Atlas runs exactly that, `uv run python -m probes.poison`, and the result is the useful kind of bad news. Five injected passages, each driven through the compiled graph twice, once behind a model that obeys the injection and once behind one that treats it as data. The faithful arm ships no canary five times out of five, which proves only that the probe is not accusing an innocent model. The obedient arm lands four of its five canaries in the answer the customer would have read: the blunt override, the polite social engineer, the footnote payload and the exfiltration URL all get through. Four landed of ten attempts, and every landed bypass is written to a committed ledger that a later run re reads in both directions, so an unrecorded bypass fails the run and a recorded bypass that stops landing fails it too, as a stale fixture.
+
+The one that does not land is the one that reached for a tool. That fixture tells the model to reset the customer's equipment, and `reset_equipment` is not among the six tools offered on a troubleshooting turn, so the reach is refused by the pre action guard and never runs. Which is the argument in one line of output: nothing filtered the text, and the only attempt that could have done real damage was stopped by the capability being absent.
+
+So the real defence is not trusting the text. Least agency, the discipline OWASP files under excessive agency ([OWASP Top 10 for LLM Applications, 2025](https://genai.owasp.org/llm-top-10/)), makes the reset tool unreachable on a troubleshooting turn, so even a model that tried to obey hits a closed door. Guard the read, and you have closed the door the attacker was counting on you to leave open.
 
 ## Now the hard part: the layers that are not deterministic
 
-Everything so far gates a build because everything so far is deterministic. Retrieval metrics over labelled ids, traversal over a fixed graph, a canary check over recorded output. None of it calls a model at test time.
+Everything so far gates a build because everything so far is deterministic. Retrieval metrics over derived ids, traversal assertions over a fixed gold graph if you have one, a canary check over recorded output. None of it calls a model at test time.
 
 The model does. So does the judge. And the reflex is to conclude that the parts of an eval that involve a model cannot be tested with classical tools, only measured with soft scores and eyeballed on a dashboard. That reflex is wrong, and it is worth being precise about why, because the fix is the most useful idea in this whole article.
 
@@ -155,23 +176,31 @@ The hardest thing about testing a model is the oracle problem: for a new input, 
 
 ### Metamorphic augmentation: a relation is a free label
 
-Take the cold open as a seed golden case: a legacy customer asks whether her plan is contract free, and a document grounded but false "you are free to leave" answer must be held at the render guard. Now paraphrase it. "Am I tied into a contract." "Would I pay a penalty for leaving early." "Do I have a minimum term." Each is a new case, and here is the move: you never had to label any of them with an absolute answer. The label is a relation, that every paraphrase produces the same guard verdict as the seed, and that relation is checkable by plain code.
+Take the seed golden case Atlas is built around: a customer on a term asks whether the plan is contract free, and a document grounded but false "you are free to cancel any time with no fee" answer must be held at the render guard. Now paraphrase it. "Am I tied into a contract for my plan." "Do I have a minimum term commitment on my plan." "Can I cancel without paying anything, or am I locked into a term." Each is a new case, and here is the move: you never had to label any of them with an absolute answer. The label is a relation, that every paraphrase retrieves the same chunks and resolves to the same guard verdict as the seed, and that relation is checkable by plain code.
 
 <MetamorphicFamily />
 
 This dissolves the problem that sinks plain model generated test data. When a model writes both the question and its gold answer, nothing says the gold answer is right, so you have moved the oracle problem rather than solved it. A metamorphic relation ([Chen et al., 2018](https://doi.org/10.1145/3143561)) moves it out of the way. You do not need to know the right answer, only that related inputs must relate, and that is a deterministic check. Model generated metamorphic data is trustworthy in a way that model generated labelled data is not.
 
-In Atlas the paraphrase family runs through the real agent graph, behind the [replay cassette that freezes the model](/blog/the-harness/), and the invariant holds across every wording: the false claim is caught for the customer who has a term, and the identical family renders for the customer whose plan really is term free. Same inputs, opposite verdicts, decided by the oracle and not by the phrasing. One seed golden case became a robustness set, and the trust flowed from the human seed through a relation, never from a model's say so.
+In Atlas the probe is `uv run python -m probes.metamorphic`: three families, thirteen worded questions, run against the committed 45 chunk corpus at the deployed k=3. It calls no model and replays no cassette. It runs the shipped ranker directly and checks each answer through `agent.domain.guard.check_render_truth`, the same function the graders call, so the answer half of the relation is decided by the runtime rather than by a similarity score. It reports `all_live=True all_hold=False`.
+
+Read that as two separate statements, because it is two. Surface noise passes: doubled whitespace, uppercase, leading padding and a trailing extra question mark all return the byte identical top three, rank overlap 1.00. Paraphrase fails, and typo noise fails with it. "Is my plan contract free?" puts the gold chunk second. "Am I tied into a contract for my plan?" misses it entirely, and so does "Iz my plan contract free?". Lexical retrieval is robust to casing and whitespace and is not robust to meaning preserving rewording, which is the exact shape you would predict from a coverage fraction with no IDF, and which the invariant caught without anyone labelling a single paraphrase.
+
+The history behind that verdict is the better lesson. The same three families used to run against a two chunk corpus at k=2, where the top k was the whole corpus, so every member returned the identical list by construction and no rewording could ever change the result. Thirteen members, three families, all green, on an invariant that could not fail. Run the rebuilt probe against that same two chunk stub and it reports `all_live=False all_hold=True`: every family holds and every family is INERT, because a fixture with no teeth is not evidence. A metamorphic family that passes and one that could have failed are not two grades of the same thing. Only the second one is a measurement, and separating liveness from the verdict is what makes the difference visible instead of flattering.
 
 ### Semantic mutation: the survivors are the missing tests
 
 The dual idea points at the code instead of the inputs. Classical mutation testing ([Jia and Harman, 2011](https://doi.org/10.1109/TSE.2010.62)) flips syntax to check whether your tests would notice: greater than becomes greater than or equal, plus becomes minus. Cheap, but many such mutants change no behaviour, and none of them resembles a bug a person would actually write.
 
-A semantic mutant is a plausible human mistake, the kind the competent programmer hypothesis says real faults actually are ([DeMillo et al., 1978](https://doi.org/10.1109/C-M.1978.218136)). A recall that divides by k instead of by the number of relevant chunks. A reciprocal rank that keeps the last relevant position instead of the first. An NDCG computed on exponential gain, which is wrong for graded relevance and identical for binary, so it hides until the day your labels stop being binary. Write those, run them against the suite, and read the survivors. A realistic mutant that no test kills is a bug the suite would ship, which is the exact test you are missing.
+A semantic mutant is a plausible human mistake, the kind the competent programmer hypothesis says real faults actually are ([DeMillo et al., 1978](https://doi.org/10.1109/C-M.1978.218136)). To take three of the shape, on the retrieval metrics themselves: a recall that divides by k instead of by the number of relevant chunks, a reciprocal rank that keeps the last relevant position instead of the first, an NDCG computed on exponential gain, which is wrong for graded relevance and identical for binary, so it hides until the day your labels stop being binary. Write those, run them against the suite, and read the survivors. A realistic mutant that no test kills is a bug the suite would ship, which is the exact test you are missing.
 
 <MutationSurvivors />
 
-Pointed at the retrieval metrics in Atlas, this found three. The precision test never checked a list shorter than k, so a mutant that divides by the list length survived. The reciprocal rank test only ever had one relevant chunk, so first versus last could not be distinguished. The average precision test never included a miss, so dividing by hits rather than by relevant count went unnoticed. Three surviving mutants, three assertions added, three real gaps closed. Mutation testing did not grade the suite. It improved it.
+Atlas inverts the order and writes the mutants first. The suite's specification is a kill list of 31 named mutations, each one a plausible regression on a rule the system claims to enforce, and `uv run pytest` has two jobs: come back green, and turn red for all 31. It does, 31 of 31, across 573 tests in 15 files. Nothing survives, which sounds like a null result until you read the blast radius. The median mutation is caught by 5 tests, 0.87 percent of the suite. The smallest is caught by 1. The largest, 27 tests across three files, is the mutation that disables the cold open truth check.
+
+The tree this one replaced is the control, and it is the finding. It carried 1,976 tests, and the largest blast radius of any single injected agent regression there was 39 tests, two percent, so a green suite said almost nothing about the agent. Worse, that same truth check mutation, the one that switches off the rule this entire project exists to demonstrate, left `test_guard.py` completely green: eight tests in the file named after the guard, not one of them covering the check. Reading that file never found the hole. Reading finds ceremony. Mutation finds gaps. Suite size is an output of the kill list, never a target, and that is the only version of this technique that is Goodhart resistant, because you cannot inflate a kill list by writing more tests.
+
+There is a second mutation surface that only a retrieval system has, and it is the corpus. `uv run python -m probes.mutation` picks a fact the golden set depends on, the early termination fee, moves it from 150.00 to 225.00 in the registry, re renders the five documents that place it, and rechunks in memory without writing a committed byte. Then it asks the same question through four arms. Fresh retrieval tracks the new value. A stale index repeats the old one. Pure parametric recall repeats it too, having retrieved nothing. And the fourth arm, the interesting one, reads the mutated context and states the remembered number anyway. Three of the four contradict the corpus sitting in front of them, which is the failure a fluent answer hides best, and twelve fixture checks run first so that a clean report can never mean the mutation quietly failed to apply.
 
 ### The pattern under both
 
@@ -179,7 +208,7 @@ Neither of these hands the model the last word. The metamorphic relation is chec
 
 ## Where this lives
 
-On [the map](/blog/the-system-under-test/), everything here lives in the knowledge layer, the vector index and the graph, the local embedder and reranker, and in the account and catalog oracle that every correctness check is judged against, because faithful to a document and true to the customer are different claims and only the oracle settles the second. The deterministic metrics gate the build. The [judged metrics](/blog/the-lying-judge/), faithfulness and answer relevancy scored by a model, run beside it, calibrated and non blocking. And the metamorphic families and the semantic mutants keep the whole thing from congratulating itself.
+On [the map](/blog/the-system-under-test/), everything here lives in the knowledge layer, the corpus and its index and the retrieval arithmetic over them, and in the account and catalog oracle that every correctness check is judged against, because faithful to a document and true to the customer are different claims and only the oracle settles the second. The deterministic metrics gate the build. The [judged metrics](/blog/the-lying-judge/), faithfulness and answer relevancy scored by a model, run beside them and never in them, and in Atlas they are not calibrated: no human labels exist yet, a fifty item labelling queue is built and waiting, and `judge/contract.py` refuses to call a contract without a calibration record calibrated. So no number in this article came from a judge. And the metamorphic families and the semantic mutants keep the whole thing from congratulating itself.
 
 Grade the answer and you learn whether the agent is articulate. Grade the retrieval and you learn whether it had a chance. Test the relation and the distribution and you learn whether either holds up when the model is free to vary. The document is where the agent reads, and where the attacker writes. Test the layers, not the box.
 
@@ -187,7 +216,7 @@ Grade the answer and you learn whether the agent is articulate. Grade the retrie
 When you cannot assert the value, assert a relation between related inputs, or a property of the distribution over trials, or freeze the model and assert everything around it. Metamorphic augmentation gives you labelled data without the oracle problem. Semantic mutation gives you realistic bugs whose survivors are your missing tests. Both are trustworthy only because a step that cannot lie adjudicates the result. The model proposes. The check disposes.
 </Callout>
 
-Next in the series: production, the living loop. Every layer here is tested in isolation, frozen and deterministic; the last question is what happens when real traffic and real attackers arrive, and how the failures nobody imagined become the cases the next release has to pass. That is where the checks this series has built meet the world they were built for, and where [a check, not a test](/blog/your-evals-are-checks-not-tests/) stops being a slogan and becomes the daily loop.
+Next in the series: [grading the path, not the answer](/blog/agent-trajectory-testing/). Every layer here is graded on what came back for one question. The next question is what happens across a whole trajectory, when the agent chooses tools in an order nobody specified and the final paragraph is correct for reasons that would not survive the next turn. That is where the checks this series has built stop being about a document and start being about a path, and where [a check, not a test](/blog/your-evals-are-checks-not-tests/) has to hold over something longer than a single answer.
 
 ## Frequently asked questions
 
@@ -205,7 +234,7 @@ Yes, by changing what you assert. You cannot assert an exact output, so you asse
 
 ### What is semantic mutation testing?
 
-Classical mutation testing flips syntax, greater than becomes greater than or equal. A semantic mutant is a plausible human mistake instead, a recall that divides by k, a reciprocal rank that keeps the last hit. The signal is the survivors. A realistic mutant that no test kills is a bug the suite would ship, which means the test you are missing.
+Classical mutation testing flips syntax, greater than becomes greater than or equal. A semantic mutant is a plausible human mistake instead, a recall that divides by k, a reciprocal rank that keeps the last hit. The signal is the survivors: a realistic mutant that no test kills is a bug the suite would ship, which means the test you are missing. Write the mutants first and the list becomes the suite's specification, and when nothing survives the signal moves to the blast radius, how much of the suite each mutation turns red.
 
 ### When is graph RAG worth its cost?
 

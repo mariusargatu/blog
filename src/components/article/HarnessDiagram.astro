@@ -4,19 +4,28 @@ import DiagramLabel from './DiagramLabel.astro'
 import Tag from './Tag.astro'
 
 // The two readings of one agent, drawn for a Staff SDET or a CTO deciding whether the suite can be
-// trusted. Same agent, same pinned ports, same traces; only the model's mode differs. Read one way it
-// is the regression lane (REPLAY): deterministic, byte-stable, gates the pull request, a red is a real
-// regression. Read the other it is the eval lane (LIVE): the model runs live, each case runs k times,
-// the result is a RATE per business risk, trended nightly. Conflate them and both lie. The structure
-// of the harness itself lives in HarnessMap; this figure is only the two readings. Static, no state.
+// trusted. Same agent, same pinned ports, same traces; what differs is the QUESTION, and therefore
+// what you do with variance. Read one way it is the regression lane: deterministic, byte stable,
+// gates the merge, a red is a real regression. Read the other it is the measurement lane: a rate
+// with an interval, gated on the interval's lower bound. Conflate them and both lie. The structure
+// of the harness lives in HarnessMap; this figure is only the two readings. Static, no state.
+//
+// The counts are real. `uv run --frozen pytest` -> "573 passed in 2.44s" (573 tests across 15 files).
+// Re-run it and the count is identical, which is the claim being made.
+//
+// Two honesty notes the earlier draft got wrong. First, the count was 200; it is 573. Second, the
+// measurement lane is NOT a nightly live sweep. `task measure` replays committed cassettes and is
+// hermetic today, so it opens no socket either. The two lanes differ by question, not by egress.
+// The risk labels below are the shapes the measurement lane reports on, drawn from the probes and
+// graders in the tree (probes/metamorphic.py, probes/poison.py, probes/mutation.py, evals/gate.py).
 
-const risks = ['fee-claim-safety', 'data-isolation', 'unauthorized-write', 'customer-scope']
+const risks = ['retrieval hit rate', 'metamorphic invariants', 'mutation kill rate', 'poison resistance']
 ---
 
 <div class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-harness>
   <div class="flex items-center justify-between gap-4 px-5 py-3 bg-surface-container-high border-b border-border-dark flex-wrap">
     <DiagramLabel icon="material-symbols:vertical-split-outline" label="Two machines · one agent, two readings" />
-    <span class="hs-note">same agent · same pinned ports · same traces; only the model's mode differs</span>
+    <span class="hs-note">same agent · same pinned ports · same traces; what differs is the question</span>
   </div>
 
   <div class="p-5 flex flex-col gap-0">
@@ -25,18 +34,18 @@ const risks = ['fee-claim-safety', 'data-isolation', 'unauthorized-write', 'cust
       <div class="hs-lane">
         <div class="hs-lane-head">
           <span class="hs-box-h"><Icon name="material-symbols:check-circle-outline" class="text-[15px]" />Regression lane</span>
-          <Tag label="REPLAY" variant="neutral" />
+          <Tag label="task test" variant="neutral" />
         </div>
         <p class="hs-q">“did a pinned behaviour change?”</p>
         <ul class="hs-list">
           <li>model <b>replayed</b> from cassette · zero egress</li>
-          <li>binary · gates the pull request</li>
+          <li>binary · gates the merge</li>
           <li>flickers never: a red is a real regression</li>
         </ul>
         <div class="hs-runs">
-          <span class="hs-run"><Icon name="material-symbols:terminal" class="text-[12px]" />task test<b>200 passed</b></span>
-          <span class="hs-run"><Icon name="material-symbols:replay" class="text-[12px]" />re-run<b>200 passed</b></span>
-          <span class="hs-bytes"><Icon name="material-symbols:check" class="text-[12px]" />byte-identical · no keys, no network</span>
+          <span class="hs-run"><Icon name="material-symbols:terminal" class="text-[12px]" />task test<b>573 passed</b></span>
+          <span class="hs-run"><Icon name="material-symbols:replay" class="text-[12px]" />re-run<b>573 passed</b></span>
+          <span class="hs-bytes"><Icon name="material-symbols:check" class="text-[12px]" />identical count · no keys, no network</span>
         </div>
         <span class="hs-out"><Icon name="material-symbols:block" class="text-[13px]" />must eliminate variance</span>
       </div>
@@ -44,15 +53,15 @@ const risks = ['fee-claim-safety', 'data-isolation', 'unauthorized-write', 'cust
       {/* eval lane */}
       <div class="hs-lane hs-lane-accent">
         <div class="hs-lane-head">
-          <span class="hs-box-h"><Icon name="material-symbols:insights" class="text-[15px]" />Eval lane</span>
-          <Tag label="LIVE" variant="solid" />
+          <span class="hs-box-h"><Icon name="material-symbols:insights" class="text-[15px]" />Measurement lane</span>
+          <Tag label="task measure" variant="solid" />
         </div>
-        <p class="hs-q">“how good is it, and is it trending up or down?”</p>
+        <p class="hs-q">“how good is it, and do we know that well enough to act?”</p>
         <ul class="hs-list">
-          <li><b>planner → generator → evaluator</b>, kept separate</li>
-          <li>model <b>live</b> · each case run k times</li>
-          <li>reports a <b>rate</b>; FLAKY catches the coin-flip</li>
-          <li>statistical · read as a trend, nightly</li>
+          <li>the agent driven through its ports by a <b>separate</b> grader</li>
+          <li>reports a <b>rate with an interval</b>, never a bare point</li>
+          <li>gates on the interval's <b>lower bound</b>, not the point</li>
+          <li>three verdicts: PASS, FAIL, and <b>QUARANTINE</b> when the interval is too wide to call</li>
         </ul>
         <div class="hs-risks" aria-label="Business-risk outcomes">
           {risks.map((r) => <span class="hs-risk">{r}</span>)}
@@ -62,10 +71,11 @@ const risks = ['fee-claim-safety', 'data-isolation', 'unauthorized-write', 'cust
     </div>
 
     <p class="hs-legend">
-      Two machines, on purpose. The regression suite kills variance so a red means a regression; the eval
-      measures variance because that is the question. Re-run the PR lane and the count is identical to the
-      byte: a flake there is broken determinism, not a moody model. Build one machine to answer both and it
-      lies about both.
+      Two machines, on purpose. The regression suite kills variance so a red means a regression; the
+      measurement lane quantifies variance because that is the question it was asked. Re-run the merge lane
+      and the count is identical: a flake there is broken determinism, not a moody model. Build one machine
+      to answer both and it lies about both. Both lanes replay committed cassettes today, so the difference
+      between them is not the network, it is what a number is allowed to be used for.
     </p>
   </div>
 </div>

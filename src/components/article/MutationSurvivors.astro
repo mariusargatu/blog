@@ -1,61 +1,73 @@
 ---
 import DiagramFigure from './DiagramFigure.astro'
 
-// Semantic mutation: the survivors are the missing tests. A semantic mutant is
-// a plausible human mistake, not a syntax flip. Write them, run them against
-// the suite, and read the survivors: a realistic mutant that no test kills is a
-// bug the suite would ship, the exact test you are missing. Pointed at the
-// retrieval metrics in Atlas, this found three. Each surviving mutant became one
-// added assertion, three real gaps closed. Mutation testing did not grade the
-// suite, it improved it. These are the three the mutation slice reports.
+// Mutation testing, read for BLAST RADIUS rather than for survivors.
+//
+// Atlas specifies its suite as a kill list of 31 named mutations, referenced by id in the test
+// docstrings themselves (see the "Kill list rows covered: M01 (render truth), M02 (scope), ..."
+// header in tests/test_guard.py). All 31 of 31 turn the suite red, so there are ZERO survivors and
+// the kill rate carries no information at all. An earlier draft of this figure showed three
+// surviving mutants in a retrieval metric suite. Those three survivors were never measured in this
+// repo, and inventing survivors to make the point would be the exact failure this series is about.
+//
+// The information is in how MANY tests each mutation turns red, across 573 tests in 15 files:
+//   min 1 test (0.17%), median 5 (0.87%), max 27 (4.71%)
+// And the finding worth the whole exercise is M01. Disabling the cold open truth check now fires 27
+// tests across three files. In the OLD tree, that same mutation left test_guard.py, the file named
+// after the guard, completely green: eight tests, zero coverage of the rule the project exists to
+// demonstrate. Reading the suite never found that. Mutating it did.
 
-const mutants = [
+const rows = [
   {
-    metric: 'Precision@k',
-    mutation: 'divides by the list length, not by k',
-    survived: 'the test never checked a list shorter than k',
-    fix: 'assert a short retrieved list still divides by k',
+    id: 'M01',
+    mutation: 'disable the cold open truth check',
+    radius: '27 tests · 3 files · 4.71%',
+    tone: 'wide' as const,
+    found:
+      'in the old tree this same mutation left test_guard.py entirely green: eight tests, none of them covering the rule the project exists to demonstrate.',
   },
   {
-    metric: 'Reciprocal rank',
-    mutation: 'keeps the last relevant position, not the first',
-    survived: 'the test only ever had one relevant chunk',
-    fix: 'add a case with two relevant chunks, first vs last',
+    id: 'median',
+    mutation: 'the typical row on the kill list',
+    radius: '5 tests · 0.87%',
+    tone: 'mid' as const,
+    found:
+      'a handful of tests per mutation is healthy: enough that a real regression is loud, few enough that the suite is not saying the same thing twelve times.',
   },
   {
-    metric: 'Average precision',
-    mutation: 'divides by hits, not by the relevant count',
-    survived: 'the test never included a miss',
-    fix: 'add a case where a relevant chunk is missed',
+    id: 'min',
+    mutation: 'the thinnest row on the kill list',
+    radius: '1 test · 0.17%',
+    tone: 'thin' as const,
+    found:
+      'exactly one test stands between this behaviour and silence. Delete it in a tidy-up and the mutation starts surviving, with the suite still green.',
   },
 ]
 
 const ariaLabel =
-  'Three semantic mutants that survived the retrieval metric suite in Atlas. First, a Precision@k that divides by the list length instead of by k survived because no test checked a list shorter than k; the fix asserts a short list still divides by k. Second, a reciprocal rank that keeps the last relevant position instead of the first survived because every test had only one relevant chunk; the fix adds a case with two relevant chunks. Third, an average precision that divides by hits instead of the relevant count survived because no test included a miss; the fix adds a case where a relevant chunk is missed. Three survivors, three assertions added, three real gaps closed.'
+  'Mutation testing read as blast radius across a suite of 573 tests in 15 files. All 31 mutations on the kill list turn the suite red, so there are no survivors and the kill rate says nothing. What varies is how many tests each mutation fires. Mutation M01, disabling the cold open truth check, fires 27 tests across three files, 4.71% of the suite; in the old tree that same mutation left the file named after the guard completely green, eight tests with no coverage of the rule the project exists to demonstrate. The median mutation fires five tests, 0.87%. The thinnest fires a single test, 0.17%, meaning one deletion away from surviving unnoticed.'
 ---
 
-<DiagramFigure label="Semantic mutation: the survivors are the missing tests" ariaLabel={ariaLabel} data-ms>
+<DiagramFigure label="Mutation testing: read the blast radius, not the kill rate" ariaLabel={ariaLabel} data-ms>
+  <div class="ms-head rounded border border-border-dark bg-surface-container-low px-4 py-3 mb-3">
+    <span class="block font-mono text-mono-xs uppercase tracking-wider text-text-muted">the headline that tells you nothing</span>
+    <span class="block text-sm text-text-primary mt-1 leading-snug">
+      31 of 31 mutations turn the suite red. Zero survivors, a 100% kill rate, and no information in it.
+    </span>
+  </div>
+
   <div class="space-y-3">
     {
-      mutants.map((m) => (
+      rows.map((r) => (
         <div class="ms-row rounded border border-border-dark bg-surface-container-low overflow-hidden">
           <div class="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border-dark">
-            <code class="font-mono text-mono-xs text-text-primary">{m.metric}</code>
-            <span class="ms-survived font-mono text-mono-xs px-2 py-0.5 sm:ml-auto">survived</span>
+            <code class="font-mono text-mono-xs text-text-primary">{r.id}</code>
+            <span class="font-mono text-mono-xs text-text-muted">{r.mutation}</span>
+            <span class:list={['ms-radius', `ms-${r.tone}`, 'font-mono text-mono-xs px-2 py-0.5 sm:ml-auto']}>{r.radius}</span>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-px bg-border-dark">
-            <div class="bg-surface px-4 py-3">
-              <span class="block font-mono text-mono-xs uppercase tracking-wider text-error">the mutant</span>
-              <span class="block text-sm text-text-primary mt-1 leading-snug">{m.mutation}</span>
-            </div>
-            <div class="bg-surface px-4 py-3">
-              <span class="block font-mono text-mono-xs uppercase tracking-wider text-text-muted">why no test killed it</span>
-              <span class="block text-sm text-text-primary mt-1 leading-snug">{m.survived}</span>
-            </div>
-            <div class="bg-surface px-4 py-3">
-              <span class="block font-mono text-mono-xs uppercase tracking-wider text-primary">assertion added</span>
-              <span class="block text-sm text-text-primary mt-1 leading-snug">{m.fix}</span>
-            </div>
+          <div class="bg-surface px-4 py-3">
+            <span class="block font-mono text-mono-xs uppercase tracking-wider text-text-muted">what the radius tells you</span>
+            <span class="block text-sm text-text-primary mt-1 leading-snug">{r.found}</span>
           </div>
         </div>
       ))
@@ -63,14 +75,29 @@ const ariaLabel =
   </div>
 
   <Fragment slot="note">
-    Three surviving mutants, three assertions added, three real gaps closed. A realistic mutant
-    that no test kills is a bug the suite would ship. Mutation testing did not grade the suite. It
-    improved it.
+    A kill rate of 100% is the least interesting thing a mutation run can report, because it is what
+    you get whether the suite is thorough or merely broad. The spread is the finding. One mutation
+    firing 27 tests and another firing exactly one, in the same suite, tells you which behaviours are
+    genuinely defended and which are held up by a single assertion nobody would miss. Mutation
+    testing did not grade this suite. It told us where to look.
   </Fragment>
 </DiagramFigure>
 
 <style is:global>
-  [data-ms] .ms-survived {
+  [data-ms] .ms-radius {
+    border-radius: var(--radius);
+    white-space: nowrap;
+  }
+  [data-ms] .ms-wide {
+    color: var(--color-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  }
+  [data-ms] .ms-mid {
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border-dark);
+  }
+  [data-ms] .ms-thin {
     color: var(--color-error);
     border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
     background: color-mix(in srgb, var(--color-error) 8%, transparent);

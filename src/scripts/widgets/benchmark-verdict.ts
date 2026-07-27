@@ -1,5 +1,7 @@
-// BenchmarkVerdict widget: toggles the 84-vs-81 reading between "two points"
-// and "two intervals", swapping the caption and the interval-reveal state.
+// BenchmarkVerdict widget: toggles the 5-vs-8 handoff reading between "two points"
+// and "two intervals", swapping the caption and the interval-reveal state. The intervals caption is
+// rendered server side from the measured numbers and read back off the dataset, so there is exactly
+// one place those figures live.
   const root = document.querySelector<HTMLElement>('[data-bv]')
   if (root) {
     const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-bv-mode]')]
@@ -7,7 +9,7 @@
 
     const captions: Record<string, string> = {
       points:
-        'Two points, three apart. Read this way it looks like a regression worth holding the release for.',
+        'Two points, six apart: 10.0% against 16.0%. Read this way arm B looks meaningfully worse, and it looks like something you could act on.',
       intervals: captionEl.dataset.bvIntervalsCaption!,
     }
 

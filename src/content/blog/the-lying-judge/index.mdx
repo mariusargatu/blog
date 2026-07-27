@@ -2,7 +2,8 @@
 title: 'Metrics and the Lying Judge: Calibrate the LLM Judge'
 description: >-
   Accuracy averages three jobs that fail differently. Match the metric to each
-  surface, then calibrate the judge that agreed with experts at just kappa 0.21.
+  surface, then grade the grader: the three flaws I found in my own judge
+  calibration study, and what an uncalibrated judge is allowed to claim.
 kicker: GENAI_TESTING
 topic: GenAI
 ogImage: ./og.jpg
@@ -14,10 +15,10 @@ ctaNote: >-
 series:
   name: Evals Are Checks, Not Tests
   order: 5
-  code: v5-metrics-judge
+  code: rebuild/v2
 author: Marius Argatu
 pubDate: 2026-06-25
-updatedDate: 2026-07-10
+updatedDate: 2026-07-27
 tags: [llm, evals, metrics, llm-as-judge, calibration, faithfulness, testing, agentic]
 featured: true
 faq:
@@ -40,12 +41,14 @@ faq:
       only the correctness check against the oracle catches it.
   - q: Why must you calibrate an LLM judge before trusting its scores?
     a: >-
-      Because the judge is itself a model with measured biases: it favors its own
-      family's style, rewards length and confidence, and grows lenient on the
-      borderline cases you most needed it strict on. An uncalibrated judge can
-      run at high apparent agreement while really agreeing with humans at Cohen's
-      kappa barely above chance. Calibration is measuring the measurer against a
-      human labeled set before you read a single automated number.
+      Because the judge is itself a model with documented biases: it favors its
+      own family's style, rewards length and confidence, and can grow lenient on
+      the borderline cases you most needed it strict on. Until you have measured
+      it against labels a human wrote, you do not know which way it is wrong,
+      only that it is confident. In Atlas that rule is structural rather than
+      cultural: a judge contract carrying no calibration record is unlicensed,
+      and every path that would report its verdicts as calibrated agreement
+      raises instead of returning a number.
   - q: When should you use a rule instead of an LLM judge?
     a: >-
       Use a rule for anything high consequence and verifiable: scope, tool
@@ -58,9 +61,12 @@ faq:
     a: >-
       Cohen's kappa measures how much two raters agree once you subtract the
       agreement luck alone would produce: zero is chance, one is perfect. On the
-      Landis-Koch bands a judge-versus-expert kappa of 0.21 lands in "fair,"
-      barely above chance, and a common working bar is kappa at or above 0.6
-      before you let a judge automate a metric at all.
+      Landis-Koch bands 0.21 to 0.40 is "fair" and 0.61 to 0.80 is "substantial,"
+      and a common working bar is kappa at or above 0.6 before you let a judge
+      automate a metric at all. Gate on the lower bound of the interval and never
+      on the point, and fix the size of the labeled set before you look at the
+      number, because growing it until the floor clears the bar is optional
+      stopping and it is how a bar gets talked into passing.
   - q: How often should you recalibrate an LLM judge?
     a: >-
       Monthly, because both ends of the comparison drift. The judge model gets
@@ -78,14 +84,14 @@ import JudgeCalibration from '../../../components/article/JudgeCalibration.astro
 import MetricRouting from '../../../components/article/MetricRouting.astro'
 
 <Callout variant="info" title="tl;dr">
-**Accuracy is the wrong question: an LLM support agent does three jobs that fail in three different ways, so match each surface to the metric its failure needs, push the checkable ones to rules, and calibrate the judge that grades the rest — because an unchecked judge agreed with human experts at only Cohen's kappa 0.21.** "What's our accuracy?" is the wrong question, because [Atlas](/blog/the-system-under-test/) does three jobs that fail in three different ways. The first half of this article picks the metric each surface actually needs, by hand first, deterministic checkers for what is verifiably true and rubric based judges for what is only subjectively good. The second half is the discipline almost nobody runs: the judge you reached for is itself a biased model, and left unchecked it overrewards its own family's prose and waves through confident hallucinations while the dashboard glows green. Treat it like an instrument with a serial number. Version it, measure agreement against human labels the chance corrected way, put a different model family on the bench, swap the order, run a panel, recalibrate on a schedule. The confidence intervals on every number go to the [statistics article](/blog/honest-benchmarks/). This is how you decide what to measure, and how to grade the grader.
+**Accuracy is the wrong question: an LLM support agent does three jobs that fail in three different ways, so match each surface to the metric its failure needs, push the checkable ones to rules, and calibrate the judge that grades the rest. Then grade your own calibration, because mine had three flaws in it and the rebuilt Atlas now ships no calibration at all.** "What's our accuracy?" is the wrong question, because [Atlas](/blog/the-system-under-test/) does three jobs that fail in three different ways. The first half of this article picks the metric each surface actually needs, by hand first, deterministic checkers for what is verifiably true and rubric based judges for what is only subjectively good. The second half is the discipline almost nobody runs and then the part almost nobody publishes: the judge you reached for is itself a biased model, so treat it like an instrument with a serial number, version it, measure agreement against human labels the chance corrected way, put a different model family on the bench, swap the order, run a panel, recalibrate on a schedule. I did all of that, wrote up the before and after, and then found three flaws in my own method that made the number worthless. So this article ends where the code now stands: a judge with no calibration, a contract that refuses to be called calibrated without one, and a fifty item labelling queue waiting for the labels nobody has written. The confidence intervals on every number go to the [statistics article](/blog/honest-benchmarks/). This is how you decide what to measure, and how to grade the grader.
 </Callout>
 
 ## Why is "accuracy" the wrong question for an agent?
 
 **Accuracy is wrong because it averages three jobs that fail differently and cost differently, and the average lets the cheap win pay for the expensive failure. A classifier has one right answer per input. An agent that answers, reads, and acts does not.**
 
-An SDET joins the project and asks the reasonable question: what is our accuracy. Someone points at a dashboard that reads 92%. The number is real. The dashboard is real. The number means almost nothing, because it mixes a document answer that was fluent and wrong, an account read that was right, and an action that fired without confirmation, and it returns one percentage nobody can act on. A high aggregate over mixed consequence behaviour is how a team feels safe right up until the incident.
+An SDET joins the project and asks the reasonable question: what is our accuracy. Someone points at a dashboard that reads 92%. Pick any number you like there; the argument does not depend on which one it is. The dashboard is not lying about its own arithmetic. The number still means almost nothing, because it mixes a document answer that was fluent and wrong, an account read that was right, and an action that fired without confirmation, and it returns one percentage nobody can act on. A high aggregate over mixed consequence behaviour is how a team feels safe right up until the incident.
 
 Look at what the average hides. A fluent and wrong document answer costs a customer a false belief about a fee. A correct account read costs nothing; it is the system working. An action that fired without confirmation costs a change to a real account that nobody asked for. Averaging those is not imprecise, it is a lie about risk. The 92% is buoyed by the easy reads and the harmless chatter, and it quietly absorbs the one event that should have stopped the release.
 
@@ -114,7 +120,7 @@ And running under all three, the metric everyone forgets to write down: did the 
 1. What failure does this catch?
 2. What does that failure cost when it reaches a customer, in dollars or in trust, not in the abstract?
 3. Can two reviewers independently agree on the label, or is the definition so vague the metric is two people's moods wearing a number?
-4. Is it gameable — will a longer or surer answer score higher without being better?
+4. Is it gameable, meaning will a longer or surer answer score higher without being better?
 5. Is it deterministic enough to gate a merge, or will it flicker red and green on the same input until the team learns to ignore it?
 
 Then place the metric on two axes, because where it sits decides how you build it. The first axis is what it compares against: a **reference** answer written in advance, **no reference** because the property is intrinsic like fluency or toxicity, or the **oracle**, the live source of truth [the dataset article](/blog/the-golden-dataset/) made a first class part of the system. The second axis is who judges: a **rule**, deterministic, cheap, and auditable, or a **model**, flexible, fuzzy, and opinionated.
@@ -123,7 +129,14 @@ Most metrics have an obvious home once you ask. The trouble starts when you reac
 
 <MetricRouting />
 
-Run the lanes and the shape is the argument. Seven of the ten rows are rules: scope, the write gate, correctness against the oracle, the refusal. They gate hard and fail closed, and in [Atlas](https://github.com/mariusargatu/Atlas), the example support agent this series is built around, they are concrete graders the suite resolves by name, the same domain checks the agent itself is bound by, so the eval cannot drift more lenient than the runtime. Only three rows go to the model judge, and every one of them is a question of taste no schema can hold. That ratio is the discipline: spend the determinism everywhere it reaches, and pay for a calibrated judge only where it does not.
+Run the lanes and the shape is the argument. Seven of the ten rows are rules: scope, the write gate, correctness against the oracle, the refusal. They gate hard and fail closed. In [Atlas](https://github.com/mariusargatu/Atlas), the example support agent this series is built around, that lane is deliberately small and entirely deterministic. `evals.graders.GRADERS` holds exactly three, `answer_true`, `no_other_customer` and `no_unauthorized_write`, and every one of them calls the same domain check the agent itself is bound by, so the eval cannot drift more lenient than the runtime.
+
+```bash
+uv run python -c "from evals.graders import GRADERS; print(tuple(n for n, _ in GRADERS))"
+# ('answer_true', 'no_other_customer', 'no_unauthorized_write')
+```
+
+Only the subjective rows go to the model judge, and every one of them is a question of taste no schema can hold. That ratio is the discipline: spend the determinism everywhere it reaches, and pay for a calibrated judge only where it does not. Note which side the count falls on. Three rules are wired and graded on every case; the judge rows are the ones this article spends its second half admitting are not licensed yet.
 
 Manual comes first, always, and it is not a nicety you skip when the deadline is close. Score a real batch by hand and write the rubric as you go, because scoring fifty answers teaches you what your metric has to capture better than reading about metrics ever will. You will find that "faithful" meant three different things to three reviewers, and you will fix the definition before it becomes an automated lie. The hand scoring also produces the one artifact the next step cannot proceed without: a set of human labels, the [golden set](/blog/the-golden-dataset/) pointed at the judge. If two reviewers cannot agree on whether an answer is faithful, an automated judge will not rescue you. It will disagree with people faster and at scale, with a decimal point that makes the disagreement look like rigor. Fix the definition before you automate it.
 
@@ -143,29 +156,27 @@ That last sentence reaches for a judge. The judge is the part of this whole appa
 
 ## Three green months
 
-**A support agent's LLM judge rated faithfulness in the low nineties for three months. When a subject-matter expert hand-graded fifty answers blind, Cohen's kappa between judge and expert came back at 0.21 — "fair," barely above chance. An unchecked judge is not a metric; it is a vibe with a decimal point.**
+**Here is the failure in the shape people usually meet it, and take it as a sketch and not a measurement: a judge rates faithfulness in the low nineties for months, nobody checks it against a person, and the whole time it is passing the fluent falsehoods and failing the terse truths. An unchecked judge is not a metric; it is a vibe with a decimal point. There is no kappa in this sketch, and the second half of this article is why.**
 
-For three months the dashboard was green. The judge scoring Atlas's document answers was the obvious default: same model family as the agent, same vendor, same SDK, one config line to turn on. It rated faithfulness and helpfulness on every answer the support agent produced, and the line went up and to the right and stayed there. Faithfulness in the low nineties. Helpfulness higher. The kind of chart you put in a board deck.
+Picture three months of green. The judge scoring the document answers is the obvious default: same model family as the agent, same vendor, same SDK, one config line to turn on. It rates faithfulness and helpfulness on every answer, and the line goes up and to the right and stays there. Faithfulness in the low nineties. Helpfulness higher. The kind of chart you put in a board deck.
 
-Then someone did the thing nobody had budgeted time for. A subject matter expert, the person who actually knows the plan terms and the policy language, sat down with fifty of those answers and graded them by hand, blind to the judge's scores. Two columns of labels, human and machine, side by side.
+Then someone does the thing nobody budgeted time for. A subject matter expert, the person who actually knows the plan terms and the policy language, sits down with a batch of those answers and grades them by hand, blind to the judge's scores. Two columns of labels, human and machine, side by side. Now you can compute agreement, which is the thing the dashboard never contained.
 
-Cohen's kappa came back at 0.21.
+Agreement is not the percentage of rows that match. It is that percentage with the agreement you would get from luck alone subtracted out, and on a metric where most answers pass, luck alone gets you most of the way. On the bands [Landis and Koch](https://www.jstor.org/stable/2529310) published in 1977, the bottom of "fair" is about a fifth of the distance from chance to perfect, and a judge sitting there is agreeing with the expert only a little more often than a coin that always says pass.
 
-That is the number that measures how much two raters agree once you subtract the agreement you would get from luck alone. Zero is chance. One is perfect. On the bands [Landis and Koch](https://www.jstor.org/stable/2529310) published in 1977, 0.21 lands at the bottom of "fair," about a fifth of the distance from chance to perfect, and reads as barely awake. The judge and the expert were agreeing only a little more often than luck alone would manage, dressed up as a metric.
+The disagreements are the interesting part, and they run in two directions. A judge can love long, fluent, confident answers written in its own family's house style, and love them whether or not they are true, which waves through the exact failure this series is built around: the customer still on an older, legacy plan who asks about the data cap and gets a grounded sounding, beautifully phrased, entirely false answer, because the retrieved page describes the current plan and not theirs. Faithful to the page. Wrong about the world. Or it can run the other way and fail the terse, correct, unhelpful answers for reading thin. Hold that second direction, because it is the one I actually measured later and it is not the one the literature told me to expect.
 
-Read the disagreements and the pattern was ugly and specific. The judge loved long, fluent, confident answers, the ones written in its own family's house style, and it loved them whether or not they were true. It waved through the exact failure this series is built around: the customer still on an older, legacy plan who asks about the data cap and gets a grounded sounding, beautifully phrased, entirely false answer, because the retrieved page describes the current plan and not theirs. Faithful to the page. Wrong about the world. The judge scored it a nine.
-
-Three months of green. The dashboard had been lying the entire time, in a clean sans serif font, to one decimal place. A judge you have not checked against a known reference is not a metric. It is a vibe with a decimal point.
+I am labelling all of that a sketch on purpose. I could put a kappa in it and it would read better. I had a kappa in it, for a year, and the last section of this article is the audit of where that number came from. A judge you have not checked against a known reference is not a metric, and a number you cannot reproduce from a command is not a check.
 
 ## The bet worth taking
 
-**Here is the part that makes this worth getting right instead of giving up. The problem in the three green months that opened this article is not that the judge was a model. It is that the judge was a model nobody had calibrated.**
+**Here is the part that makes this worth getting right instead of giving up. The problem in the sketch above is not that the judge was a model. It is that the judge was a model nobody had calibrated.**
 
 A calibrated LLM judge is genuinely good. In the experiments that named the field, [Zheng et al.](https://arxiv.org/abs/2306.05685) found a strong GPT-4 judge matched human expert preferences "at an agreement rate exceeding 80%," which they note is "the same level of agreement between humans" (NeurIPS 2023). That is not a consolation prize. It is as high as two human annotators typically agree with each other on the same subjective calls, because humans are tired, distracted, and inconsistent across a long afternoon in ways a model is not. The judge does not get bored on case four hundred. It applies the same rubric to the last answer as to the first.
 
 That is the case for LLM-as-judge at scale, and it is a strong one. You cannot put a subject matter expert behind every answer Atlas ships; the economics do not survive contact with production volume. A judge that agrees with your experts most of the time, never sleeps, and costs cents is the only thing that scales to the traffic.
 
-But it is a bet you win only after calibration, never before. The naive judge from those three green months was running the same eighty percent machinery with the dial set to nonsense, and it produced confident numbers all the way down. An instrument can be precise and wrong at the same time, and that is the dangerous combination, because precision reads as trust. So the discipline that follows is not skepticism about LLM judges. It is the opposite. It is taking them seriously enough to treat them like instruments, which means calibrating them, versioning them, and rechecking them on a schedule. The bet pays. You just have to earn it first.
+But it is a bet you win only after calibration, never before. The naive judge in that sketch is running the same eighty percent machinery with the dial set to nonsense, and it produces confident numbers all the way down. An instrument can be precise and wrong at the same time, and that is the dangerous combination, because precision reads as trust. So the discipline that follows is not skepticism about LLM judges. It is the opposite. It is taking them seriously enough to treat them like instruments, which means calibrating them, versioning them, and rechecking them on a schedule. The bet pays. You just have to earn it first.
 
 ## The judge is an instrument, and instruments have serial numbers
 
@@ -177,6 +188,8 @@ Your kappa of 0.7 was earned by one specific triple against one specific set of 
 
 Two hard rules follow, and they feel pedantic right up until they save you. A judge swap is an eval suite migration, not a free change: moving to the next judge model, even a minor version bump within the same vendor, means rerunning calibration against your human labels before a single new score is trusted. And raw scores are never compared across time without recalibration underneath them. A faithfulness average that moved from 0.88 to 0.91 across a quarter means nothing on its own, because you do not know whether the system improved, the data shifted, or the judge drifted. A trend line is only a trend if the instrument behind every point was the same instrument.
 
+Now the part of the triple I do not get to have. "Pinned to a version and not a floating alias" is the rule, and neither judge in Atlas can obey it. `gpt-5.6-luna` answers with `model="gpt-5.6-luna"` and no dated build and no `system_fingerprint`, where its stablemate `gpt-5.4-mini` resolves to `gpt-5.4-mini-2026-03-17`. `claude-opus-5` is an unversioned alias by design, so a date suffix on it is a 404 rather than a pin. A silent re point upstream leaves the contract fingerprint untouched, because the fingerprint digests the id I was given and the id I was given is a name. So the repo pins the only thing left, which is behaviour: every judge call goes through the record and replay [model gateway](/blog/the-harness/), recorded once and replayed forever, and a drift probe re records the same requests into a separate directory and diffs the responses arm by arm. The separate directory is the whole trick, because a cassette is keyed on the request, so re recording into the committed store would overwrite a changed response in place and leave nothing to diff. Say the limit out loud rather than dressing the name up as a revision: a clean probe says that on this date these requests returned the text they returned when the set was frozen, and it does not prove the weights are unchanged.
+
 ## How do you measure judge agreement honestly?
 
 **Measure judge agreement the chance-corrected way, never raw percent agreement, which gives luck a free ride on skewed metrics. Report Cohen's kappa for two raters or Krippendorff's alpha for more, hold a bar of kappa ≥ 0.6 to license automating a metric, and attach a confidence interval.** You take the human labeled calibration set, run the judge over the same cases, and compute a number that subtracts the agreement you would expect from luck. The trap is in how you measure it.
@@ -187,13 +200,15 @@ So report chance corrected agreement. **Cohen's kappa** for two raters subtracts
 
 Set the bars per metric, because not every judgment carries the same weight. Truth and faithfulness should clear a higher bar than tone or helpfulness, because a miscalibrated tone score costs you a slightly awkward sentence and a miscalibrated faithfulness score costs you the legacy plan customer. Match the agreement bar to the consequence, the same way the first half of this article matched the metric to the failure. And report the kappa with a confidence interval, because a kappa on thirty cases is an anecdote with a Greek letter, so wide that 0.7 and 0.4 both sit inside it. How wide that interval is, and how to combine a small trusted set with a large machine labeled one without lying, is the [statistics article](/blog/honest-benchmarks/)'s job. These thresholds are conventions, not laws; Landis and Koch called their own divisions arbitrary. Treat them as licensing heuristics.
 
+One more rule belongs here and it is the one I broke. Fix the size of the labeled set before you look at the number. If you compute the interval, find the lower bound short of the bar, and then write more cases until it clears, you have not measured agreement, you have stopped when the answer suited you. It is the same error as rerunning a flaky test until it goes green, wearing a Greek letter, and it defeats the exact lower bound rule it appears to be honouring. Decide the count, label them, compute once, and live with whatever the floor says.
+
 ## What four biases tilt an LLM judge?
 
 **Four documented biases tilt an LLM judge: self-enhancement (rewards its own family's style), verbosity (a null answer hit an 86.5% length-controlled win rate), position (presentation order flips verdicts), and leniency drift (+0.46 points versus a 26-expert panel). Calibration shrinks them; it never deletes them.** Four are documented well enough by 2026 that you should assume they are present until you have measured otherwise. The numbers below are directional and depend on model and task, so name the benchmark each came from rather than quoting a universal constant.
 
 <JudgeBias />
 
-**Self enhancement**, the own-output bias. A judge rates its own generations more kindly than the same content from another model. Zheng et al. measured GPT-4 favoring its own outputs with a 10% higher win rate and Claude-v1 favoring its own with a 25% higher win rate, while GPT-3.5 favored itself not at all, so this is a range, not a fixed number. The mechanism was pinned down by [Panickssery et al.](https://arxiv.org/abs/2404.13076), who found a model's self preference scales with its ability to recognise its own generations (NeurIPS 2024). Whether this stretches from a model's own outputs to its whole family's house style is a reasonable inference rather than a measured finding, but either way it is the bias that quietly inflated the cold open, and the single strongest argument for the cross family rule below.
+**Self enhancement**, the own-output bias. A judge rates its own generations more kindly than the same content from another model. Zheng et al. measured GPT-4 favoring its own outputs with a 10% higher win rate and Claude-v1 favoring its own with a 25% higher win rate, while GPT-3.5 favored itself not at all, so this is a range, not a fixed number. The mechanism was pinned down by [Panickssery et al.](https://arxiv.org/abs/2404.13076), who found a model's self preference scales with its ability to recognise its own generations (NeurIPS 2024). Whether this stretches from a model's own outputs to its whole family's house style is a reasonable inference rather than a measured finding, but either way it is the bias behind the sketch that opened this half, and the single strongest argument for the cross family rule below.
 
 **Verbosity**, or length bias. Judges prefer longer answers, often independent of whether the extra words added anything true, and the preference is large and exploitable rather than a fixed percentage. [Dubois et al.](https://arxiv.org/abs/2404.04475) showed that length controlling AlpacaEval lifted its correlation with human Chatbot Arena rankings from 0.94 to 0.98 and made it far harder to game (COLM 2024). The starkest demonstration: a constant nonanswer "null model" reached an [86.5% length controlled win rate](https://arxiv.org/abs/2410.07137) on AlpacaEval 2.0 by exploiting exactly this (ICLR 2025). A terse, correct answer can lose to a padded, hedged, equally correct one, which is backwards for a support agent whose users want the answer and not the essay.
 
@@ -210,6 +225,8 @@ Set the bars per metric, because not every judgment carries the same weight. Tru
 
 None of these are reasons to abandon the judge. They are reasons to know its specific lies, because a bias you have measured is a bias you can correct for, and a bias you have not measured is a thumb on the scale you will mistake for a trend.
 
+Take all four as hypotheses to test on your own instrument rather than as findings to inherit. When I finally benchmarked candidate judges on my own rubric, the measured failure mode ran the other way from the last one in that table: over harshness, not leniency, and consistently so across two vendors. Documented biases tell you where to look. They do not tell you what you will find.
+
 ## What does the top one percent actually do?
 
 **The top one percent do five things, and none of them are expensive once they are wired in.**
@@ -220,9 +237,15 @@ None of these are reasons to abandon the judge. They are reasons to know its spe
 4. Run a panel and read the disagreement.
 5. Recalibrate on a schedule.
 
-They calibrate against human labels, first and always. The calibration set from [the dataset article](/blog/the-golden-dataset/), one hundred to three hundred cases, is the fixed point the whole apparatus is anchored to. Without it you are not measuring agreement, you are admiring the judge's confidence.
+They calibrate against human labels, first and always. A labeled set in the spirit of [the dataset article](/blog/the-golden-dataset/) is the fixed point the whole apparatus is anchored to, sized so a kappa on it has an interval you can stand behind and small enough that the person who owns the domain can actually maintain it. Without it you are not measuring agreement, you are admiring the judge's confidence. Atlas's own set is a fifty item queue, and the honest state of it is that it is empty: `judge/queue/items.jsonl` holds the fifty answers in labelling order, and `judge/queue/labels.jsonl` does not exist yet.
 
-They judge with a different model family than the system under test. Atlas's agent runs on Claude, so Atlas's judge runs on a GPT-class model from OpenAI. This is deliberate and load bearing: a grader from a different family is not marking its own dialect, which is the most direct defence there is against the self enhancement bias. The judge can still be wrong, but no longer in a way that systematically flatters the system it grades.
+```bash
+wc -l judge/queue/items.jsonl && ls judge/queue/labels.jsonl
+#       50 judge/queue/items.jsonl
+# ls: judge/queue/labels.jsonl: No such file or directory
+```
+
+They judge with a different model family than the system under test. The answers in that queue were produced by a local `ollama:qwen2.5:7b`, and the two judge contracts are `gpt-5.6-luna` and `claude-opus-5`, so neither grader is marking its own dialect and they do not share one with each other either. This is deliberate and load bearing: a grader from a different family is not marking its own house style, which is the most direct defence there is against the self enhancement bias. A judge can still be wrong, but no longer in a way that systematically flatters the system it grades.
 
 They run order swap testing on every pairwise comparison. Evaluate the pair as (A, B), then again as (B, A), and count a win only when the same answer wins both ways, a mitigation Zheng et al. recommend directly. If the verdict flips when you flip the order, the judge had a reading order artifact, not a preference, and you record that case as a tie and a flag. One extra inference per comparison, one entire named bias neutralised.
 
@@ -242,44 +265,81 @@ One statistical move ties the tiers together and deserves a name even though its
 
 1. A **judge prompt registry**: every judge stored as the versioned triple, so any score traces back to the exact instrument that produced it. If you cannot name which judge graded a case, you cannot defend the grade.
 2. A **runner**, the harness that executes the judge over a batch and records the scores, the same shape your engineers already use for tests, which [the harness article](/blog/the-harness/) built as the planner generator evaluator stack.
-3. A **human labeled calibration set**, one hundred to three hundred cases, big enough for a kappa with an interval you can stand behind and small enough for experts to maintain.
+3. A **human labeled calibration set** whose size you fix before you compute anything, big enough for a kappa with an interval you can stand behind and small enough for experts to maintain.
 4. **Order swap testing** wired in by default, so a flipped verdict becomes a tie and a flag.
 5. **Monthly recalibration**, scheduled not heroic, so drift gets caught by a calendar instead of by an incident.
 6. A **continuous bias cluster loop**: the disagreements the panel surfaces get clustered and read, because a recurring pattern in them, all the legacy plan answers or everything above four hundred words, is the judge telling you where its next blind spot is.
 
-One detail closes the loop, and it is easy to miss. The judge is itself an LLM call, and in Atlas every judge call goes through the same record and replay [model gateway](/blog/the-harness/) as the agent, recorded on the way out and replayed on the way back. So the grading is as reproducible as the thing it grades: a model grading a model, both on tape, both under version control. Rerun last month's suite and you get last month's scores, from last month's judge, against last month's data, exactly. That is the only way a trend line means anything.
+One detail closes the loop, and it is easy to miss. The judge is itself an LLM call, so in Atlas the judge goes through the same record and replay [model gateway](/blog/the-harness/) as the agent, recorded on the way out and replayed on the way back. The label producer's own command line can only replay; recording is a separate pass an operator runs once with the provider SDK installed. Get that right and the grading is as reproducible as the thing it grades: a model grading a model, both on tape, both under version control. Rerun last month's suite and you get last month's scores, from last month's judge, against last month's data, exactly. That is the only way a trend line means anything. Be exact about the state, though. No judge cassettes are committed in the repo today, because the recording pass runs on labels that do not exist yet. The path is wired and the tape is blank. It is also nowhere near sufficient even when the tape is full, which is what the rest of this article is about: a number can be perfectly reproducible and still be a number about nothing.
 
-This is not hypothetical. The judge is a GPT-class model, a different family than the Claude agent it grades, and the calibration below scores a twenty-eight case human labeled set through that gateway in replay, a deliberately small reference cut of the hundred to three hundred cases the stack calls for. Under a naive rubric that rewards helpfulness and fluency, the judge agrees with the human labels at Cohen's kappa 0.21. It is already cross family, the defense from the section above, and it still fails, because it passes the grounded but false legacy plan answer for reading well and penalizes the terse, correct ones for reading thin. A different family is necessary and not sufficient.
+## What went wrong with my own calibration study
 
-One documented correction fixes it, and the fix is not the model. Rewrite the rubric to score truth against the customer's account instead of polish, and agreement jumps to 0.85, whose 95% interval floor — not just its point — clears the 0.6 bar. That floor is why the calibration set is twenty-eight cases and not fourteen: at fourteen the point already read 0.85, but its floor sat near 0.59, below the bar, a high point over an unconvinced floor, and licensing a judge on an optimistic point is the same mistake as shipping a release on one, so the set was grown until the floor itself cleared. The judge model never changed; the rubric did, and the contract treats that as a new instrument with its own calibration, which is the discipline working as designed. Because every verdict is served from a recorded cassette, the same calibration reruns to the same numbers instead of drifting with the live model, which is what makes a before and after worth reporting at all.
+**I ran the whole discipline above and published the before and after: a naive helpfulness rubric agreeing with human labels down at the bottom of the "fair" band, a truth against the account rubric agreeing up in "substantial," one rubric change between them and no model change at all. Then I audited where those two numbers came from and found three flaws. The figure below is the exhibit, not the evidence.**
 
 <JudgeCalibration />
 
-Read the misses, not the average. Under the naive rubric the judge is wrong in two consistent ways: it passes the grounded but false answers, the opening case and its cap variant among them, for reading well, and it fails the terse but true ones, the handoffs and the refusals, for reading thin. Those two archetypes are the whole story, and they are exactly the cases the account truth rubric repairs. The raw agreement barely tells you any of this, moving from 61% to 93%; the chance corrected number moves from 0.21 to 0.85, and the gap between those two journeys is why you report the second one.
+That is what this article said for a year. Read it as the artifact under audit.
+
+**The first flaw is that the artifact was never where the article pointed.** The set the write up described lived on one working branch. The code button at the top of this article pointed at a release tag, and at that tag the same file held half as many cases. A reader who followed the link and counted would have found a different study than the one they were reading about, which is precisely the failure this series exists to name, committed by the series. That tree has since been deleted, so the two commands below reach it only through git history; the path in them exists nowhere in the working tree.
+
+```bash
+git show v5-metrics-judge:testing/harness/evals/datasets/judge_calibration.py | grep -c "JudgeCase("
+# 14
+git show prod-hardening:testing/harness/evals/datasets/judge_calibration.py | grep -c "JudgeCase("
+# 28
+```
+
+Only the first of those runs against a clone. `prod-hardening` was a local branch and was never pushed, which is the same flaw stated a second way: the twenty eight cases this article reported for a year existed on exactly one machine, mine, and no reader was ever in a position to check them.
+
+**The second flaw is worse, because it is not an accident of packaging.** The human column was not independent of the judge columns. Every case in that file is one constructor call carrying three hand typed integers in positional order: the expert's label, the naive judge's verdict, the corrected judge's verdict. Same call, same line, same afternoon, same author, me. A set assembled that way cannot disagree with the conclusion it was written to support, and calling it "human labeled" was a description of a hope rather than of a process. Cohen's kappa reads two columns of integers and has no way of knowing whose they are, which the rebuilt module now says in its own docstring instead of leaving it to be discovered: `human` is a column of integers, so a second judge's labels sitting in it still compute every number below, `licensed` included, and only the caller knows whose column it is.
+
+**The third flaw is optional stopping, and it is the one that stings**, because it defeats the rule this series spends a whole other article defending. The file explains its own size, in writing, as a lower bound problem solved by adding cases. Grown from an initial fourteen, it says, because licensing reads the kappa interval's lower bound and not the point, and at n=14 the corrected judge's point already read where I wanted it while its floor sat under the 0.6 bar, so more cases were authored until the floor cleared too. Every sentence of that reasoning is correct about intervals and wrong about method. I decided when to stop after seeing the number. That is rerunning the flaky test until it goes green with a Greek letter on it, and it converts a conservative gate into a formality.
+
+Three flaws, and note the direction they all point. None of them made the judge worse. They made the measurement of the judge meaningless, which is a different and quieter kind of broken, and the reason it survived a year is that the output looked exactly like a good result: a before, an after, a chart, an interval, a bar. The lesson is not that rubric rewriting fails. It may well work. The lesson is that I had no right to say so.
+
+**So the rebuilt Atlas ships no calibration at all, and enforces that rather than promising it.** There are zero human labels in the repo. `judge/contract.py` carries an optional calibration record, a contract without one is unlicensed, and every path that would report its verdicts as calibrated agreement refuses instead of returning a number.
+
+```bash
+uv run python -c "
+from judge.contract import JudgeContract
+c = JudgeContract('gpt-5.6-luna', 'groundedness-v3', 'a'*64)
+print('is_calibrated:', c.is_calibrated, ' is_licensed:', c.is_licensed)
+c.require_licensed()
+"
+# is_calibrated: False  is_licensed: False
+# UnlicensedJudge: gpt-5.6-luna / groundedness-v3 (f54076c584ee) carries no calibration
+# record: its verdicts are unlicensed and may not be reported as calibrated agreement
+```
+
+What does exist is model selection, which is a smaller claim and is labelled as one everywhere it appears. Two judge contracts were chosen by measurement over a twenty case selection set whose ground truth is true by construction: each case is assembled backwards from the fact registry, the answer is written to agree or disagree with those facts on purpose, and the expected verdict follows from the construction rather than from anyone's opinion. `gpt-5.6-luna` scored 40 of 40 across two prompt conditions with zero unparseable replies, and was the cheapest of the four models that tied there. `claude-opus-5` scored 20 of 20 and was the only Claude model that matched it, which is why it is the second contract: it is there for independent error, not for a second sample of the same error. The rejected candidates say why that matters. `gpt-5.4-mini` scored 36 of 40 and came last of nine; `claude-sonnet-5` scored 18 of 20; and both of them failed the *same* case, a correct claim carrying a wrong citation. A shared failure across two vendors is not a vendor quirk, so a second arm drawn from either would have bought a correlated instrument rather than an independent one. None of that is calibration, and the code is careful never to use the word: a selection set says whether a judge can apply a stated rubric to facts it was handed, and says nothing about how harsh it should be, which is the question only human labels answer.
+
+Two findings came out of that benchmark that are worth more than the scores, both measured over 360 calls. The first is that the failure mode is one directional. Ten of the eleven wrong verdicts were a false FAIL on a case that should have passed, every one of them importing a helpfulness or a provenance criterion the rubric explicitly excludes, which is the opposite of the leniency the literature told me to expect and the reason the rubric's list of what it does *not* grade is the longest part of it. The second is that unparseable output is a property of the prompt and not of the model. With the rubric ending in the exact line `Reply with exactly one word: PASS or FAIL.` there were zero unparseable replies in 180 calls; delete that one line and a candidate answers `Verdict: **PASS**`. The parser is strict on purpose, because a tolerant one would have absorbed that regression instead of reporting it.
+
+Read the misses, not the average. Chance corrected agreement is one number and it tells you nothing about which way a judge is wrong, so the calibration report separates the disagreements into false FAILs and false PASSes and prints one line per case. False FAIL on a true answer is the measured direction here and it costs you a rubric edit. False PASS is the dangerous direction, a falsehood waved through, and it costs you the legacy plan customer. When the fifty labels finally exist, that split is the first thing to read, ahead of the kappa it sits underneath.
 
 ## How do you decide what to automate?
 
 **Automation is not a switch you flip on the whole suite. It is a routing decision you make one metric at a time, and the routing follows the two axes. Automate the metrics with a stable rubric and high volume, where a human scoring each case is a waste of a human who could be doing something a machine cannot.** Keep people on the high consequence, low volume, or ill defined ones. The metric most tempting to automate and most dangerous to, "is the answer actually true," is the one a judge scores worst and the one you should staff longest.
 
-[DeepEval](https://deepeval.com/docs/metrics-introduction) gives you the harness for the automatable half, pytest style and MIT licensed, with faithfulness, answer relevancy, custom rubrics through G-Eval, and task completion for agents. G-Eval is its own named method, a chain of thought form filling judge that reached Spearman 0.514 with humans on summarization, beating prior automatic metrics ([Liu et al., EMNLP 2023](https://arxiv.org/abs/2303.16634)). [RAGAS](https://docs.ragas.io) sits next to it for the retrieval specific scores, and the retrieval article leans on it where the metric is about context rather than answer. [Promptfoo](https://www.promptfoo.dev) runs the model versus model matrix and the order swap sweeps. But the tool is downstream of the decision. Rules gate the high consequence checks hard and cheaply and forever. Models score the subjective ones, under calibration, and only the subjective ones.
+[DeepEval](https://deepeval.com/docs/metrics-introduction) gives you the harness for the automatable half, pytest style and MIT licensed, with faithfulness, answer relevancy, custom rubrics through G-Eval, and task completion for agents. G-Eval is its own named method, a chain of thought form filling judge that reached Spearman 0.514 with humans on summarization, beating prior automatic metrics ([Liu et al., EMNLP 2023](https://arxiv.org/abs/2303.16634)). [RAGAS](https://docs.ragas.io) sits next to it for the retrieval specific scores, where the metric is about context rather than answer. [Promptfoo](https://www.promptfoo.dev) runs the model versus model matrix and the order swap sweeps. But the tool is downstream of the decision. Rules gate the high consequence checks hard and cheaply and forever. Models score the subjective ones, under calibration, and only the subjective ones.
 
 What gates and what is tracked follows from the same split. Rule based high consequence checks gate hard in the deterministic lane: scope, tool arguments, authorization, confirmation, fail closed, no partial credit. Model judged metrics are tracked with confidence intervals, not wired as hard merge gates, and where an eval must gate a release it gates on the lower bound of the interval, never the point, the conservative rule the [statistics article](/blog/honest-benchmarks/) makes precise. Never conflate the two lanes. One removes the randomness to gate a merge, the other quantifies the randomness to tell the truth.
 
 <Callout variant="takeaway" title="Key takeaway">
-Choose the metric for the way the job fails, not the way it is easy to score. Push the costly, checkable ones to rules where no judge can drift, and let DeepEval carry only the metrics you have already understood by grading them yourself. Then, for the subjective ones you handed to a judge, calibrate the instrument before you read the dial: measure agreement the way that subtracts luck, know the four biases and their sizes, put a different family on the bench, swap the order, run the panel, and recalibrate on a schedule the data cannot outrun.
+Choose the metric for the way the job fails, not the way it is easy to score. Push the costly, checkable ones to rules where no judge can drift, and let DeepEval carry only the metrics you have already understood by grading them yourself. Then, for the subjective ones you handed to a judge, calibrate the instrument before you read the dial: measure agreement the way that subtracts luck, know the four biases and their sizes, put a different family on the bench, swap the order, run the panel, and recalibrate on a schedule the data cannot outrun. And audit the calibration itself, because the study can be wrong in ways the number cannot show: check that the labels came from a person and not from the same keystroke as the verdicts, that the artifact is where you told the reader it is, and that you fixed the sample size before you looked. Mine failed all three.
 </Callout>
 
 ## Where this lives
 
-**Every metric here inherits its meaning from the job it judges, and the judge that computes the subjective ones is itself just another model — one layer of defense, anchored to the human labeled calibration set, that never replaces the rule based source of truth that actually stops a confident falsehood.**
+**Every metric here inherits its meaning from the job it judges, and the judge that computes the subjective ones is itself just another model, one layer of defence, unlicensed until a person labels a set for it, and never a replacement for the rule based source of truth that actually stops a confident falsehood.**
 
 On the Atlas map, every metric here scores the agent core, the one nondeterministic part of the system. Faithfulness ties to the knowledge layer, correctness against the truth ties to the account and catalog that hold the real terms, and the safety and scope checks tie to the guardrails, where the binary action gates live and fail closed before anything writes. Each metric is anchored to the surface it judges, which is why the single word "correct" meant three different things back in [the dataset article](/blog/the-golden-dataset/) and means those same three things here. The metric inherits its meaning from the job, not from the tool that computes it.
 
-The judge sits beside the metrics it computes, and it inherits this article's own warning made operational: the thing measuring your model is also a model. It anchors to the human labeled calibration set, the fixed reference without which none of its numbers mean anything. And it shares a border with the security article, because the confident hallucination the naive judge waves through is caught not by the judge at all but by the oracle and the guard. The judge is one layer of defence; the rule based source of truth check is the one that actually stops the falsehood. A judge is a net with known holes, and you do not rely on a single net over money shaped behaviour.
+The judge sits beside the metrics it computes, and it inherits this article's own warning made operational: the thing measuring your model is also a model. It would anchor to a human labeled set, the fixed reference without which none of its numbers mean anything, and that set does not exist yet, so the contract refuses the word calibrated rather than borrowing it. Which is survivable, because the judge was never the layer holding the line. The confident hallucination in the sketch above is caught not by the judge at all but by the oracle and the guard, in `evals.graders`, on every case, deterministically. The judge is one layer of defence; the rule based source of truth check is the one that actually stops the falsehood. A judge is a net with known holes, and you do not rely on a single net over money shaped behaviour.
 
-Decide every metric by hand first. Push the costly and checkable ones to rules. Let the tooling carry only the metrics you have already understood by grading them yourself. Do all of it and the judge becomes the thing that lets you test at a scale humans never could. Do none of it and you have built the most expensive way yet invented to agree with yourself.
+Decide every metric by hand first. Push the costly and checkable ones to rules. Let the tooling carry only the metrics you have already understood by grading them yourself. Do all of it and the judge becomes the thing that lets you test at a scale humans never could. Do none of it and you have built the most expensive way yet invented to agree with yourself, which is exactly what I built the first time, and the only thing that caught it was going back and reading where my own numbers came from.
 
-Next in the series: retrieval. The metrics are chosen; the next question is how to apply them layer by layer to a RAG pipeline, from a plain query set through reranking to graph RAG, and where the first real attack lives, in the poisoned document.
+Next in the series: [honest benchmarks](/blog/honest-benchmarks/). The metrics are chosen and the judge is unlicensed; the next question is what a number off a sample is allowed to claim at all, which interval fits which metric, and why an A/B that refuses to name a winner is the honest result rather than the weak one.
 
 ## Frequently asked questions
 
@@ -293,7 +353,7 @@ Faithfulness asks whether the answer is supported by the document it retrieved. 
 
 ### Why must you calibrate an LLM judge before trusting its scores?
 
-Because the judge is itself a model with measured biases: it favors its own family's style, rewards length and confidence, and grows lenient on the borderline cases you most needed it strict on. An uncalibrated judge can run at high apparent agreement while really agreeing with humans at Cohen's kappa barely above chance. Calibration is measuring the measurer against a human labeled set before you read a single automated number.
+Because the judge is itself a model with documented biases: it favors its own family's style, rewards length and confidence, and can grow lenient on the borderline cases you most needed it strict on. Until you have measured it against labels a human wrote, you do not know which way it is wrong, only that it is confident. In Atlas that rule is structural rather than cultural: a judge contract carrying no calibration record is unlicensed, and every path that would report its verdicts as calibrated agreement raises instead of returning a number.
 
 ### When should you use a rule instead of an LLM judge?
 
@@ -301,7 +361,7 @@ Use a rule for anything high consequence and verifiable: scope, tool arguments, 
 
 ### What is Cohen's kappa and what counts as a good agreement score?
 
-Cohen's kappa measures how much two raters agree once you subtract the agreement luck alone would produce: zero is chance, one is perfect. On the Landis-Koch bands a judge-versus-expert kappa of 0.21 lands in "fair," barely above chance, and a common working bar is kappa at or above 0.6 before you let a judge automate a metric at all.
+Cohen's kappa measures how much two raters agree once you subtract the agreement luck alone would produce: zero is chance, one is perfect. On the Landis-Koch bands 0.21 to 0.40 is "fair" and 0.61 to 0.80 is "substantial," and a common working bar is kappa at or above 0.6 before you let a judge automate a metric at all. Gate on the lower bound of the interval and never on the point, and fix the size of the labeled set before you look at the number, because growing it until the floor clears the bar is optional stopping and it is how a bar gets talked into passing.
 
 ### How often should you recalibrate an LLM judge?
 

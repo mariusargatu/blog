@@ -1,37 +1,47 @@
 ---
 import DiagramLabel from './DiagramLabel.astro'
-// The cold open as a committed artifact, straight from the Atlas repo (`task benchmark`).
-// Two model versions over the same 100 item answer golden: v_a 84/100, v_b 81/100. Read as
-// points it is a three point regression; read as intervals it is noise. Toggle between the two
-// readings: the point dots look far apart, the Wilson intervals overlap, and the paired test
-// (permutation + exact McNemar) returns a p well above 0.05 with a difference CI that straddles
-// zero. Numbers are the committed artifact's, not illustrative. Keep in sync with
-// testing/harness/evals/benchmark/artifacts/benchmark_study.json if the fixture or seed changes.
-const A = { passes: 84, rate: 0.84, lo: 0.756, hi: 0.899 }
-const B = { passes: 81, rate: 0.81, lo: 0.722, hi: 0.875 }
-const N = 100
-const DIFF = 0.03
-const DIFF_LO = -0.03
-const DIFF_HI = 0.1
-const PERM_P = 0.553
-const MCNEMAR_P = 0.549
+// Atlas's real two arm comparison, reproducible with:
+//   uv run python -m evals.ab_study
+// Two local ollama arms, 50 cases each, recorded through the gateway and replayed.
+//
+// A note on WHICH number is drawn here. The graded metric is saturated: both arms score 50/50 =
+// 1.0000 [0.9287, 1.0000], because the render guard refuses anything false before it ships, so that
+// comparison measures the GUARD and not the model. The arms do differ one layer up, in how often
+// they needed the guard, and that is the honest place to look for a difference. So this figure draws
+// the handoff rate, straight from the study's own secondary block:
+//   arm A  5/50 = 0.1000  [0.0435, 0.2136]
+//   arm B  8/50 = 0.1600  [0.0834, 0.2851]
+//   intervals_overlap: True
+//   verdict: NO CLAIM on the handoff rate either
+// Points 6 apart, intervals overlapping. That is the lesson, and it happened rather than being set up.
+//
+// There is NO paired test here, and the omission is deliberate rather than an oversight. The rebuild
+// computes no McNemar, no permutation test, no paired bootstrap and no power analysis anywhere; the
+// stance is intervals plus lower bound gating. That costs POWER, not honesty: an unpaired comparison
+// will miss real improvements a paired test would have found. An earlier draft of this figure quoted
+// p = 0.553 (permutation) and 0.549 (exact McNemar) from a `task benchmark` artifact. No such task,
+// artifact or test exists in the rebuilt tree, and those p values are gone rather than restated.
+const A = { passes: 5, rate: 0.1, lo: 0.0435, hi: 0.2136 }
+const B = { passes: 8, rate: 0.16, lo: 0.0834, hi: 0.2851 }
+const N = 50
 
-// Domain of the track: zoom to [0.65, 1.0] so 100 items' worth of interval is legible.
-const LO = 0.65
-const SPAN = 1.0 - LO
+// Domain of the track: zoom to [0, 0.35] so 50 items' worth of interval is legible.
+const LO = 0
+const TOP = 0.35
+const SPAN = TOP - LO
 const pos = (x: number) => ((x - LO) / SPAN) * 100
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`
 const rows = [
-  { key: 'a', name: 'v_a (in production)', ...A },
-  { key: 'b', name: 'v_b (the candidate)', ...B },
+  { key: 'a', name: 'arm A · ollama:qwen2.5:7b', ...A },
+  { key: 'b', name: 'arm B · ollama:qwen3.5:9b', ...B },
 ]
-const sign = (x: number) => (x >= 0 ? `+${x.toFixed(2)}` : x.toFixed(2))
-// The intervals-mode verdict, built from the committed numbers so the prose cannot drift from them.
+// The intervals-mode verdict, built from the measured numbers so the prose cannot drift from them.
 const intervalsCaption =
-  `The 95% intervals overlap, the paired difference is ${sign(DIFF)} with a bootstrap CI of ` +
-  `[${DIFF_LO.toFixed(2)}, ${DIFF_HI.toFixed(2)}] that contains zero, and the paired tests return ` +
-  `p = ${PERM_P.toFixed(2)} (permutation) and ${MCNEMAR_P.toFixed(2)} (exact McNemar). ` +
-  `Verdict: you cannot tell yet, so you cannot ship "v_a is better."`
+  `Arm B needed the guard 6 points more often, and the 95% intervals overlap heavily ` +
+  `([${pct(A.lo)}, ${pct(A.hi)}] against [${pct(B.lo)}, ${pct(B.hi)}]), so the study reports ` +
+  `NO CLAIM. Fifty cases per arm cannot separate these two. Note what is NOT here: no p value, ` +
+  `because the rebuild runs no significance test at all. That is a choice, and it costs power rather ` +
+  `than honesty.`
 ---
 
 {/* Statically rendered in intervals mode — the honest reading — so a no-JS render or an
@@ -39,7 +49,7 @@ const intervalsCaption =
     interactive experience back to points on init so the toggle pedagogy is unchanged. */}
 <figure class="not-prose my-10 border border-border-dark bg-surface rounded-lg p-5 show-intervals" data-bv data-inview>
   <div class="mb-4 flex items-center gap-2">
-    <DiagramLabel label="The regression that wasn't: 84 vs 81 on n=100" />
+    <DiagramLabel label="The difference that wasn't: 5 vs 8 handoffs on n=50 per arm" />
     <div class="h-px flex-1 bg-border-dark"></div>
   </div>
 
@@ -70,7 +80,7 @@ const intervalsCaption =
     }
     <div class="relative font-mono text-mono-xs text-text-muted pt-1">
       <span>{pct(LO)}</span>
-      <span class="float-right">100%</span>
+      <span class="float-right">{pct(TOP)}</span>
     </div>
   </div>
 

@@ -3,34 +3,41 @@ import { Icon } from 'astro-icon/components'
 import DiagramLabel from './DiagramLabel.astro'
 
 // The harness map, drawn so a non-LLM engineer can read the repo in one look. The point is the
-// TWO MACHINES and the ONE-WAY SEAM between them, expressed as the actual folders:
-//   the rig (determinism · replay · tracing) makes the agent reproducible + observable;
-//   evals grades it. The dependency points one way: evals drives the agent through its ports,
-//   the agent never imports evals, and that ban is enforced by test_import_lint. Recording and
-//   cassettes are the supporting data flow. Static, top-down, no state.
+// TWO MACHINES and the ONE-WAY SEAM between them, expressed as the actual top level packages of the
+// rebuilt tree: harness/ makes the agent reproducible and observable, evals/ and judge/ and probes/
+// grade it. Every name below is a real module. Verify the shape with:
+//   ls harness agent evals judge probes corpus_spine
+//
+// The seam is real and currently unguarded, and the figure says so. Nothing under agent/, harness/
+// or corpus_spine/ imports evals/, judge/ or probes/:
+//   grep -rn "import evals\|from evals\|import judge\|from judge\|import probes" agent harness corpus_spine
+//   -> no matches
+// But no test enforces that. An earlier draft credited a `test_import_lint`. There is no such test
+// in the 15 test files, so the claim is now stated as what it is: a boundary that holds, checked by
+// hand, not a boundary a build fails to cross.
 
 const rig = [
   {
     icon: 'material-symbols:lock-clock-outline',
-    name: 'determinism/',
-    job: 'pin the clock, RNG, ids, span order',
-    sub: '+ the canonical digest everything keys on',
+    name: 'harness/sources.py',
+    job: 'pin the clock, ids, span order',
+    sub: 'canonical.py is the digest everything keys on',
   },
   {
     icon: 'material-symbols:cable',
-    name: 'replay/',
+    name: 'harness/gateway.py',
     job: 'record the model once, replay forever',
-    sub: 'cassette only · zero egress · miss = hard fail',
+    sub: 'cassette only · a miss raises CassetteMiss',
   },
   {
     icon: 'material-symbols:account-tree-outline',
-    name: 'tracing/',
+    name: 'harness/tracing.py',
     job: 'the span tree each turn emits',
     sub: 'the thing the graders read',
   },
 ]
 
-const lanes = ['stats', 'evalkit', 'drift', 'inference_oracle']
+const lanes = ['evals/stats', 'evals/gate', 'evals/ir_metrics', 'evals/graders', 'judge/', 'probes/']
 ---
 
 <div class="not-prose my-10 border border-border-dark bg-surface rounded-lg overflow-hidden" data-hmap>
@@ -61,32 +68,32 @@ const lanes = ['stats', 'evalkit', 'drift', 'inference_oracle']
 
     <div class="hm-arrow">
       <Icon name="material-symbols:arrow-downward" class="text-[15px]" />
-      <span>pins the agent at its ports (the model, the clock, the tools, the checkpointer)</span>
+      <span>pins the agent at its ports (the model, the clock, the tools, the checkpointer, the socket)</span>
     </div>
 
     {/* the agent under test */}
     <div class="hm-agent">
-      <span class="hm-agent-h"><Icon name="material-symbols:hub-outline" class="text-[15px]" />backend/atlas · the agent</span>
-      <span class="hm-agent-sub">LangGraph StateGraph + MCP tools: the product, ships to production</span>
+      <span class="hm-agent-h"><Icon name="material-symbols:hub-outline" class="text-[15px]" />agent/ · the agent</span>
+      <span class="hm-agent-sub">a six node LangGraph StateGraph + agent/tools/, a plain registry: the product</span>
     </div>
 
     {/* the one-way seam */}
     <div class="hm-seam">
       <span class="hm-seam-leg hm-seam-ok">
         <Icon name="material-symbols:arrow-downward" class="text-[14px]" />
-        evals drives the agent through its ports
+        the graders drive the agent through its ports
         <b>one way</b>
       </span>
       <span class="hm-seam-leg hm-seam-no">
         <Icon name="material-symbols:block" class="text-[14px]" />
-        the agent never imports evals
-        <b>enforced · test_import_lint</b>
+        the agent imports no grader
+        <b>holds · checked by hand, not by a test</b>
       </span>
     </div>
 
-    {/* evals */}
+    {/* the graders */}
     <div class="hm-band hm-band-evals">
-      <span class="hm-band-h"><Icon name="material-symbols:experiment-outline" class="text-[14px] text-primary" />evals/ · grade the agent, the second machine</span>
+      <span class="hm-band-h"><Icon name="material-symbols:experiment-outline" class="text-[14px] text-primary" />evals/ · judge/ · probes/ · grade the agent, the second machine</span>
       <div class="hm-lanes">
         {lanes.map((l) => <span class="hm-lane">{l}</span>)}
       </div>
@@ -96,20 +103,21 @@ const lanes = ['stats', 'evalkit', 'drift', 'inference_oracle']
     <div class="hm-rail">
       <span class="hm-rail-item">
         <Icon name="material-symbols:radio-button-checked-outline" class="text-[13px]" />
-        recording/ <em>capture vs a live model · needs keys · off the PR lane</em>
+        the operator lanes <em>capture vs a live model · needs keys · never part of task test</em>
       </span>
       <Icon name="material-symbols:arrow-right-alt" class="hm-rail-arr text-[15px]" />
       <span class="hm-rail-item">
         <Icon name="material-symbols:data-array" class="text-[13px]" />
-        cassettes/ <em>committed recordings the lanes replay · data, not code</em>
+        committed cassettes <em>the recordings every lane replays · data, not code</em>
       </span>
     </div>
 
     <p class="hm-legend">
-      Two machines, one seam. The <b>rig</b> pins the one nondeterministic step and records the trace;
-      <b>evals</b> reads the agent through its ports and scores it. The arrow runs one way, so a green
-      suite is never the test rig grading itself. That is the line the whole series rests on, and here it
-      is a folder boundary a build will fail to cross.
+      Two machines, one seam. The <b>rig</b> pins the one nondeterministic step and records the trace; the
+      <b>graders</b> read the agent through its ports and score it. The arrow runs one way, so a green suite
+      is never the test rig grading itself. That is the line the whole series rests on. Worth saying plainly:
+      the line holds in this tree, and nothing enforces it. It is a convention a reviewer checks, and a
+      convention is exactly the kind of thing that quietly stops being true.
     </p>
   </div>
 </div>
