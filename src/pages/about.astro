@@ -26,7 +26,9 @@ const profileJsonLd = {
       '@id': personId,
       name: 'Marius Argatu',
       url: aboutUrl,
-      jobTitle: 'Senior SDET, AI Quality Engineer',
+      jobTitle: 'Senior SDET, LLM Evaluation and AI Quality',
+      description:
+        'Senior SDET with ten years building test frameworks, runners and CI release gates for systems where reliability matters: regulated healthcare, airline payments, a payment service provider, fintech and market data. Since 2023 focused on LLM evaluation for RAG and agent systems.',
       sameAs: [linkedin, github],
     },
   ],
@@ -34,30 +36,41 @@ const profileJsonLd = {
 
 const competencies = [
   {
-    title: 'AI / LLM Testing',
+    title: 'LLM Evaluation',
     items:
-      'Deepeval, RAGAS, Langfuse · golden-dataset regression · faithfulness, answer relevancy, hallucination · RAG metrics (hit rate, MRR, precision/recall@k) · agentic (multi-turn, tool calls, planning loops)',
+      'Retrieval and generation scored separately: IR metrics on one side, groundedness and relevancy on the other. Golden datasets versioned, evaluation runs gated in CI. RAG and agent systems.',
   },
   {
     title: 'Test Architecture',
     items:
-      'Framework & runner design · model-based testing (xState) · property-based (Schemathesis, Hypothesis, fast-check) · Pydantic schemas',
+      'Test strategy across teams and products, and framework and runner design. Integration and system tests carry most of the coverage, following the testing trophy and honeycomb models. Model based testing from state machines, property based and metamorphic testing, contract testing.',
   },
   {
-    title: 'API & Contract',
-    items: 'REST, GraphQL, OpenAPI-first, Postman',
+    title: 'Regulated Domains and Payments',
+    items:
+      'Multi tenant healthcare SaaS, payment endpoints, checkout and settlement flows, and the regression planning and release gate decisions around them.',
   },
   {
-    title: 'UI & E2E',
-    items: 'Playwright (UI / API / Component), Selenium, Vitest, Cypress · POM & Screenplay',
+    title: 'Languages, APIs',
+    items: 'Python, TypeScript, REST, GraphQL, OpenAPI',
   },
   {
-    title: 'CI/CD & Infra',
-    items: 'GitLab CI, GitHub Actions, Jenkins · Docker, Kubernetes',
+    title: 'LLM and Eval',
+    items:
+      'DeepEval, RAGAS, Langfuse, golden datasets, RAG evaluation, agent evaluation, MCP',
   },
   {
-    title: 'Observability',
-    items: 'Datadog, OpenTelemetry, Grafana · trace-driven debugging',
+    title: 'Test Tooling',
+    items: 'Pytest, Vitest, Playwright, Hypothesis, Schemathesis, xState, Pydantic',
+  },
+  {
+    title: 'Test Management',
+    items: 'Jira, Xray, TestRail, Qase.io, Allure',
+  },
+  {
+    title: 'Platform',
+    items:
+      'Docker, Kubernetes, Jenkins, GitHub Actions, GitLab CI, Datadog, OpenTelemetry, Grafana',
   },
 ]
 
@@ -78,64 +91,66 @@ interface Company {
 const experience: Company[] = [
   {
     company: 'Coherent Solutions',
-    period: '2021 – Present',
+    period: 'January 2022 to Present',
     open: true,
     summary:
-      'Client engagements across airline payments, healthcare SaaS, and enterprise desktop. Embedded with engineering: build the test platform and scale practices so developers own their own quality.',
+      'Software consultancy. Each role below is a separate client engagement, not a separate employer.',
     projects: [
       {
-        role: 'Senior SDET · Airline / Payments Platform',
-        period: 'Jul 2025 – Present',
+        role: 'Senior SDET · Airline Retailing and Revenue Platform',
+        period: 'July 2025 to Present',
+        summary:
+          'Quality engineering for payment services and for LLM based tooling inside the delivery workflow.',
         points: [
-          'Own the quality strategy within my feature team: what to test, at what level, and why. Developers write their own unit, integration, and system tests while I advise on coverage gaps and where tests belong.',
-          'Maintain the system test framework and review developer-written tests, giving feedback on coverage and test design.',
-          'Shift-left: authored test scenarios during the LLD design phase as the spec for developer-written tests, embedding quality gates early in the lifecycle.',
-          'Help test new features to shorten the feedback cycle before handoff to the broader QA team.',
-          'Use agentic workflows day to day: MCP as a knowledge base, slash commands for bug triage, agents for test maintenance.',
-          'Built an internal LLM-powered debugging agent in Python that correlates failing test output with Datadog traces, the pytest stacktrace, and recent Jira changes, then loops until the test passes or a real bug surfaces. Debug time from hours to minutes.',
-          'Owned regression planning and release-gate decisions for the payments domain.',
+          'Own the quality strategy for my feature squad. What to test, at which level, and why. Developers write their own unit, integration and system tests; I review them and close the coverage gaps. Own regression planning and release gate decisions for the payments domain.',
+          'Built an internal LLM powered debugging agent that correlates failing test output with Datadog traces, the live stack trace, and recent Jira changes, then iterates until the test passes or a real defect surfaces. Triage time cut from hours to minutes.',
+          'Run agentic workflows in daily engineering: MCP servers for knowledge base retrieval, slash commands for bug triage, and agents for test maintenance.',
+          'Maintain and extend the API test framework with fixtures, helpers and reusable modules, and drive coverage across new payment endpoints and business flows. Authored test scenarios during LLD design as the specification for developer written tests.',
         ],
         tags: ['Python', 'API', 'Datadog', 'MCP', 'Agentic Software Engineering'],
       },
       {
-        role: 'Senior SDET · Healthcare SaaS / Multi-Tenant',
-        period: 'Jan 2023 – Jul 2025',
+        role: 'Senior SDET · Multi Tenant Healthcare SaaS',
+        period: 'January 2023 to July 2025',
         summary:
-          'RAG testing, framework ownership, and platform-wide test architecture.',
+          "Regulated domain. Framework ownership and platform wide test architecture, plus the evaluation system for the product's RAG assistant and its agentic paths.",
         points: [
-          'Built LLM evaluation for a RAG assistant answering researcher questions against FDA/EMA guidance and tenant submissions. Separated retrieval (hit rate, precision@k) from generation (faithfulness, answer relevancy) via RAGAS; golden datasets in Langfuse, eval runs in CI.',
-          'Model-based testing on the permissions matrix using xState: ~1,000 scenarios generated from a single state-machine definition, tracking the product as permissions evolve with no manual rewrite.',
-          'Built a Playwright + TypeScript test platform with POM and fixture-based tenant/role isolation, adopted across multiple functional teams.',
-          'Built an AST-based migration tool that translated a legacy KarateDSL suite into equivalent TypeScript + Playwright code, removing a manual rewrite of thousands of lines.',
-          'Framework SME: onboarding, test-pattern reviews, and coordination on cross-cutting changes including an auth-system rewrite.',
+          'Built the LLM evaluation system for a RAG assistant answering researcher questions against FDA and EMA guidance and tenant submissions. Separated retrieval quality (hit rate, precision@k) from generation quality (faithfulness, answer relevancy) using RAGAS. Golden datasets versioned in Langfuse, evaluation runs gated in CI.',
+          "Extended evaluation to the assistant's agentic paths, covering multi turn state, tool and function calling and planning loops, so tool selection and trajectory could be scored and not only the final answer.",
+          'Built a model based testing system on the permissions matrix using xState. Roughly 1,000 test scenarios generated from a single state machine definition, tracking the product as permissions evolve with no manual rewrite.',
+          'Built a Playwright and TypeScript test platform with page object model and fixture based tenant and role isolation, adopted across multiple functional teams.',
+          'Built an AST based migration tool that translated a legacy Karate DSL suite into equivalent TypeScript and Playwright code, removing a manual rewrite of thousands of lines.',
+          'Acted as framework SME: onboarding, test pattern reviews, and coordination on cross cutting changes including an auth system rewrite.',
         ],
         tags: ['RAGAS', 'Langfuse', 'xState', 'Playwright', 'TypeScript', 'RAG'],
       },
       {
-        role: 'Senior SDET · Enterprise Desktop (QT)',
-        period: 'Jan 2022 – Jan 2023',
-        summary: 'Python + Pytest API test framework with dynamic data generation.',
+        role: 'Test Architect · Native Qt Desktop Product',
+        period: 'January 2022 to January 2023',
+        summary:
+          'Python and Pytest API framework, native desktop automation via patched Chromium.',
         points: [
-          'Built a custom Pytest plugin that runs dependent API tests concurrently via DAG-resolved ordering, cutting runtime while preserving test correctness.',
-          "Patched and rebuilt QT WebEngine's Chromium fork to expose the remote debugging port, replacing Appium with Selenium via CDP. Per-test effort dropped from 4 days to 1.",
+          'Owned which layers we tested at, which tools we standardised on, and how automation was structured across the native and embedded web surfaces. Ran technical workshops on mutation testing and property based testing.',
+          'Built a custom Pytest plugin that runs dependent API tests concurrently with ordering resolved by a DAG. Runtime reduced from 1 hour to roughly 5 minutes.',
+          "Patched and rebuilt Qt WebEngine's Chromium fork to expose the remote debugging port, replacing Appium with Selenium via CDP. Per test effort dropped from 4 days to 1.",
+          'Introduced contract testing between the client and its backing services, moving a class of integration tests to a cheaper and faster layer.',
         ],
-        tags: ['Python', 'Pytest', 'Selenium', 'CDP', 'QT'],
+        tags: ['Python', 'Pytest', 'Selenium', 'CDP', 'Qt', 'Contract Testing'],
       },
     ],
   },
   {
     company: 'LSEG (London Stock Exchange Group)',
-    period: 'Mar 2021 – Jan 2022',
+    period: 'March 2021 to January 2022',
     open: false,
     projects: [
       {
         role: 'Senior QA Automation Engineer',
-        period: 'Mar 2021 – Jan 2022',
+        period: 'March 2021 to January 2022',
         points: [
-          'Designed a cross-platform automation framework covering an SPA and a Windows desktop client using the Screenplay pattern with Playwright and WinAppDriver: one mental model, two surface areas.',
-          'Delivered an E2E suite that meaningfully reduced manual regression on the historically under-automated desktop side.',
-          'Maintained and optimized Jenkins pipelines for test execution and reporting across environments.',
-          'Coordinated day-to-day activities for a small QA team.',
+          'Designed a cross platform automation framework in Python using the Screenplay pattern, covering an SPA with Playwright and a Windows desktop client via WinAppDriver.',
+          'Delivered an end to end suite that reduced manual regression on the desktop side, which had little automation before.',
+          'Maintained and optimised Jenkins pipelines for execution and reporting across environments, and coordinated a small QA team.',
         ],
         tags: ['Python', 'Playwright', 'WinAppDriver', 'Screenplay', 'Jenkins'],
       },
@@ -143,16 +158,18 @@ const experience: Company[] = [
   },
   {
     company: '2Checkout',
-    period: 'Mar 2020 – Mar 2021',
+    period: 'March 2020 to March 2021',
     open: false,
+    summary:
+      'Payment service provider handling ecommerce checkout, subscription billing and cross border payment flows.',
     projects: [
       {
-        role: 'QA Automation Engineer · Payments / E-commerce',
-        period: 'Mar 2020 – Mar 2021',
+        role: 'QA Automation Engineer',
+        period: 'March 2020 to March 2021',
         points: [
-          'Led design of a Pytest-based automation framework for complex e-commerce and payment workflows; defined standards still in use.',
-          'Cut test execution time substantially via parallel execution and script optimization.',
-          "Built a database-diff tool that captured state changes triggered by UI actions, letting QA snapshot and restore environments locally. Removed hours of manual SQL from the team's weekly workload.",
+          'Led design of a Pytest based automation framework for complex ecommerce and payment workflows. The standards defined then are still in use.',
+          'Built a database diff tool that captured state changes triggered by UI actions, letting QA snapshot and restore environments locally and validate results at the database level.',
+          'Reduced test execution time through parallel execution and script optimisation.',
         ],
         tags: ['Python', 'Pytest', 'Payments'],
       },
@@ -160,32 +177,32 @@ const experience: Company[] = [
   },
   {
     company: 'Amber',
-    period: 'Apr 2017 – Mar 2020',
+    period: 'April 2017 to March 2020',
     open: false,
     summary:
-      'Three-year progression across three roles, crossing from testing into production engineering, the reason I can credibly review developer code and design test harnesses they actually want to use.',
+      'One continuous tenure, moving from testing into production engineering.',
     projects: [
       {
         role: 'Backend Engineer',
-        period: 'Mar 2019 – Mar 2020',
+        period: 'March 2019 to March 2020',
         points: [
-          'Shipped RESTful APIs in Python + Flask; validated performance under load with K6; maintained CI/CD on Docker + Kubernetes.',
+          'Shipped RESTful APIs in Python and Flask, validated performance under load with k6, and maintained CI/CD on Docker and Kubernetes.',
         ],
-        tags: ['Python', 'Flask', 'K6', 'Docker', 'Kubernetes'],
+        tags: ['Python', 'Flask', 'k6', 'Docker', 'Kubernetes'],
       },
       {
         role: 'Senior QA Tester',
-        period: 'Jun 2018 – Mar 2019',
+        period: 'June 2018 to March 2019',
         points: [
-          'Owned integration testing of REST services end to end; organized daily QA across web, desktop, and mobile.',
+          'Owned integration testing of REST services end to end, and organised daily QA across web, desktop and mobile.',
         ],
         tags: [],
       },
       {
         role: 'QA Tester',
-        period: 'Apr 2017 – May 2018',
+        period: 'April 2017 to May 2018',
         points: [
-          'Authored and evolved test cases against changing requirements; ran regression cycles; partnered with devs, producers, and designers on defect resolution.',
+          'Authored and evolved test cases against changing requirements, and ran regression cycles.',
         ],
         tags: [],
       },
@@ -193,13 +210,13 @@ const experience: Company[] = [
   },
   {
     company: 'Electronic Arts (EA)',
-    period: 'Apr 2016 – Oct 2016',
+    period: 'April 2016 to October 2016',
     open: false,
     projects: [
       {
         role: 'QA Tester',
-        period: 'Apr 2016 – Oct 2016',
-        points: ['End-to-end feature testing for AAA game titles across platforms.'],
+        period: 'April 2016 to October 2016',
+        points: ['End to end feature testing for AAA game titles across platforms.'],
         tags: [],
       },
     ],
@@ -214,7 +231,7 @@ const ctaGhost =
 
 <BaseLayout
   title="About, Marius Argatu"
-  description="Senior SDET and AI Quality Engineer: 10 years of test infrastructure across airline payments, healthcare SaaS, and fintech, now focused on LLM, RAG, and agentic system testing. Contractor, Remote · EU Timezone."
+  description="Senior SDET, ten years building test frameworks, runners and CI release gates across regulated healthcare, airline payments, a payment service provider, fintech and market data. Since 2023 focused on LLM evaluation for RAG and agent systems. Contractor, Remote · EU Timezone."
 >
   <script
     type="application/ld+json"
@@ -242,7 +259,8 @@ const ctaGhost =
         Marius Argatu
       </h1>
       <p class="text-body-lg text-text-muted mb-6 max-w-2xl">
-        Senior SDET · AI / LLM Quality Engineering · RAG &amp; Agentic Systems
+        Senior SDET · LLM Evaluation and AI Quality · Test Architecture ·
+        Regulated Healthcare and Payments
       </p>
       <div class="flex flex-wrap items-center gap-3">
         <span
@@ -282,14 +300,25 @@ const ctaGhost =
           <h2 class="font-mono text-mono-xs text-primary uppercase tracking-widest mb-4">
             _SUMMARY
           </h2>
+          <p class="text-body-md text-text-muted leading-relaxed mb-4">
+            Senior SDET with ten years building test frameworks, runners and CI
+            release gates for systems where reliability matters. Regulated
+            healthcare, airline payments, a payment service provider, fintech
+            and market data. I work at the framework and infrastructure level
+            rather than only writing tests, and I own what gets tested, at which
+            level, and when a release ships.
+          </p>
+          <p class="text-body-md text-text-muted leading-relaxed mb-4">
+            Since 2023 this has included LLM evaluation, two years of it on a
+            regulated healthcare product: the evaluation system for a RAG
+            assistant answering researcher questions against FDA and EMA
+            guidance and tenant submissions. Retrieval and generation scored
+            separately, golden datasets versioned in Langfuse, evaluation runs
+            gated in CI.
+          </p>
           <p class="text-body-md text-text-muted leading-relaxed">
-            Senior SDET with 10 years building test infrastructure for systems
-            where reliability matters, airline payments, multi-tenant
-            healthcare SaaS, fintech, and financial market data. For the past
-            several years, focused on testing AI-powered features: LLM
-            evaluation harnesses, RAG retrieval testing, golden-dataset
-            regression, and agentic system testing. Builds frameworks, runners,
-            and model-based test systems, and wires evaluation into CI/CD.
+            Because I have also shipped production code, I review developer
+            written tests credibly and design harnesses that teams adopt.
           </p>
         </section>
 
@@ -321,7 +350,7 @@ const ctaGhost =
             Hyperion University of Bucharest
           </p>
           <p class="font-mono text-mono-xs text-text-muted">
-            Applied Informatics & Automation · 2015 – 2019
+            Applied Informatics and Automation · 2015 to 2019
           </p>
         </section>
 
