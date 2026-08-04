@@ -1,13 +1,15 @@
 ---
-import { getCollection } from 'astro:content'
 import BaseLayout from '../../layouts/BaseLayout.astro'
-import { postUrl } from '../../lib/url'
+import { postUrl, homeUrl } from '../../lib/url'
+import { BLOG_PUBLISHED, publishedPosts } from '../../lib/publishing'
 
-const posts = (
-  await getCollection('blog', ({ data }) =>
-    import.meta.env.PROD ? !data.draft : true,
-  )
-).sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime())
+// An archive of nothing is not a page: while the blog is unpublished this route
+// sends readers to the coming-soon notice instead.
+if (!BLOG_PUBLISHED) return Astro.redirect(homeUrl(), 301)
+
+const posts = (await publishedPosts()).sort(
+  (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
+)
 
 const fmt = (d: Date) =>
   d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })

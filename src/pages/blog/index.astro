@@ -1,21 +1,20 @@
 ---
 import getReadingTime from 'reading-time'
-import { getCollection } from 'astro:content'
 import { Icon } from 'astro-icon/components'
 import BaseLayout from '../../layouts/BaseLayout.astro'
 import CategorySection from '../../components/home/CategorySection.astro'
+import ComingSoon from '../../components/home/ComingSoon.astro'
 import { postUrl, categoryUrl, seriesUrl, withBase } from '../../lib/url'
 import { CATEGORIES } from '../../lib/categories'
 import { seriesNamesInCategory } from '../../lib/series'
+import { BLOG_PUBLISHED, publishedPosts } from '../../lib/publishing'
 
 const email = 'mailto:contact@mariusargatu.com'
 const linkedin = 'https://www.linkedin.com/in/mariusargatu'
 
-// Single-purpose landing: the page sells the person and features the latest
-// essay. The multi-category index returns once there is more than one post.
-const posts = await getCollection('blog', ({ data }) =>
-  import.meta.env.PROD ? !data.draft : true,
-)
+// While `BLOG_PUBLISHED` is false this page is the whole blog: a coming-soon
+// notice, no posts, no index. The sections below return with the flag.
+const posts = await publishedPosts()
 
 const fmt = (d: Date) =>
   d
@@ -60,104 +59,115 @@ const ctaPrimary =
   'inline-flex items-center gap-2 bg-primary text-on-primary font-mono text-mono-label px-5 py-2.5 rounded-full hover:opacity-90 active:scale-95 transition-all'
 const ctaGhost =
   'inline-flex items-center gap-2 font-mono text-mono-label text-text-primary border border-border-dark px-5 py-2.5 rounded-full hover:border-primary transition-all'
+
+const meta = BLOG_PUBLISHED
+  ? {
+      title: 'Marius Argatu | AI Quality & Evaluation Engineer',
+      description:
+        'Senior SDET and AI Quality Engineer for LLM, RAG, and agentic systems. I build the testing programs that catch what eval dashboards miss. Contractor, Remote · EU Timezone.',
+    }
+  : {
+      title: 'Coming soon | Marius Argatu',
+      description:
+        'The blog is being rebuilt around a new approach to writing. Nothing is published while that work is under way.',
+    }
 ---
 
-<BaseLayout
-  title="Marius Argatu | AI Quality & Evaluation Engineer"
-  description="Senior SDET and AI Quality Engineer for LLM, RAG, and agentic systems. I build the testing programs that catch what eval dashboards miss. Contractor, Remote · EU Timezone."
->
+<BaseLayout title={meta.title} description={meta.description}>
   <main
-    class="max-w-container-max mx-auto px-margin-mobile md:px-gutter pt-28 md:pt-32 pb-section-gap"
+    class="max-w-container-max mx-auto px-margin-mobile md:px-gutter pt-28 md:pt-32 pb-section-gap min-h-[60vh]"
     data-pagefind-body
   >
-    <!-- Hero: a quiet introduction. The detail lives on the About page; this
-         states the two facts that matter and nudges the reader there. -->
-    <section class="max-w-2xl" data-reveal>
-      <span
-        class="inline-flex items-center gap-2 font-mono text-mono-xs uppercase tracking-wider text-primary border border-primary/30 bg-primary/5 rounded-full px-3 py-1"
-      >
-        <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-        Available for hire · Remote · EU Timezone
-      </span>
-
-      <h1
-        class="font-sans font-bold tracking-tight text-text-primary mt-6 text-[clamp(1.875rem,4vw,3rem)] leading-[1.15]"
-      >
-        Senior SDET, a decade building test platforms.
-      </h1>
-
-      <div class="flex flex-wrap items-center gap-3 mt-8">
-        <a href={email} class={ctaPrimary}>
-          <Icon name="material-symbols:mail" class="text-[18px]" />
-          Get in touch
-        </a>
-        <a href={withBase('about')} class={ctaGhost}>
-          More about me
-          <Icon name="material-symbols:arrow-right-alt" class="text-[18px]" />
-        </a>
-        <a
-          href={linkedin}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="font-mono text-mono-label text-text-muted hover:text-primary transition-colors inline-flex items-center gap-2 px-2 py-2.5"
-        >
-          LinkedIn
-        </a>
-      </div>
-    </section>
-
     {
-      hasIndex ? (
-        <div class="mt-20 md:mt-28" data-reveal>
-          {sections.map((s) => (
-            <CategorySection
-              number={s.number}
-              name={s.name}
-              accent={s.accent}
-              viewAllHref={s.viewAllHref}
-              series={s.series}
-              posts={s.posts}
-            />
-          ))}
-        </div>
-      ) : latest ? (
-        <section class="mt-20 md:mt-28" data-reveal>
-          <div class="flex items-center gap-3 mb-6">
-            <span class="font-mono text-mono-xs uppercase tracking-widest text-text-muted">
-              Latest writing
+      !BLOG_PUBLISHED ? (
+        <ComingSoon />
+      ) : (
+        <>
+          {/* Hero: a quiet introduction. The detail lives on the About page;
+              this states the two facts that matter and nudges the reader there. */}
+          <section class="max-w-2xl" data-reveal>
+            <span class="inline-flex items-center gap-2 font-mono text-mono-xs uppercase tracking-wider text-primary border border-primary/30 bg-primary/5 rounded-full px-3 py-1">
+              <span class="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              Available for hire · Remote · EU Timezone
             </span>
-            <div class="h-px flex-1 bg-border-dark" />
-          </div>
 
-          <a
-            href={postUrl(latest.id)}
-            class="group block border border-border-dark bg-surface rounded-lg p-6 md:p-10 hover:border-primary/50 transition-colors"
-          >
-            <span class="font-mono text-mono-xs uppercase tracking-wider text-primary">
-              {latest.data.kicker}
-            </span>
-            <h2 class="font-sans text-display-xl-mobile md:text-display-xl text-text-primary leading-tight mt-3 group-hover:text-primary transition-colors">
-              {latest.data.title}
-            </h2>
-            <p class="text-body-lg text-text-muted mt-4 max-w-2xl">
-              {latest.data.description}
-            </p>
-            <div class="flex items-center gap-3 mt-7 font-mono text-mono-xs uppercase tracking-wider text-text-muted">
-              <span>{fmt(latest.data.pubDate)}</span>
-              {minutes(latest.body) && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span>{minutes(latest.body)} min read</span>
-                </>
-              )}
-              <Icon
-                name="material-symbols:arrow-right-alt"
-                class="text-[18px] text-primary ml-1 transition-transform group-hover:translate-x-1"
-              />
+            <h1 class="font-sans font-bold tracking-tight text-text-primary mt-6 text-[clamp(1.875rem,4vw,3rem)] leading-[1.15]">
+              Senior SDET, a decade building test platforms.
+            </h1>
+
+            <div class="flex flex-wrap items-center gap-3 mt-8">
+              <a href={email} class={ctaPrimary}>
+                <Icon name="material-symbols:mail" class="text-[18px]" />
+                Get in touch
+              </a>
+              <a href={withBase('about')} class={ctaGhost}>
+                More about me
+                <Icon name="material-symbols:arrow-right-alt" class="text-[18px]" />
+              </a>
+              <a
+                href={linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="font-mono text-mono-label text-text-muted hover:text-primary transition-colors inline-flex items-center gap-2 px-2 py-2.5"
+              >
+                LinkedIn
+              </a>
             </div>
-          </a>
-        </section>
-      ) : null
+          </section>
+
+          {hasIndex ? (
+            <div class="mt-20 md:mt-28" data-reveal>
+              {sections.map((s) => (
+                <CategorySection
+                  number={s.number}
+                  name={s.name}
+                  accent={s.accent}
+                  viewAllHref={s.viewAllHref}
+                  series={s.series}
+                  posts={s.posts}
+                />
+              ))}
+            </div>
+          ) : latest ? (
+            <section class="mt-20 md:mt-28" data-reveal>
+              <div class="flex items-center gap-3 mb-6">
+                <span class="font-mono text-mono-xs uppercase tracking-widest text-text-muted">
+                  Latest writing
+                </span>
+                <div class="h-px flex-1 bg-border-dark" />
+              </div>
+
+              <a
+                href={postUrl(latest.id)}
+                class="group block border border-border-dark bg-surface rounded-lg p-6 md:p-10 hover:border-primary/50 transition-colors"
+              >
+                <span class="font-mono text-mono-xs uppercase tracking-wider text-primary">
+                  {latest.data.kicker}
+                </span>
+                <h2 class="font-sans text-display-xl-mobile md:text-display-xl text-text-primary leading-tight mt-3 group-hover:text-primary transition-colors">
+                  {latest.data.title}
+                </h2>
+                <p class="text-body-lg text-text-muted mt-4 max-w-2xl">
+                  {latest.data.description}
+                </p>
+                <div class="flex items-center gap-3 mt-7 font-mono text-mono-xs uppercase tracking-wider text-text-muted">
+                  <span>{fmt(latest.data.pubDate)}</span>
+                  {minutes(latest.body) && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>{minutes(latest.body)} min read</span>
+                    </>
+                  )}
+                  <Icon
+                    name="material-symbols:arrow-right-alt"
+                    class="text-[18px] text-primary ml-1 transition-transform group-hover:translate-x-1"
+                  />
+                </div>
+              </a>
+            </section>
+          ) : null}
+        </>
+      )
     }
   </main>
 </BaseLayout>

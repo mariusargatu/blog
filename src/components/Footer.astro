@@ -1,14 +1,22 @@
 ---
 import { withBase, rssUrl } from '../lib/url'
+import { BLOG_PUBLISHED } from '../lib/publishing'
 
 const year = new Date().getFullYear()
-const links = [
+type FooterLink = { href: string; label: string; external?: boolean }
+// Archive and the feed only make sense once there is something to read.
+const blogLinks: FooterLink[] = BLOG_PUBLISHED
+  ? [
+      { href: withBase('blog/archive'), label: 'Archive' },
+      { href: rssUrl(), label: 'RSS Feed' },
+    ]
+  : []
+const links: FooterLink[] = [
   { href: 'https://www.linkedin.com/in/mariusargatu', label: 'LinkedIn', external: true },
   { href: 'https://github.com/mariusargatu', label: 'GitHub', external: true },
   { href: withBase('about'), label: 'About' },
   { href: withBase('philosophy'), label: 'Philosophy' },
-  { href: withBase('blog/archive'), label: 'Archive' },
-  { href: rssUrl(), label: 'RSS Feed' },
+  ...blogLinks,
 ]
 
 ---

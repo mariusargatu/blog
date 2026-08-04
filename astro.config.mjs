@@ -9,6 +9,7 @@ import sitemap from '@astrojs/sitemap'
 import icon from 'astro-icon'
 import pagefind from 'astro-pagefind'
 import { remarkReadingTime } from './src/lib/remark-reading-time.mjs'
+import { BLOG_PUBLISHED } from './src/lib/blog-published.mjs'
 
 const SITE = 'https://www.mariusargatu.com'
 
@@ -158,6 +159,9 @@ export default defineConfig({
   integrations: [
     mdx(),
     sitemap({
+      // While the blog is unpublished, /blog/archive builds only as a redirect
+      // stub — not a page worth listing.
+      filter: (page) => BLOG_PUBLISHED || !/\/blog\/archive\/?$/.test(page),
       // Posts carry their own updatedDate/pubDate; other pages get the most
       // recent post date as the site's last content change.
       serialize(item) {

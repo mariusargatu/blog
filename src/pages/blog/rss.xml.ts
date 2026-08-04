@@ -1,10 +1,12 @@
 import rss from '@astrojs/rss'
-import { getCollection } from 'astro:content'
 import type { APIContext } from 'astro'
 import { postUrl } from '../../lib/url'
+import { publishedPosts } from '../../lib/publishing'
 
 export async function GET(context: APIContext) {
-  const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
+  // While the blog is unpublished this emits a valid, empty feed: subscribers
+  // keep their subscription and simply see nothing new.
+  const posts = (await publishedPosts()).sort(
     (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
   )
 

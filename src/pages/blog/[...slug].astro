@@ -1,14 +1,14 @@
 ---
-import { getCollection, render } from 'astro:content'
+import { render } from 'astro:content'
 import ArticleLayout from '../../layouts/ArticleLayout.astro'
 import { mdxComponents } from '../../components/mdx'
 import { postUrl, seriesUrl } from '../../lib/url'
 import { postsInSeries, seriesRepoUrl } from '../../lib/series'
+import { publishedPosts } from '../../lib/publishing'
 
 export async function getStaticPaths() {
-  const posts = await getCollection('blog', ({ data }) =>
-    import.meta.env.PROD ? !data.draft : true,
-  )
+  // Empty while the blog is unpublished, so no post page is built.
+  const posts = await publishedPosts()
   const byDate = [...posts].sort(
     (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
   )

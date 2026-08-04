@@ -1,16 +1,16 @@
 ---
 import getReadingTime from 'reading-time'
-import { getCollection } from 'astro:content'
 import { Icon } from 'astro-icon/components'
 import DocsLayout from '../../../layouts/DocsLayout.astro'
 import PostCard from '../../../components/home/PostCard.astro'
 import { postUrl, slugifyCategory, categoryUrl } from '../../../lib/url'
 import { CATEGORIES } from '../../../lib/categories'
+import { publishedPosts } from '../../../lib/publishing'
 
 export async function getStaticPaths() {
-  const posts = await getCollection('blog', ({ data }) =>
-    import.meta.env.PROD ? !data.draft : true,
-  )
+  const posts = await publishedPosts()
+  // A category with no posts gets no page — which is every category while the
+  // blog is unpublished.
   return CATEGORIES.map((category) => ({
     params: { category: slugifyCategory(category.name) },
     props: {
@@ -19,7 +19,7 @@ export async function getStaticPaths() {
         .filter((p) => p.data.topic === category.name)
         .sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime()),
     },
-  }))
+  })).filter((page) => page.props.posts.length > 0)
 }
 
 const { category, posts } = Astro.props

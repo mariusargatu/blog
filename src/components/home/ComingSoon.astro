@@ -1,0 +1,41 @@
+---
+import { Icon } from 'astro-icon/components'
+import { withBase } from '../../lib/url'
+
+// Shown wherever the blog would normally be, while `BLOG_PUBLISHED` is false.
+const ctaGhost =
+  'inline-flex items-center gap-2 font-mono text-mono-label text-text-primary border border-border-dark px-5 py-2.5 rounded-full hover:border-primary transition-all'
+---
+
+<section class="max-w-2xl" data-reveal>
+  <span
+    class="inline-flex items-center gap-2 font-mono text-mono-xs uppercase tracking-wider text-primary border border-primary/30 bg-primary/5 rounded-full px-3 py-1"
+  >
+    <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+    Work in progress
+  </span>
+
+  <h1
+    class="font-sans font-bold tracking-tight text-text-primary mt-6 text-[clamp(1.875rem,4vw,3rem)] leading-[1.15]"
+  >
+    The blog is being rebuilt.
+  </h1>
+
+  <p class="text-body-lg text-text-muted mt-6">
+    I am reinventing how I write here: the format, the scope, and what a post
+    has to earn before it goes up. That takes time, so the previous writing is
+    offline while the new approach comes together.
+  </p>
+
+  <p class="text-body-md text-text-muted mt-4">
+    Nothing is lost, and nothing new goes up until it is worth reading. Check
+    back later.
+  </p>
+
+  <div class="flex flex-wrap items-center gap-3 mt-8">
+    <a href={withBase('about')} class={ctaGhost}>
+      More about me
+      <Icon name="material-symbols:arrow-right-alt" class="text-[18px]" />
+    </a>
+  </div>
+</section>

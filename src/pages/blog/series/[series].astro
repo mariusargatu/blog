@@ -1,6 +1,5 @@
 ---
 import getReadingTime from 'reading-time'
-import { getCollection } from 'astro:content'
 import { Icon } from 'astro-icon/components'
 import DocsLayout from '../../../layouts/DocsLayout.astro'
 import { postUrl, slugify, categoryUrl } from '../../../lib/url'
@@ -11,11 +10,10 @@ import {
   seriesBlurb,
   seriesRepoUrl,
 } from '../../../lib/series'
+import { publishedPosts } from '../../../lib/publishing'
 
 export async function getStaticPaths() {
-  const posts = await getCollection('blog', ({ data }) =>
-    import.meta.env.PROD ? !data.draft : true,
-  )
+  const posts = await publishedPosts()
   // One page per series that actually has posts; members ordered by part.
   return allSeriesNames(posts).map((name) => ({
     params: { series: slugify(name) },
